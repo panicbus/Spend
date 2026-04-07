@@ -9,6 +9,7 @@ dist
 
 # Editor / OS
 .idea
+.cursor
 
 # Vite / env
 *.local
