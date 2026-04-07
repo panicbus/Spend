@@ -1,8 +1,13 @@
 import React from 'react';
+import type { BudgetTotals } from '../../../ipc-contract';
 import { formatCurrency } from '../../services/formatters';
 import './SummaryCards.css';
 
-export function SummaryCards({ totals }) {
+type SummaryCardsProps = {
+  totals: BudgetTotals;
+};
+
+export function SummaryCards({ totals }: SummaryCardsProps) {
   const {
     totalBudget,
     totalSpent,

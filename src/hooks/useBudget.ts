@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { BudgetGroup, BudgetIncomeRow, BudgetTotals } from '../../ipc-contract';
 import { api } from '../services/api';
 
-export function useBudget(monthKey) {
-  const [groups, setGroups] = useState([]);
-  const [income, setIncome] = useState([]);
+export function useBudget(monthKey: string) {
+  const [groups, setGroups] = useState<BudgetGroup[]>([]);
+  const [income, setIncome] = useState<BudgetIncomeRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchBudget = useCallback(async () => {
     setLoading(true);
@@ -25,10 +26,10 @@ export function useBudget(monthKey) {
   }, [monthKey]);
 
   useEffect(() => {
-    fetchBudget();
+    void fetchBudget();
   }, [fetchBudget]);
 
-  const totals = useMemo(() => {
+  const totals = useMemo((): BudgetTotals => {
     const totalBudget = groups.reduce((s, g) => s + (g.budget_cents ?? 0), 0);
     const totalSpent = groups.reduce((s, g) => s + (g.spent_cents ?? 0), 0);
     const remaining = totalBudget - totalSpent;

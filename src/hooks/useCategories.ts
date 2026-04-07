@@ -1,10 +1,14 @@
 import { useCallback, useState } from 'react';
+import type {
+  CreateCategoryPayload,
+  CreateGroupPayload,
+} from '../../ipc-contract';
 import { api } from '../services/api';
 
 export function useCategories() {
   const [loading, setLoading] = useState(false);
 
-  const createGroup = useCallback(async (payload) => {
+  const createGroup = useCallback(async (payload: CreateGroupPayload) => {
     setLoading(true);
     try {
       return await api.createGroup(payload);
@@ -13,7 +17,7 @@ export function useCategories() {
     }
   }, []);
 
-  const createCategory = useCallback(async (payload) => {
+  const createCategory = useCallback(async (payload: CreateCategoryPayload) => {
     setLoading(true);
     try {
       return await api.createCategory(payload);

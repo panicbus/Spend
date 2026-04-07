@@ -4,10 +4,20 @@ import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import './AddCategoriesModal.css';
 
-export function AddCategoriesModal({ isOpen, groupId, onClose }) {
+type AddCategoriesModalProps = {
+  isOpen: boolean;
+  groupId: number | null;
+  onClose: () => void;
+};
+
+export function AddCategoriesModal({
+  isOpen,
+  groupId,
+  onClose,
+}: AddCategoriesModalProps) {
   const { createCategory, loading } = useCategories();
   const [line, setLine] = useState('');
-  const [queued, setQueued] = useState([]);
+  const [queued, setQueued] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -88,7 +98,7 @@ export function AddCategoriesModal({ isOpen, groupId, onClose }) {
         </Button>
         <Button
           variant="primary"
-          onClick={finish}
+          onClick={() => void finish()}
           disabled={loading || (queued.length === 0 && !line.trim())}
         >
           Save categories

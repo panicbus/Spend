@@ -1,10 +1,10 @@
-export function formatMonthLabel(monthKey) {
+export function formatMonthLabel(monthKey: string) {
   const [y, m] = monthKey.split('-').map(Number);
   const d = new Date(y, m - 1, 1);
   return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 }
 
-export function shiftMonthKey(monthKey, delta) {
+export function shiftMonthKey(monthKey: string, delta: number) {
   const [y, m] = monthKey.split('-').map(Number);
   const d = new Date(y, m - 1 + delta, 1);
   const yy = d.getFullYear();

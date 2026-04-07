@@ -2,28 +2,36 @@
   "name": "spend-app",
   "version": "0.1.0",
   "private": true,
-  "main": "main.js",
+  "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"wait-on tcp:127.0.0.1:5173 && ELECTRON_IS_DEV=1 electron .\"",
-    "dev:electron": "wait-on tcp:127.0.0.1:5173 && ELECTRON_IS_DEV=1 electron .",
-    "electron:only": "ELECTRON_IS_DEV=1 electron .",
-    "build": "vite build",
-    "start": "electron .",
-    "postinstall": "electron-rebuild -f -w better-sqlite3 --arch $(node -p \"require('os').machine()==='arm64'?'arm64':'x64'\")",
-    "rebuild:sqlite": "electron-rebuild -f -w better-sqlite3 --arch $(node -p \"require('os').machine()==='arm64'?'arm64':'x64'\")"
+    "build:electron": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && node -e \"try { require('fs').unlinkSync('dist-electron/ipc-contract.js'); } catch (_) { /* optional */ }\"",
+    "watch:electron": "concurrently \"tsc -p tsconfig.main.json --watch --preserveWatchOutput\" \"tsc -p tsconfig.preload.json --watch --preserveWatchOutput\"",
+    "dev": "npm run build:electron && concurrently -k \"npm run watch:electron\" \"vite\" \"wait-on tcp:127.0.0.1:5173 file:dist-electron/main.js file:dist-electron/preload.js && ELECTRON_IS_DEV=1 electron .\"",
+    "dev:electron": "npm run build:electron && wait-on tcp:127.0.0.1:5173 file:dist-electron/main.js file:dist-electron/preload.js && ELECTRON_IS_DEV=1 electron .",
+    "electron:only": "npm run build:electron && ELECTRON_IS_DEV=1 electron .",
+    "build": "vite build && npm run build:electron",
+    "start": "npm run build:electron && electron .",
+    "typecheck": "tsc -p tsconfig.app.json && tsc -p tsconfig.node.json",
+    "postinstall": "electron-rebuild -f -w better-sqlite3 --arch $(node scripts/electron-native-arch.cjs)",
+    "rebuild:sqlite": "electron-rebuild -f -w better-sqlite3 --arch $(node scripts/electron-native-arch.cjs)"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
+    "react-router-dom": "^6.28.1"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.0",
     "electron": "^33.2.0",
+    "typescript": "^5.7.2",
     "vite": "^6.0.3",
     "wait-on": "^8.0.1"
   }

@@ -6,57 +6,61 @@
 ## Architecture
 
 ### Process Model
-- **Main process** (`main.js`): Electron window management, SQLite database via better-sqlite3, IPC handlers for all DB operations. Stays minimal.
-- **Preload** (`preload.cjs`, CommonJS): Exposes a `window.api` bridge using `contextBridge.exposeInMainWorld`. All DB calls go through this bridge — the renderer never touches the DB directly. (`.cjs` avoids ESM preload quirks with `"type": "module"`.)
-- **Renderer** (`src/`): React app bundled by Vite. Communicates with main process exclusively via `window.api.*` methods.
+- **Main process** (`main.ts` → `dist-electron/main.js` via `tsc`): Electron window management, SQLite via better-sqlite3, IPC handlers. `package.json` `"main"` points at the compiled file.
+- **Preload** (`preload.ts` → `dist-electron/preload.js`, CommonJS emit): `contextBridge.exposeInMainWorld('api', …)`. Renderer types for `window.api` live in `ipc-contract.ts` + `src/window.d.ts`.
+- **Renderer** (`src/**/*.tsx`, `src/**/*.ts`): React + Vite. IPC only through `window.api` (see `src/services/api.ts`).
 
 ### Directory Structure
 ```
 spend-app/
-├── main.js                    # Electron main process
-├── preload.cjs                # contextBridge API (CommonJS)
+├── main.ts                    # Electron main (TypeScript source)
+├── preload.ts                 # Preload bridge (TypeScript → CommonJS in dist-electron)
+├── ipc-contract.ts            # Shared IPC types (SpendApi, budget payloads)
+├── vite.config.ts
+├── tsconfig*.json
+├── dist-electron/             # Compiled main + preload (gitignored)
 ├── database/
-│   └── schema.sql             # SQLite schema (reference only, applied in main.js)
+│   └── schema.sql             # SQLite schema (reference; applied at runtime from main)
 ├── src/
-│   ├── App.jsx                # Router only (~30 lines max)
-│   ├── main.jsx               # React entry point (ReactDOM.createRoot)
+│   ├── App.tsx                # Router only (~30 lines max)
+│   ├── main.tsx               # React entry (ReactDOM.createRoot)
 │   ├── components/
 │   │   ├── Layout/
-│   │   │   ├── Sidebar.jsx    # Nav sidebar (dark bg, fixed)
-│   │   │   └── AppShell.jsx   # Sidebar + main content area wrapper
+│   │   │   ├── Sidebar.tsx    # Nav sidebar (dark bg, fixed)
+│   │   │   └── AppShell.tsx   # Sidebar + main content area wrapper
 │   │   ├── Budget/
-│   │   │   ├── BudgetDashboard.jsx  # Main budget view (summary + donut + categories + income)
-│   │   │   ├── SummaryCards.jsx     # 4 metric cards at top
-│   │   │   ├── SpendingDonut.jsx    # Donut chart + legend
-│   │   │   ├── CategoryGrid.jsx    # 2-column grid of category cards
-│   │   │   ├── CategoryCard.jsx    # Single expandable category card
-│   │   │   └── IncomeSection.jsx   # Income rows
+│   │   │   ├── BudgetDashboard.tsx  # Main budget view (summary + donut + categories + income)
+│   │   │   ├── SummaryCards.tsx     # 4 metric cards at top
+│   │   │   ├── SpendingDonut.tsx    # Donut chart + legend
+│   │   │   ├── CategoryGrid.tsx    # 2-column grid of category cards
+│   │   │   ├── CategoryCard.tsx    # Single expandable category card
+│   │   │   └── IncomeSection.tsx   # Income rows
 │   │   ├── Transactions/
-│   │   │   └── TransactionList.jsx  # (Phase 2)
+│   │   │   └── TransactionList.tsx  # (Phase 2)
 │   │   ├── Import/
-│   │   │   └── ImportView.jsx       # CSV upload UI (Phase 2)
+│   │   │   └── ImportView.tsx       # CSV upload UI (Phase 2)
 │   │   ├── Setup/
-│   │   │   └── SetupWizard.jsx      # First-run onboarding (Phase 2)
+│   │   │   └── SetupWizard.tsx      # First-run onboarding (Phase 2)
 │   │   └── common/
-│   │       ├── Button.jsx
-│   │       ├── Modal.jsx
+│   │       ├── Button.tsx
+│   │       ├── Modal.tsx
 │   │       └── ProgressBar.jsx
 │   ├── hooks/
-│   │   ├── useBudget.js        # Fetch & mutate budget data for a given month
-│   │   ├── useCategories.js    # CRUD for categories
-│   │   └── useTransactions.js  # (Phase 2)
+│   │   ├── useBudget.ts        # Fetch & mutate budget data for a given month
+│   │   ├── useCategories.ts    # CRUD for categories
+│   │   └── useTransactions.ts  # (Phase 2)
 │   ├── services/
-│   │   ├── api.js              # Thin wrapper around window.api calls
-│   │   └── formatters.js       # Currency formatting, percentage calc
+│   │   ├── api.ts              # Thin wrapper around window.api calls
+│   │   └── formatters.ts       # Currency formatting, percentage calc
 │   ├── utils/
-│   │   └── dates.js            # Month key generation, navigation helpers
+│   │   └── dates.ts            # Month key generation, navigation helpers
 │   └── styles/
 │       ├── variables.css       # CSS custom properties (design tokens)
 │       ├── reset.css           # Minimal CSS reset
 │       └── global.css          # Base typography, body styles, imports variables + reset
 ├── public/
 │   └── index.html
-├── vite.config.js
+├── vite.config.ts
 ├── CONVENTIONS.md              # This file
 └── package.json
 ```
@@ -166,9 +170,9 @@ api.importCSV(filePath)                  → { imported: number, skipped: number
 ```
 
 ## Rules
-1. App.jsx must stay under 30 lines. It only contains router setup.
+1. App.tsx must stay under 30 lines. It only contains router setup.
 2. No inline styles in React components — use CSS modules or a shared stylesheet with CSS variables.
-3. All monetary values are cents in the DB, dollars in the UI. Conversion happens in `formatters.js`.
+3. All monetary values are cents in the DB, dollars in the UI. Conversion happens in `formatters.ts`.
 4. Every component that needs data uses a custom hook, never direct `window.api` calls in JSX.
 5. Month resets: no rollover logic. Each month starts fresh budgets (copied from previous month's template on first access).
 6. The app is single-user, local-only. No auth, no API keys, no network calls.

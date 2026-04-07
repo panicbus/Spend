@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import type { BudgetGroup } from '../../../ipc-contract';
 import {
   formatCurrency,
   formatInputDollars,
@@ -7,16 +8,24 @@ import {
 import { useBudgetMutations } from '../../hooks/useBudgetMutations';
 import './CategoryCard.css';
 
-function pctUsed(spent, budget) {
+function pctUsed(spent: number, budget: number) {
   if (budget <= 0) return 0;
   return (spent / budget) * 100;
 }
 
-function barFillColor(pct, groupColor) {
+function barFillColor(pct: number, groupColor: string) {
   if (pct >= 100) return 'var(--danger)';
   if (pct >= 85) return 'var(--warn)';
   return groupColor;
 }
+
+type CategoryCardProps = {
+  group: BudgetGroup;
+  monthKey: string;
+  expanded: boolean;
+  onToggle: () => void;
+  onBudgetUpdated: () => void;
+};
 
 export function CategoryCard({
   group,
@@ -24,7 +33,7 @@ export function CategoryCard({
   expanded,
   onToggle,
   onBudgetUpdated,
-}) {
+}: CategoryCardProps) {
   const budget = group.budget_cents ?? 0;
   const spent = group.spent_cents ?? 0;
   const pct = pctUsed(spent, budget);
@@ -35,11 +44,11 @@ export function CategoryCard({
   const over = remaining < 0;
 
   const { setBudgetAmount } = useBudgetMutations();
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
 
   const commit = useCallback(
-    async (categoryId) => {
+    async (categoryId: number) => {
       const cents = formatInputDollars(draft);
       await setBudgetAmount(categoryId, monthKey, cents);
       setEditingId(null);
@@ -49,10 +58,10 @@ export function CategoryCard({
   );
 
   const onKeyDown = useCallback(
-    (e, categoryId) => {
+    (e: React.KeyboardEvent, categoryId: number) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        commit(categoryId);
+        void commit(categoryId);
       }
     },
     [commit]
@@ -134,7 +143,7 @@ export function CategoryCard({
                         className="category-card__input"
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
-                        onBlur={() => commit(c.id)}
+                        onBlur={() => void commit(c.id)}
                         onKeyDown={(e) => onKeyDown(e, c.id)}
                         autoFocus
                         aria-label={`Budget for ${c.name}`}

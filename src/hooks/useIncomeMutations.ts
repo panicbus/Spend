@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
+import type { CreateIncomeSourcePayload } from '../../ipc-contract';
 import { api } from '../services/api';
 
 export function useIncomeMutations() {
   const [loading, setLoading] = useState(false);
 
-  const createIncomeSource = useCallback(async (payload) => {
+  const createIncomeSource = useCallback(async (payload: CreateIncomeSourcePayload) => {
     setLoading(true);
     try {
       return await api.createIncomeSource(payload);
@@ -14,7 +15,7 @@ export function useIncomeMutations() {
   }, []);
 
   const setIncomeBudget = useCallback(
-    async (sourceId, monthKey, amountCents) => {
+    async (sourceId: number, monthKey: string, amountCents: number) => {
       setLoading(true);
       try {
         await api.setIncomeBudget(sourceId, monthKey, amountCents);

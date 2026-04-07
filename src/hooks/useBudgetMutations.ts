@@ -3,7 +3,7 @@ import { api } from '../services/api';
 
 export function useBudgetMutations() {
   const setBudgetAmount = useCallback(
-    (categoryId, monthKey, amountCents) =>
+    (categoryId: number, monthKey: string, amountCents: number) =>
       api.setBudgetAmount(categoryId, monthKey, amountCents),
     []
   );

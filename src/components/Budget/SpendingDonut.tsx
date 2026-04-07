@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import type { BudgetGroup } from '../../../ipc-contract';
 import { formatCurrency } from '../../services/formatters';
 import './SpendingDonut.css';
 
@@ -7,7 +8,14 @@ const CY = 100;
 const R_OUT = 76;
 const R_IN = 50;
 
-function ringSegment(cx, cy, rOuter, rInner, a0, a1) {
+function ringSegment(
+  cx: number,
+  cy: number,
+  rOuter: number,
+  rInner: number,
+  a0: number,
+  a1: number
+) {
   const large = a1 - a0 > Math.PI ? 1 : 0;
   const x1 = cx + rOuter * Math.cos(a0);
   const y1 = cy + rOuter * Math.sin(a0);
@@ -20,7 +28,20 @@ function ringSegment(cx, cy, rOuter, rInner, a0, a1) {
   return `M ${x1} ${y1} A ${rOuter} ${rOuter} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${rInner} ${rInner} 0 ${large} 0 ${x4} ${y4} Z`;
 }
 
-export function SpendingDonut({ groups }) {
+type DonutSeg = {
+  id: number;
+  name: string;
+  color: string;
+  path: string;
+  opacity: number;
+  spent: number;
+};
+
+type SpendingDonutProps = {
+  groups: BudgetGroup[];
+};
+
+export function SpendingDonut({ groups }: SpendingDonutProps) {
   const { segments, pctSpent, totalBudget } = useMemo(() => {
     const alloc = (groups ?? []).filter((g) => (g.budget_cents ?? 0) > 0);
     const tb = alloc.reduce((s, g) => s + g.budget_cents, 0);
@@ -29,7 +50,7 @@ export function SpendingDonut({ groups }) {
       tb > 0 ? Math.min(999, Math.round((ts / tb) * 100)) : 0;
 
     let acc = -Math.PI / 2;
-    const segs = [];
+    const segs: DonutSeg[] = [];
     for (const g of alloc) {
       const frac = g.budget_cents / tb;
       const a0 = acc;

@@ -1,8 +1,7 @@
-'use strict';
+import { contextBridge, ipcRenderer } from 'electron';
+import type { SpendApi } from './ipc-contract.js';
 
-const { contextBridge, ipcRenderer } = require('electron');
-
-contextBridge.exposeInMainWorld('api', {
+const api: SpendApi = {
   getGroups: () => ipcRenderer.invoke('getGroups'),
   createGroup: (payload) => ipcRenderer.invoke('createGroup', payload),
   createCategory: (payload) => ipcRenderer.invoke('createCategory', payload),
@@ -22,4 +21,6 @@ contextBridge.exposeInMainWorld('api', {
   getTransactions: (filters) => ipcRenderer.invoke('getTransactions', filters),
   addTransaction: (payload) => ipcRenderer.invoke('addTransaction', payload),
   importCSV: (filePath) => ipcRenderer.invoke('importCSV', filePath),
-});
+};
+
+contextBridge.exposeInMainWorld('api', api);

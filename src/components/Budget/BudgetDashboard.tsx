@@ -14,22 +14,22 @@ export function BudgetDashboard() {
   const [monthKey, setMonthKey] = useState(currentMonthKey);
   const { groups, income, totals, loading, error, refetch } =
     useBudget(monthKey);
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [addGroupOpen, setAddGroupOpen] = useState(false);
-  const [addCatGroupId, setAddCatGroupId] = useState(null);
+  const [addCatGroupId, setAddCatGroupId] = useState<number | null>(null);
 
   const hasGroups = groups.length > 0;
 
   const openAddFlow = () => setAddGroupOpen(true);
 
-  const onGroupCreated = (id) => {
+  const onGroupCreated = (id: number) => {
     setAddCatGroupId(id);
-    refetch();
+    void refetch();
   };
 
   const afterCategoriesModal = () => {
     setAddCatGroupId(null);
-    refetch();
+    void refetch();
   };
 
   return (

@@ -1,4 +1,4 @@
-export function formatCurrency(cents) {
+export function formatCurrency(cents: number) {
   const n = (Number(cents) || 0) / 100;
   return n.toLocaleString('en-US', {
     style: 'currency',
@@ -8,7 +8,7 @@ export function formatCurrency(cents) {
   });
 }
 
-export function formatInputDollars(value) {
+export function formatInputDollars(value: string) {
   const trimmed = String(value).trim();
   if (trimmed === '' || trimmed === '.') return 0;
   const n = Number.parseFloat(trimmed.replace(/[^0-9.-]/g, ''));
@@ -16,11 +16,14 @@ export function formatInputDollars(value) {
   return Math.round(n * 100);
 }
 
-export function dollarsFromCentsInput(cents) {
+export function dollarsFromCentsInput(cents: number) {
   return ((Number(cents) || 0) / 100).toFixed(2);
 }
 
-export const CATEGORY_COLOR_PRESETS = [
+export const CATEGORY_COLOR_PRESETS: ReadonlyArray<{
+  label: string;
+  value: string;
+}> = [
   { label: 'Housing', value: '#3A7BD5' },
   { label: 'Utilities', value: '#6B5CE7' },
   { label: 'Food', value: '#2D9F75' },

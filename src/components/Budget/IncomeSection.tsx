@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import type { BudgetIncomeRow } from '../../../ipc-contract';
 import {
   formatCurrency,
   formatInputDollars,
@@ -9,15 +10,21 @@ import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
 import './IncomeSection.css';
 
-export function IncomeSection({ income, monthKey, onChanged }) {
+type IncomeSectionProps = {
+  income: BudgetIncomeRow[];
+  monthKey: string;
+  onChanged: () => void;
+};
+
+export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProps) {
   const { createIncomeSource, setIncomeBudget } = useIncomeMutations();
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
 
   const commitBudget = useCallback(
-    async (sourceId) => {
+    async (sourceId: number) => {
       await setIncomeBudget(sourceId, monthKey, formatInputDollars(draft));
       setEditingId(null);
       onChanged();
@@ -26,10 +33,10 @@ export function IncomeSection({ income, monthKey, onChanged }) {
   );
 
   const onBudgetKeyDown = useCallback(
-    (e, sourceId) => {
+    (e: React.KeyboardEvent, sourceId: number) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        commitBudget(sourceId);
+        void commitBudget(sourceId);
       }
     },
     [commitBudget]
@@ -67,7 +74,7 @@ export function IncomeSection({ income, monthKey, onChanged }) {
                     className="income-section__input"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    onBlur={() => commitBudget(row.id)}
+                    onBlur={() => void commitBudget(row.id)}
                     onKeyDown={(e) => onBudgetKeyDown(e, row.id)}
                     autoFocus
                     aria-label={`Income budget for ${row.name}`}
@@ -123,7 +130,7 @@ export function IncomeSection({ income, monthKey, onChanged }) {
           <Button variant="ghost" onClick={() => setAddOpen(false)}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={submitIncome}>
+          <Button variant="primary" onClick={() => void submitIncome()}>
             Add
           </Button>
         </div>
