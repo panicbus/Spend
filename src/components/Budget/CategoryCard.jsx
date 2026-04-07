@@ -1,0 +1,172 @@
+import React, { useCallback, useState } from 'react';
+import {
+  formatCurrency,
+  formatInputDollars,
+  dollarsFromCentsInput,
+} from '../../services/formatters';
+import { useBudgetMutations } from '../../hooks/useBudgetMutations';
+import './CategoryCard.css';
+
+function pctUsed(spent, budget) {
+  if (budget <= 0) return 0;
+  return (spent / budget) * 100;
+}
+
+function barFillColor(pct, groupColor) {
+  if (pct >= 100) return 'var(--danger)';
+  if (pct >= 85) return 'var(--warn)';
+  return groupColor;
+}
+
+export function CategoryCard({
+  group,
+  monthKey,
+  expanded,
+  onToggle,
+  onBudgetUpdated,
+}) {
+  const budget = group.budget_cents ?? 0;
+  const spent = group.spent_cents ?? 0;
+  const pct = pctUsed(spent, budget);
+  const fill = barFillColor(pct, group.color);
+  const barW = Math.min(100, budget > 0 ? (spent / budget) * 100 : 0);
+
+  const remaining = budget - spent;
+  const over = remaining < 0;
+
+  const { setBudgetAmount } = useBudgetMutations();
+  const [editingId, setEditingId] = useState(null);
+  const [draft, setDraft] = useState('');
+
+  const commit = useCallback(
+    async (categoryId) => {
+      const cents = formatInputDollars(draft);
+      await setBudgetAmount(categoryId, monthKey, cents);
+      setEditingId(null);
+      onBudgetUpdated();
+    },
+    [draft, monthKey, onBudgetUpdated, setBudgetAmount]
+  );
+
+  const onKeyDown = useCallback(
+    (e, categoryId) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commit(categoryId);
+      }
+    },
+    [commit]
+  );
+
+  return (
+    <article
+      className={`category-card${expanded ? ' category-card--expanded' : ''}`}
+    >
+      <button
+        type="button"
+        className="category-card__header"
+        onClick={onToggle}
+        aria-expanded={expanded}
+      >
+        <span className="category-card__title-row">
+          <svg
+            className="category-card__dot"
+            viewBox="0 0 12 12"
+            width="12"
+            height="12"
+            aria-hidden
+          >
+            <circle cx="6" cy="6" r="6" fill={group.color} />
+          </svg>
+          <span className="category-card__name">{group.name}</span>
+        </span>
+        <span className="category-card__amounts">
+          <span className="category-card__spent">{formatCurrency(spent)}</span>
+          <span className="category-card__of">
+            of {formatCurrency(budget)}
+          </span>
+        </span>
+      </button>
+
+      <div className="category-card__bar-wrap" aria-hidden>
+        <svg
+          className="category-card__bar"
+          viewBox="0 0 100 6"
+          preserveAspectRatio="none"
+        >
+          <rect width="100" height="6" rx="3" fill="var(--bar-track)" />
+          <rect width={barW} height="6" rx="3" fill={fill} />
+        </svg>
+      </div>
+
+      <div className="category-card__footnote">
+        {over ? (
+          <span className="category-card__over">
+            {formatCurrency(-remaining)} over
+          </span>
+        ) : (
+          <span className="category-card__remaining">
+            {formatCurrency(remaining)} remaining
+          </span>
+        )}
+      </div>
+
+      {expanded && (
+        <ul className="category-card__lines">
+          {(group.categories ?? []).map((c) => {
+            const linePct = pctUsed(c.spent_cents ?? 0, c.budget_cents ?? 0);
+            const lineFill = barFillColor(linePct, group.color);
+            const lineW = Math.min(
+              100,
+              (c.budget_cents ?? 0) > 0
+                ? ((c.spent_cents ?? 0) / (c.budget_cents ?? 0)) * 100
+                : 0
+            );
+            const isEdit = editingId === c.id;
+            return (
+              <li key={c.id} className="category-card__line">
+                <div className="category-card__line-head">
+                  <span className="category-card__line-name">{c.name}</span>
+                  <span className="category-card__line-meta">
+                    {formatCurrency(c.spent_cents ?? 0)} spent ·{' '}
+                    {isEdit ? (
+                      <input
+                        className="category-card__input"
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onBlur={() => commit(c.id)}
+                        onKeyDown={(e) => onKeyDown(e, c.id)}
+                        autoFocus
+                        aria-label={`Budget for ${c.name}`}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="category-card__budget-hit"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingId(c.id);
+                          setDraft(dollarsFromCentsInput(c.budget_cents ?? 0));
+                        }}
+                      >
+                        {formatCurrency(c.budget_cents ?? 0)} budget
+                      </button>
+                    )}
+                  </span>
+                </div>
+                <svg
+                  className="category-card__line-bar"
+                  viewBox="0 0 100 6"
+                  preserveAspectRatio="none"
+                >
+                  <rect width="100" height="6" rx="3" fill="var(--bar-track)" />
+                  <rect width={lineW} height="6" rx="3" fill={lineFill} />
+                </svg>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </article>
+  );
+}

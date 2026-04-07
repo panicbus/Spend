@@ -1,0 +1,14 @@
+node_modules
+dist
+.DS_Store
+*.log
+
+# Local env / secrets
+.env
+.env.*
+
+# Editor / OS
+.idea
+
+# Vite / env
+*.local

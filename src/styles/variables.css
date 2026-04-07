@@ -1,0 +1,48 @@
+:root {
+  --bg-app: #f6f5f0;
+  --bg-card: #ffffff;
+  --bg-card-alt: #fafaf7;
+  --bg-sidebar: #1c1c1e;
+  --text-primary: #1a1a1a;
+  --text-secondary: #6b6b6b;
+  --text-tertiary: #9a9a9a;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --accent: #2d9f75;
+  --accent-bg: #e8f5ee;
+  --accent-text: #1a7a56;
+  --danger: #d94f4f;
+  --danger-bg: #fdf0f0;
+  --danger-text: #a33333;
+  --warn: #e5953e;
+  --warn-bg: #fef4e8;
+  --warn-text: #8c5a1e;
+  --bar-track: #ededea;
+
+  --text-on-accent: #ffffff;
+  --overlay-scrim: rgba(0, 0, 0, 0.35);
+  --accent-border-soft: rgba(45, 159, 117, 0.28);
+
+  /* Sidebar (dark chrome; main content uses tokens above) */
+  --sidebar-text: rgba(255, 255, 255, 0.92);
+  --sidebar-text-muted: rgba(255, 255, 255, 0.72);
+  --sidebar-brand-text: #f5f5f5;
+  --sidebar-text-strong: #ffffff;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+
+  --cat-housing: #3a7bd5;
+  --cat-utilities: #6b5ce7;
+  --cat-food: #2d9f75;
+  --cat-transport: #e5953e;
+  --cat-personal: #d94f4f;
+  --cat-entertainment: #e76bac;
+  --cat-gifts: #9f6b2d;
+  --cat-savings: #4fbcd9;
+
+  --sidebar-width: 220px;
+  --main-padding-x: 40px;
+  --main-padding-y: 32px;
+  --sidebar-drag-padding: 40px;
+}

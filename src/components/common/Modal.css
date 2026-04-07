@@ -1,0 +1,51 @@
+.modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--overlay-scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal__panel {
+  width: min(420px, 100%);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 14px;
+  border: 0.5px solid var(--border);
+  box-shadow: none;
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 0;
+}
+
+.modal__title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 20px;
+  margin: 0;
+}
+
+.modal__close {
+  font-size: 24px;
+  line-height: 1;
+  color: var(--text-tertiary);
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.modal__close:hover {
+  background: var(--bg-card-alt);
+  color: var(--text-primary);
+}
+
+.modal__body {
+  padding: 16px 18px 20px;
+}

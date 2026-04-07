@@ -1,0 +1,79 @@
+.spending-donut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 28px 40px;
+  margin-top: 28px;
+  padding: 20px 22px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 0.5px solid var(--border);
+}
+
+.spending-donut__chart-wrap {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.spending-donut__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.spending-donut__center-pct {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 600;
+  fill: var(--text-primary);
+}
+
+.spending-donut__center-sub {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  fill: var(--text-tertiary);
+}
+
+.spending-donut__legend {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.spending-donut__legend-empty {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.spending-donut__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.spending-donut__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.spending-donut__legend-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spending-donut__legend-amt {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-weight: 500;
+}

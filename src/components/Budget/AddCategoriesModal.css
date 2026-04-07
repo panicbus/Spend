@@ -1,0 +1,59 @@
+.add-cat__hint {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.add-cat__field {
+  margin-bottom: 12px;
+}
+
+.add-cat__label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.add-cat__row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.add-cat__input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 0.5px solid var(--border-strong);
+  background: var(--bg-card-alt);
+  color: var(--text-primary);
+}
+
+.add-cat__queued {
+  margin: 12px 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg-card-alt);
+  border: 0.5px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.add-cat__queued-item {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.add-cat__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}

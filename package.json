@@ -1,0 +1,30 @@
+{
+  "name": "spend-app",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on tcp:127.0.0.1:5173 && ELECTRON_IS_DEV=1 electron .\"",
+    "dev:electron": "wait-on tcp:127.0.0.1:5173 && ELECTRON_IS_DEV=1 electron .",
+    "electron:only": "ELECTRON_IS_DEV=1 electron .",
+    "build": "vite build",
+    "start": "electron .",
+    "postinstall": "electron-rebuild -f -w better-sqlite3 --arch $(node -p \"require('os').machine()==='arm64'?'arm64':'x64'\")",
+    "rebuild:sqlite": "electron-rebuild -f -w better-sqlite3 --arch $(node -p \"require('os').machine()==='arm64'?'arm64':'x64'\")"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.7.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "vite": "^6.0.3",
+    "wait-on": "^8.0.1"
+  }
+}

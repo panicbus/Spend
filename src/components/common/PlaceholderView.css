@@ -1,0 +1,16 @@
+.placeholder-view {
+  max-width: 560px;
+}
+
+.placeholder-view__title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 28px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.placeholder-view__text {
+  font-size: 15px;
+  color: var(--text-secondary);
+}

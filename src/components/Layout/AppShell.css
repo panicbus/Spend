@@ -1,0 +1,15 @@
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-app);
+  color: var(--text-primary);
+}
+
+.app-shell__main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: var(--main-padding-y) var(--main-padding-x);
+  background: var(--bg-app);
+  color: var(--text-primary);
+}

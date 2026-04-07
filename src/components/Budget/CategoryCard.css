@@ -1,0 +1,143 @@
+.category-card {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 16px 18px;
+  border: 0.5px solid var(--border);
+  align-self: start;
+}
+
+.category-card--expanded {
+  grid-column: 1 / -1;
+}
+
+.category-card__header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+}
+
+.category-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.category-card__dot {
+  flex-shrink: 0;
+}
+
+.category-card__name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.category-card__amounts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+}
+
+.category-card__spent {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.category-card__of {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.category-card__bar-wrap {
+  margin-top: 12px;
+}
+
+.category-card__bar {
+  width: 100%;
+  height: 6px;
+  display: block;
+}
+
+.category-card__footnote {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.category-card__remaining {
+  color: var(--text-secondary);
+}
+
+.category-card__over {
+  color: var(--danger-text);
+}
+
+.category-card__lines {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 0.5px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.category-card__line-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.category-card__line-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.category-card__line-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.category-card__budget-hit {
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.category-card__budget-hit:hover {
+  color: var(--accent);
+}
+
+.category-card__input {
+  width: 96px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 0.5px solid var(--border-strong);
+  background: var(--bg-card-alt);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.category-card__line-bar {
+  margin-top: 8px;
+  width: 100%;
+  height: 6px;
+  display: block;
+}

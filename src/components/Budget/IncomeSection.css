@@ -1,0 +1,113 @@
+.income-section {
+  margin-top: 36px;
+}
+
+.income-section__heading {
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 22px;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.income-section__table {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 0.5px solid var(--border);
+  overflow: hidden;
+}
+
+.income-section__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 14px 18px;
+  align-items: center;
+  font-size: 14px;
+  border-top: 0.5px solid var(--border);
+}
+
+.income-section__row:first-child {
+  border-top: none;
+}
+
+.income-section__row--head {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  background: var(--bg-card-alt);
+  border-top: none;
+}
+
+.income-section__name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.income-section__cell {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.income-section__cell--muted {
+  color: var(--text-secondary);
+}
+
+.income-section__editable {
+  padding: 0;
+  font: inherit;
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.income-section__editable:hover {
+  color: var(--accent);
+}
+
+.income-section__input {
+  width: 100%;
+  max-width: 120px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 0.5px solid var(--border-strong);
+  background: var(--bg-card-alt);
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.income-section__add {
+  margin-top: 14px;
+}
+
+.income-section__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.income-section__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.income-section__text {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 0.5px solid var(--border-strong);
+  background: var(--bg-card-alt);
+  color: var(--text-primary);
+}
+
+.income-section__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

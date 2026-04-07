@@ -1,0 +1,21 @@
+@import './reset.css';
+@import './variables.css';
+
+html {
+  background: var(--bg-app);
+  color: var(--text-primary);
+}
+
+body {
+  margin: 0;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-weight: 400;
+  background: var(--bg-app);
+  color: var(--text-primary);
+}
+
+#root {
+  min-height: 100%;
+  background: var(--bg-app);
+  color: var(--text-primary);
+}
