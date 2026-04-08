@@ -1,0 +1,278 @@
+.import-view {
+  max-width: 960px;
+   margin: 0 auto;
+  padding: 8px 8px 48px;
+  color: var(--text-primary);
+}
+
+.import-view__header {
+  margin-bottom: 24px;
+}
+
+.import-view__title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+
+.import-view__subtitle {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.import-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 0.5px solid var(--border);
+  padding: 24px 22px;
+}
+
+.import-card--wide {
+  max-width: 100%;
+}
+
+.import-card--muted {
+  opacity: 0.88;
+}
+
+.import-card--error {
+  border-color: var(--border-strong);
+  background: var(--danger-bg);
+}
+
+.import-card__title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 22px;
+  margin: 0 0 8px;
+}
+
+.import-card__sub {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.import-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-height: 200px;
+  border-radius: 12px;
+  border: 1px dashed var(--border-strong);
+  background: var(--bg-card-alt);
+  padding: 28px 20px;
+  text-align: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.import-drop--active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+
+.import-drop__text {
+  margin: 0;
+  max-width: 420px;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.import-status {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 12px;
+}
+
+.import-map-list {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.import-map-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 0.5px solid var(--border);
+  background: var(--bg-card-alt);
+}
+
+.import-map-item__left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+}
+
+.import-map-item__name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.import-map-item__badge {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--bar-track);
+  align-self: flex-start;
+}
+
+.import-select {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  padding: 8px 12px;
+  min-width: 200px;
+  border-radius: 8px;
+  border: 0.5px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.import-select--compact {
+  min-width: 160px;
+  margin-top: 6px;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.import-map-item__select {
+  flex: 1;
+  max-width: 420px;
+}
+
+.import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.import-review__summary {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.import-review__table-wrap {
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+
+.import-review__thead {
+  display: grid;
+  grid-template-columns: 92px 1fr minmax(220px, 1.4fr) 100px 44px;
+  gap: 10px;
+  padding: 12px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  background: var(--bg-card-alt);
+  border-bottom: 0.5px solid var(--border);
+}
+
+.import-review__thead-amt {
+  text-align: right;
+}
+
+.import-review__body {
+  max-height: 520px;
+  overflow: auto;
+}
+
+.import-review__row {
+  display: grid;
+  grid-template-columns: 92px 1fr minmax(220px, 1.4fr) 100px 44px;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 14px;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 13px;
+}
+
+.import-review__row:last-child {
+  border-bottom: none;
+}
+
+.import-review__row--alt {
+  background: var(--bg-card-alt);
+}
+
+.import-review__cell {
+  min-width: 0;
+}
+
+.import-review__cell--merchant {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.import-review__cell--cat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.import-review__cat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.import-review__cell--amt {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.import-review__amt--expense {
+  color: var(--danger-text);
+}
+
+.import-review__amt--income {
+  color: var(--accent-text);
+}
+
+.import-review__skip {
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  padding-top: 4px;
+}
+
+.import-done__text {
+  margin: 0 0 20px;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.import-error__text {
+  margin: 0 0 20px;
+  font-size: 15px;
+  color: var(--danger-text);
+  line-height: 1.5;
+}

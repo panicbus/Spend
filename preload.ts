@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { SpendApi } from './ipc-contract.js';
 
 const api: SpendApi = {
@@ -20,7 +20,14 @@ const api: SpendApi = {
 
   getTransactions: (filters) => ipcRenderer.invoke('getTransactions', filters),
   addTransaction: (payload) => ipcRenderer.invoke('addTransaction', payload),
-  importCSV: (filePath) => ipcRenderer.invoke('importCSV', filePath),
+
+  openCSVDialog: () => ipcRenderer.invoke('openCSVDialog'),
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  parseCSV: (filePath) => ipcRenderer.invoke('parseCSV', filePath),
+  getCategoryMappings: () => ipcRenderer.invoke('getCategoryMappings'),
+  saveCategoryMapping: (input) =>
+    ipcRenderer.invoke('saveCategoryMapping', input),
+  commitImport: (rows) => ipcRenderer.invoke('commitImport', rows),
 };
 
 contextBridge.exposeInMainWorld('api', api);

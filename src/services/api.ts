@@ -1,4 +1,4 @@
-import type { SpendApi } from '../../ipc-contract';
+import type { SpendApi } from '../types/api';
 
 function getBridge(): SpendApi {
   if (typeof window === 'undefined' || !window.api) {
@@ -32,5 +32,14 @@ export const api = {
     getBridge().getTransactions(filters),
   addTransaction: (payload: Parameters<SpendApi['addTransaction']>[0]) =>
     getBridge().addTransaction(payload),
-  importCSV: (filePath: string) => getBridge().importCSV(filePath),
+
+  openCSVDialog: () => getBridge().openCSVDialog(),
+  getPathForFile: (file: File) => getBridge().getPathForFile(file),
+  parseCSV: (filePath: string) => getBridge().parseCSV(filePath),
+  getCategoryMappings: () => getBridge().getCategoryMappings(),
+  saveCategoryMapping: (
+    input: Parameters<SpendApi['saveCategoryMapping']>[0]
+  ) => getBridge().saveCategoryMapping(input),
+  commitImport: (rows: Parameters<SpendApi['commitImport']>[0]) =>
+    getBridge().commitImport(rows),
 };

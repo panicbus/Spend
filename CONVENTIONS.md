@@ -15,7 +15,10 @@
 spend-app/
 ├── main.ts                    # Electron main (TypeScript source)
 ├── preload.ts                 # Preload bridge (TypeScript → CommonJS in dist-electron)
-├── ipc-contract.ts            # Shared IPC types (SpendApi, budget payloads)
+├── ipc-contract.ts            # SpendApi + re-exports domain types from src/types
+├── src/types/
+│   ├── import.ts              # CSV import / mapping types (MappingTargetType, ParsedRow, …)
+│   └── api.ts                 # Re-exports SpendApi for renderer imports
 ├── vite.config.ts
 ├── tsconfig*.json
 ├── dist-electron/             # Compiled main + preload (gitignored)
@@ -44,9 +47,10 @@ spend-app/
 │   │   └── common/
 │   │       ├── Button.tsx
 │   │       ├── Modal.tsx
-│   │       └── ProgressBar.jsx
+│   │       └── ProgressBar.tsx   # (add when needed)
 │   ├── hooks/
 │   │   ├── useBudget.ts        # Fetch & mutate budget data for a given month
+│   │   ├── useImport.ts        # CSV import state machine (discriminated union)
 │   │   ├── useCategories.ts    # CRUD for categories
 │   │   └── useTransactions.ts  # (Phase 2)
 │   ├── services/
@@ -141,7 +145,9 @@ better-sqlite3 — synchronous, runs in Electron main process only. All queries 
 - `budgets` — id, category_id (FK), month_key, amount_cents
 - `income_sources` — id, name, sort_order
 - `income_budgets` — id, source_id (FK), month_key, amount_cents
-- `transactions` — id, category_id (FK), date, description, amount_cents, source (manual|csv)
+- `transactions` — id, category_id (FK), date, description, amount_cents, source (manual|csv), import_hash (optional)
+- `income_actuals` — imported income by source (date, amount_cents, import_hash)
+- `category_mappings` — Monarch `external_name` → category, income_source, or skip
 
 ## IPC API Shape
 All calls go through `window.api.*`:
@@ -166,8 +172,26 @@ api.setIncomeBudget(sourceId, monthKey, amountCents) → void
 // Transactions
 api.getTransactions({ monthKey, categoryId? }) → [{ id, date, description, amount_cents, category_id }]
 api.addTransaction({ category_id, date, description, amount_cents }) → { id }
-api.importCSV(filePath)                  → { imported: number, skipped: number }
+
+// Monarch CSV import (`src/types/import.ts`)
+api.openCSVDialog() → string | null
+api.getPathForFile(file) → path
+api.parseCSV(filePath) → ParseCSVResult
+api.getCategoryMappings() → CategoryMapping[]
+api.saveCategoryMapping({ externalName, targetType, targetId }) → void
+api.commitImport(CommitImportRow[]) → CommitImportResult
 ```
+
+## Versioning (semver)
+The sidebar shows **`package.json` `version`** (via `VITE_APP_VERSION` in `vite.config.ts`). Keep **`package-lock.json`** root `version` in sync (the bump scripts do both).
+
+| Bump | When to use |
+|------|-------------|
+| **Minor** (`npm run bump:minor`) | Roadmap **phases** and other **new user-facing capabilities**: new screens/flows, new IPC endpoints, additive DB schema for features. Example: “Phase 3” slice shipped. |
+| **Patch** (`npm run bump:patch`) | **Fixes** (bugs, crashes, incorrect totals), internal refactors, dependency bumps, styling/copy, tooling, docs—**no** new phase or headline capability. |
+| **Major** (`npm run bump:major`) | **Breaking** changes: incompatible DB/IPC for existing installs, removed features, or a deliberate “2.0”/product reset. Rare—confirm with the maintainer first. |
+
+After bumping, commit `package.json` and `package-lock.json` together.
 
 ## Rules
 1. App.tsx must stay under 30 lines. It only contains router setup.

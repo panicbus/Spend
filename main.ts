@@ -1,7 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import crypto from 'crypto';
+import { parse } from 'csv-parse/sync';
 import Database from 'better-sqlite3';
 import type {
   AddTransactionPayload,
@@ -11,10 +13,30 @@ import type {
   CreateIncomeSourcePayload,
   TransactionFilters,
 } from './ipc-contract.js';
+import type {
+  CategoryMapping,
+  CommitImportRow,
+  MappingTargetType,
+  ParsedRow,
+  SaveCategoryMappingInput,
+} from './src/types/import.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Default userData in dev is ~/Library/Application Support/Electron; align with spend-app.
+const MONARCH_HEADERS = [
+  'Date',
+  'Merchant',
+  'Category',
+  'Account',
+  'Original Statement',
+  'Notes',
+  'Amount',
+  'Tags',
+  'Owner',
+] as const;
+
+const MAPPING_SOURCE = 'monarch';
+
 app.setPath('userData', path.join(app.getPath('appData'), 'spend-app'));
 
 process.on('uncaughtException', (err) => {
@@ -30,6 +52,17 @@ function getDbPath() {
   return path.join(app.getPath('userData'), 'spend.db');
 }
 
+function runSqliteMigrations() {
+  try {
+    db.exec('ALTER TABLE transactions ADD COLUMN import_hash TEXT');
+  } catch {
+    /** column already present */
+  }
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_transactions_import_hash ON transactions(import_hash)'
+  );
+}
+
 function initDb() {
   const userData = app.getPath('userData');
   fs.mkdirSync(userData, { recursive: true });
@@ -39,6 +72,8 @@ function initDb() {
   const schemaPath = path.join(__dirname, '..', 'database', 'schema.sql');
   const schema = fs.readFileSync(schemaPath, 'utf8');
   db.exec(schema);
+  /** Must run after schema: ADD COLUMN for legacy DBs, then index (not in schema.sql). */
+  runSqliteMigrations();
 }
 
 function copyMonthTemplateIfNeeded(monthKey: string) {
@@ -72,6 +107,199 @@ function copyMonthTemplateIfNeeded(monthKey: string) {
   ).run(monthKey, prevKey);
 }
 
+function computeImportHash(
+  date: string,
+  merchant: string,
+  amountCents: number,
+  originalStatement: string
+): string {
+  const payload =
+    date + '|' + merchant + '|' + String(amountCents) + '|' + originalStatement;
+  return crypto.createHash('sha256').update(payload, 'utf8').digest('hex');
+}
+
+function assertMonarchHeader(header: string[]) {
+  if (header.length < MONARCH_HEADERS.length) {
+    throw new Error(
+      'This file does not look like a Monarch export (missing columns).'
+    );
+  }
+  for (let i = 0; i < MONARCH_HEADERS.length; i++) {
+    const got = (header[i] ?? '').trim();
+    if (got !== MONARCH_HEADERS[i]) {
+      throw new Error(
+        `This file does not look like a Monarch export (expected column "${MONARCH_HEADERS[i]}", found "${got || '(empty)'}").`
+      );
+    }
+  }
+}
+
+function parseAmountToCents(amountStr: string, rowLabel: string): number {
+  const cleaned = amountStr.trim().replace(/[$,\s]/g, '');
+  const n = parseFloat(cleaned);
+  if (Number.isNaN(n)) {
+    throw new Error(`Invalid amount on ${rowLabel}: "${amountStr}"`);
+  }
+  return Math.round(n * 100);
+}
+
+type MappingDbRow = {
+  id: number;
+  external_name: string;
+  target_type: string;
+  target_id: number | null;
+};
+
+function targetDisplayName(
+  targetType: MappingTargetType,
+  targetId: number | null,
+  catNames: Map<number, string>,
+  incomeNames: Map<number, string>
+): string | undefined {
+  if (targetType === 'skip' || targetId == null) return undefined;
+  if (targetType === 'category') return catNames.get(targetId);
+  if (targetType === 'income_source') return incomeNames.get(targetId);
+  return undefined;
+}
+
+function toCategoryMapping(
+  row: MappingDbRow,
+  catNames: Map<number, string>,
+  incomeNames: Map<number, string>
+): CategoryMapping {
+  const targetType = row.target_type as MappingTargetType;
+  const tn = targetDisplayName(targetType, row.target_id, catNames, incomeNames);
+  return {
+    id: row.id,
+    source: 'monarch',
+    externalName: row.external_name,
+    targetType,
+    targetId: row.target_id,
+    ...(tn ? { targetName: tn } : {}),
+  };
+}
+
+function loadMappingNameLookups(): {
+  catNames: Map<number, string>;
+  incomeNames: Map<number, string>;
+} {
+  const catRows = db
+    .prepare(
+      `SELECT c.id, c.name AS cat_name, g.name AS group_name
+       FROM categories c JOIN category_groups g ON c.group_id = g.id`
+    )
+    .all() as { id: number; cat_name: string; group_name: string }[];
+  const catNames = new Map<number, string>();
+  for (const r of catRows) {
+    catNames.set(r.id, `${r.cat_name} · ${r.group_name}`);
+  }
+  const incRows = db
+    .prepare('SELECT id, name FROM income_sources')
+    .all() as { id: number; name: string }[];
+  const incomeNames = new Map<number, string>();
+  for (const r of incRows) {
+    incomeNames.set(r.id, r.name);
+  }
+  return { catNames, incomeNames };
+}
+
+function parseMonarchCSV(filePath: string): {
+  rows: ParsedRow[];
+  unknownCategories: string[];
+} {
+  const fileContent = fs.readFileSync(filePath, 'utf8');
+  let records: Record<(typeof MONARCH_HEADERS)[number], string>[];
+  try {
+    records = parse(fileContent, {
+      bom: true,
+      skip_empty_lines: true,
+      relax_quotes: true,
+      relax_column_count: true,
+      columns: (header: string[]) => {
+        assertMonarchHeader(header);
+        return [...MONARCH_HEADERS];
+      },
+      cast: false,
+    }) as Record<(typeof MONARCH_HEADERS)[number], string>[];
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(`Could not read this CSV: ${msg}`);
+  }
+
+  if (!records.length) {
+    throw new Error('This CSV has no transaction rows.');
+  }
+
+  const { catNames, incomeNames } = loadMappingNameLookups();
+
+  const mappingRows = db
+    .prepare(
+      `SELECT id, external_name, target_type, target_id
+       FROM category_mappings WHERE source = ?`
+    )
+    .all(MAPPING_SOURCE) as MappingDbRow[];
+
+  const mappingByExternal = new Map<string, MappingDbRow>();
+  for (const m of mappingRows) {
+    mappingByExternal.set(m.external_name, m);
+  }
+
+  const rows: ParsedRow[] = [];
+  const unknownSet = new Set<string>();
+
+  for (let i = 0; i < records.length; i++) {
+    const rec = records[i];
+    const date = (rec.Date ?? '').trim();
+    const merchant = (rec.Merchant ?? '').trim();
+    const externalCategory = (rec.Category ?? '').trim();
+    const account = (rec.Account ?? '').trim();
+    const originalStatement = (rec['Original Statement'] ?? '').trim();
+    const notes = (rec.Notes ?? '').trim();
+    const amountStr = rec.Amount ?? '';
+
+    if (!date) {
+      throw new Error(`Missing date on data row ${i + 2} (after header).`);
+    }
+
+    const amountCents = parseAmountToCents(amountStr, `row ${i + 2}`);
+    const importHash = computeImportHash(
+      date,
+      merchant,
+      amountCents,
+      originalStatement
+    );
+
+    const mapRow = mappingByExternal.get(externalCategory);
+    const mapping: CategoryMapping | null = mapRow
+      ? toCategoryMapping(mapRow, catNames, incomeNames)
+      : null;
+
+    if (!mapping) {
+      unknownSet.add(externalCategory);
+    }
+
+    rows.push({
+      rowIndex: i,
+      date,
+      merchant,
+      externalCategory,
+      amountCents,
+      isIncome: amountCents > 0,
+      originalStatement,
+      notes,
+      account,
+      importHash,
+      mapping,
+    });
+  }
+
+  const unknownCategories = [...unknownSet].sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+  return { rows, unknownCategories };
+}
+
 function getBudgetData(monthKey: string): BudgetPayload {
   copyMonthTemplateIfNeeded(monthKey);
 
@@ -86,6 +314,19 @@ function getBudgetData(monthKey: string): BudgetPayload {
 
   const spentByCat: Record<number, number> = Object.fromEntries(
     spentRows.map((r) => [r.category_id, r.spent_cents])
+  );
+
+  const actualRows = db
+    .prepare(
+      `SELECT source_id, COALESCE(SUM(amount_cents), 0) AS actual_cents
+       FROM income_actuals
+       WHERE substr(date, 1, 7) = ?
+       GROUP BY source_id`
+    )
+    .all(monthKey) as { source_id: number; actual_cents: number }[];
+
+  const actualBySource: Record<number, number> = Object.fromEntries(
+    actualRows.map((r) => [r.source_id, r.actual_cents])
   );
 
   const groups = db
@@ -159,7 +400,7 @@ function getBudgetData(monthKey: string): BudgetPayload {
     name: r.name,
     sort_order: r.sort_order,
     budget_cents: r.budget_cents,
-    actual_cents: 0,
+    actual_cents: actualBySource[r.id] ?? 0,
   }));
 
   return { groups: resultGroups, income };
@@ -238,7 +479,9 @@ function registerIpcHandlers() {
     db.prepare('DELETE FROM category_groups WHERE id = ?').run(id);
   });
 
-  ipcMain.handle('getBudget', (_, monthKey: string) => getBudgetData(monthKey));
+  ipcMain.handle('getBudget', (_, monthKey: string) =>
+    getBudgetData(monthKey)
+  );
 
   ipcMain.handle(
     'setBudgetAmount',
@@ -260,18 +503,21 @@ function registerIpcHandlers() {
       .all() as { id: number; name: string }[];
   });
 
-  ipcMain.handle('createIncomeSource', (_, payload: CreateIncomeSourcePayload) => {
-    const { name } = payload;
-    const row = db
-      .prepare(
-        'SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM income_sources'
-      )
-      .get() as { n: number };
-    const r = db
-      .prepare('INSERT INTO income_sources (name, sort_order) VALUES (?, ?)')
-      .run(name, row.n);
-    return { id: Number(r.lastInsertRowid) };
-  });
+  ipcMain.handle(
+    'createIncomeSource',
+    (_, payload: CreateIncomeSourcePayload) => {
+      const { name } = payload;
+      const row = db
+        .prepare(
+          'SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM income_sources'
+        )
+        .get() as { n: number };
+      const r = db
+        .prepare('INSERT INTO income_sources (name, sort_order) VALUES (?, ?)')
+        .run(name, row.n);
+      return { id: Number(r.lastInsertRowid) };
+    }
+  );
 
   ipcMain.handle(
     'setIncomeBudget',
@@ -314,7 +560,118 @@ function registerIpcHandlers() {
     return { id: Number(r.lastInsertRowid) };
   });
 
-  ipcMain.handle('importCSV', () => ({ imported: 0, skipped: 0 }));
+  ipcMain.handle('openCSVDialog', async () => {
+    const win =
+      BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    if (!win) return null;
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Choose Monarch CSV export',
+      properties: ['openFile'],
+      filters: [{ name: 'CSV', extensions: ['csv'] }],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    return r.filePaths[0];
+  });
+
+  ipcMain.handle('parseCSV', (_, filePath: string) => {
+    return parseMonarchCSV(filePath);
+  });
+
+  ipcMain.handle('getCategoryMappings', () => {
+    const { catNames, incomeNames } = loadMappingNameLookups();
+    const mappingRows = db
+      .prepare(
+        `SELECT id, external_name, target_type, target_id
+         FROM category_mappings WHERE source = ? ORDER BY external_name COLLATE NOCASE`
+      )
+      .all(MAPPING_SOURCE) as MappingDbRow[];
+    return mappingRows.map((row) =>
+      toCategoryMapping(row, catNames, incomeNames)
+    );
+  });
+
+  ipcMain.handle(
+    'saveCategoryMapping',
+    (_, input: SaveCategoryMappingInput) => {
+      const external_name = input.externalName.trim();
+      db.prepare(
+        `INSERT INTO category_mappings (source, external_name, target_type, target_id)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(source, external_name) DO UPDATE SET
+           target_type = excluded.target_type,
+           target_id = excluded.target_id`
+      ).run(
+        MAPPING_SOURCE,
+        external_name,
+        input.targetType,
+        input.targetId
+      );
+    }
+  );
+
+  ipcMain.handle('commitImport', (_, rows: CommitImportRow[]) => {
+    let imported = 0;
+    let skipped = 0;
+    let duplicates = 0;
+
+    const dupTx = db.prepare(
+      'SELECT 1 AS ok FROM transactions WHERE import_hash = ? LIMIT 1'
+    );
+    const dupInc = db.prepare(
+      'SELECT 1 AS ok FROM income_actuals WHERE import_hash = ? LIMIT 1'
+    );
+
+    const insertTx = db.prepare(
+      `INSERT INTO transactions (category_id, date, description, amount_cents, source, import_hash)
+       VALUES (?, ?, ?, ?, 'csv', ?)`
+    );
+    const insertInc = db.prepare(
+      `INSERT INTO income_actuals (source_id, date, description, amount_cents, import_hash)
+       VALUES (?, ?, ?, ?, ?)`
+    );
+
+    const runBatch = db.transaction((batch: CommitImportRow[]) => {
+      for (const row of batch) {
+        if (row.skip) {
+          skipped++;
+          continue;
+        }
+        if (dupTx.get(row.importHash) || dupInc.get(row.importHash)) {
+          duplicates++;
+          continue;
+        }
+        if (row.targetType === 'category' && row.targetId != null) {
+          const stored = -row.amountCents;
+          insertTx.run(
+            row.targetId,
+            row.date,
+            row.merchant,
+            stored,
+            row.importHash
+          );
+          imported++;
+        } else if (
+          row.targetType === 'income_source' &&
+          row.targetId != null
+        ) {
+          const stored = Math.abs(row.amountCents);
+          insertInc.run(
+            row.targetId,
+            row.date,
+            row.merchant,
+            stored,
+            row.importHash
+          );
+          imported++;
+        } else {
+          skipped++;
+        }
+      }
+    });
+
+    runBatch(rows);
+    return { imported, skipped, duplicates };
+  });
 }
 
 function createWindow() {

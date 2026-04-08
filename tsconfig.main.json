@@ -11,5 +11,5 @@
     "types": ["node"],
     "skipLibCheck": true
   },
-  "include": ["main.ts", "ipc-contract.ts"]
+  "include": ["main.ts", "ipc-contract.ts", "src/types/import.ts"]
 }

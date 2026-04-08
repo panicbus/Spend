@@ -1,7 +1,7 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "module": "CommonJS",
     "moduleResolution": "Node",
     "noEmit": false,
@@ -12,5 +12,5 @@
     "skipLibCheck": true,
     "esModuleInterop": true
   },
-  "include": ["preload.ts", "ipc-contract.ts"]
+  "include": ["preload.ts", "ipc-contract.ts", "src/types/import.ts"]
 }

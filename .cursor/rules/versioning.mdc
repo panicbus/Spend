@@ -1,0 +1,18 @@
+---
+description: When and how to bump spend-app semver (package.json + lockfile)
+alwaysApply: true
+---
+
+# Spend. — Version bumps
+
+Before finishing work that the user will **merge or ship**, apply **semver** using the project scripts (updates `package.json` and `package-lock.json` root version):
+
+- **`npm run bump:minor`** — **Phases** and new **user-facing** capability: new flows/screens, new `window.api` / IPC, additive schema for a feature slice (e.g. “Phase N” delivered in this change).
+- **`npm run bump:patch`** — **Fixes** only: bugs, wrong behavior, regressions, dependency/perf, CSS/copy, refactors with **no** new headline feature or phase.
+- **`npm run bump:major`** — **Breaking** behavior for existing installs (incompatible DB migration without auto-upgrade, removed IPC, etc.). **Do not** bump major unless the user explicitly wants a breaking release.
+
+If a session delivers a **named phase** or roadmap slice, default to **minor** unless the change is **only** fixes/tweaks (**patch**).
+
+Do not leave the app version unchanged when a phase or comparable feature ships. Run the bump **in the same change** (or immediately before the user commits).
+
+Details: `CONVENTIONS.md` → **Versioning (semver)**.

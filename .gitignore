@@ -10,7 +10,9 @@ dist-electron
 
 # Editor / OS
 .idea
-.cursor
+.cursor/**
+!.cursor/rules/
+!.cursor/rules/**
 
 # Vite / env
 *.local

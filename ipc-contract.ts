@@ -1,5 +1,23 @@
 /** Shared IPC contract: preload bridge, renderer api wrapper, and documentation. */
 
+import type {
+  CategoryMapping,
+  CommitImportResult,
+  CommitImportRow,
+  ParseCSVResult,
+  SaveCategoryMappingInput,
+} from './src/types/import.js';
+
+export type {
+  CategoryMapping,
+  CommitImportResult,
+  CommitImportRow,
+  MappingTargetType,
+  ParseCSVResult,
+  ParsedRow,
+  SaveCategoryMappingInput,
+} from './src/types/import.js';
+
 export interface CategoryRow {
   id: number;
   group_id: number;
@@ -93,11 +111,6 @@ export interface AddTransactionPayload {
   amount_cents: number;
 }
 
-export interface ImportCSVResult {
-  imported: number;
-  skipped: number;
-}
-
 export interface SpendApi {
   getGroups: () => Promise<GroupWithCategories[]>;
   createGroup: (payload: CreateGroupPayload) => Promise<{ id: number }>;
@@ -121,5 +134,11 @@ export interface SpendApi {
   ) => Promise<void>;
   getTransactions: (filters: TransactionFilters) => Promise<TransactionRow[]>;
   addTransaction: (payload: AddTransactionPayload) => Promise<{ id: number }>;
-  importCSV: (filePath: string) => Promise<ImportCSVResult>;
+
+  openCSVDialog: () => Promise<string | null>;
+  getPathForFile: (file: File) => string;
+  parseCSV: (filePath: string) => Promise<ParseCSVResult>;
+  getCategoryMappings: () => Promise<CategoryMapping[]>;
+  saveCategoryMapping: (input: SaveCategoryMappingInput) => Promise<void>;
+  commitImport: (rows: CommitImportRow[]) => Promise<CommitImportResult>;
 }

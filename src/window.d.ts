@@ -1,4 +1,4 @@
-import type { SpendApi } from '../ipc-contract';
+import type { SpendApi } from './types/api';
 
 declare global {
   interface Window {

@@ -1,6 +1,6 @@
 {
   "name": "spend-app",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "main": "dist-electron/main.js",
   "type": "module",
@@ -13,11 +13,15 @@
     "build": "vite build && npm run build:electron",
     "start": "npm run build:electron && electron .",
     "typecheck": "tsc -p tsconfig.app.json && tsc -p tsconfig.node.json",
-    "postinstall": "electron-rebuild -f -w better-sqlite3 --arch $(node scripts/electron-native-arch.cjs)",
-    "rebuild:sqlite": "electron-rebuild -f -w better-sqlite3 --arch $(node scripts/electron-native-arch.cjs)"
+    "bump:patch": "node scripts/bump-version.mjs patch",
+    "bump:minor": "node scripts/bump-version.mjs minor",
+    "bump:major": "node scripts/bump-version.mjs major",
+    "postinstall": "electron-rebuild -f -w better-sqlite3 --arch $(node scripts/electron-native-arch.mjs)",
+    "rebuild:sqlite": "electron-rebuild -f -w better-sqlite3 --arch $(node scripts/electron-native-arch.mjs)"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",
+    "csv-parse": "^5.6.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.1"
