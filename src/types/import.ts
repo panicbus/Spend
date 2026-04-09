@@ -46,6 +46,7 @@ export interface CommitImportRow {
   amountCents: number;
   originalStatement: string;
   notes: string;
+  account?: string;
   targetType: MappingTargetType;
   targetId: number | null;
   skip: boolean;

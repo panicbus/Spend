@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS transactions (
   category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
   date TEXT NOT NULL,        -- format: "YYYY-MM-DD"
   description TEXT NOT NULL DEFAULT '',
+  merchant TEXT,
+  account TEXT,
+  original_statement TEXT,
+  notes TEXT,
   amount_cents INTEGER NOT NULL,
   source TEXT NOT NULL DEFAULT 'manual',  -- 'manual' | 'csv'
   import_hash TEXT,

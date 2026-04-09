@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { formatMonthLabel, shiftMonthKey, currentMonthKey } from '../../utils/dates';
+import { formatMonthLabel, shiftMonthKey } from '../../utils/dates';
+import { useSyncedMonthKey } from '../../hooks/useSyncedMonthKey';
 import { useBudget } from '../../hooks/useBudget';
 import { SummaryCards } from './SummaryCards';
 import { SpendingDonut } from './SpendingDonut';
@@ -11,7 +12,7 @@ import { Button } from '../common/Button';
 import './BudgetDashboard.css';
 
 export function BudgetDashboard() {
-  const [monthKey, setMonthKey] = useState(currentMonthKey);
+  const { monthKey, setMonthKey } = useSyncedMonthKey();
   const { groups, income, totals, loading, error, refetch } =
     useBudget(monthKey);
   const [expandedId, setExpandedId] = useState<number | null>(null);

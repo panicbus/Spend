@@ -170,8 +170,11 @@ api.createIncomeSource({ name })         → { id }
 api.setIncomeBudget(sourceId, monthKey, amountCents) → void
 
 // Transactions
-api.getTransactions({ monthKey, categoryId? }) → [{ id, date, description, amount_cents, category_id }]
-api.addTransaction({ category_id, date, description, amount_cents }) → { id }
+api.getTransactions(TransactionFilters) → TransactionListResult — use `categoryFilter`: `all` | `none` (hide all rows) | `subset` (+ `categoryIds`)
+api.addTransaction({ category_id, date, description?, amount_cents }) → { id }
+api.updateTransactionCategory(id, categoryId) → void
+api.deleteTransaction(id) → void
+api.deleteIncomeActual(id) → void
 
 // Monarch CSV import (`src/types/import.ts`)
 api.openCSVDialog() → string | null

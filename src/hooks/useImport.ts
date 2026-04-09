@@ -102,6 +102,7 @@ function toCommitRow(row: ParsedRow, ov: RowOverride | undefined): CommitImportR
     amountCents: row.amountCents,
     originalStatement: row.originalStatement,
     notes: row.notes,
+    account: row.account,
     targetType: e.targetType,
     targetId: e.targetId,
     skip,

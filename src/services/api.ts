@@ -32,6 +32,10 @@ export const api = {
     getBridge().getTransactions(filters),
   addTransaction: (payload: Parameters<SpendApi['addTransaction']>[0]) =>
     getBridge().addTransaction(payload),
+  updateTransactionCategory: (id: number, categoryId: number) =>
+    getBridge().updateTransactionCategory(id, categoryId),
+  deleteTransaction: (id: number) => getBridge().deleteTransaction(id),
+  deleteIncomeActual: (id: number) => getBridge().deleteIncomeActual(id),
 
   openCSVDialog: () => getBridge().openCSVDialog(),
   getPathForFile: (file: File) => getBridge().getPathForFile(file),

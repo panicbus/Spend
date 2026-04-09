@@ -20,6 +20,10 @@ const api: SpendApi = {
 
   getTransactions: (filters) => ipcRenderer.invoke('getTransactions', filters),
   addTransaction: (payload) => ipcRenderer.invoke('addTransaction', payload),
+  updateTransactionCategory: (id, categoryId) =>
+    ipcRenderer.invoke('updateTransactionCategory', id, categoryId),
+  deleteTransaction: (id) => ipcRenderer.invoke('deleteTransaction', id),
+  deleteIncomeActual: (id) => ipcRenderer.invoke('deleteIncomeActual', id),
 
   openCSVDialog: () => ipcRenderer.invoke('openCSVDialog'),
   getPathForFile: (file: File) => webUtils.getPathForFile(file),

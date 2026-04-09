@@ -7,6 +7,12 @@ import type {
   ParseCSVResult,
   SaveCategoryMappingInput,
 } from './src/types/import.js';
+import type {
+  IncomeActual,
+  Transaction,
+  TransactionFilters,
+  TransactionListResult,
+} from './src/types/transactions.js';
 
 export type {
   CategoryMapping,
@@ -17,6 +23,13 @@ export type {
   ParsedRow,
   SaveCategoryMappingInput,
 } from './src/types/import.js';
+
+export type {
+  IncomeActual,
+  Transaction,
+  TransactionFilters,
+  TransactionListResult,
+} from './src/types/transactions.js';
 
 export interface CategoryRow {
   id: number;
@@ -91,19 +104,6 @@ export interface CreateIncomeSourcePayload {
   name: string;
 }
 
-export interface TransactionFilters {
-  monthKey?: string;
-  categoryId?: number;
-}
-
-export interface TransactionRow {
-  id: number;
-  date: string;
-  description: string;
-  amount_cents: number;
-  category_id: number;
-}
-
 export interface AddTransactionPayload {
   category_id: number;
   date: string;
@@ -132,8 +132,16 @@ export interface SpendApi {
     monthKey: string,
     amountCents: number
   ) => Promise<void>;
-  getTransactions: (filters: TransactionFilters) => Promise<TransactionRow[]>;
+  getTransactions: (
+    filters: TransactionFilters
+  ) => Promise<TransactionListResult>;
   addTransaction: (payload: AddTransactionPayload) => Promise<{ id: number }>;
+  updateTransactionCategory: (
+    id: number,
+    categoryId: number
+  ) => Promise<void>;
+  deleteTransaction: (id: number) => Promise<void>;
+  deleteIncomeActual: (id: number) => Promise<void>;
 
   openCSVDialog: () => Promise<string | null>;
   getPathForFile: (file: File) => string;

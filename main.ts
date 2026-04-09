@@ -11,8 +11,13 @@ import type {
   CreateCategoryPayload,
   CreateGroupPayload,
   CreateIncomeSourcePayload,
-  TransactionFilters,
 } from './ipc-contract.js';
+import type {
+  IncomeActual,
+  Transaction,
+  TransactionFilters,
+  TransactionListResult,
+} from './src/types/transactions.js';
 import type {
   CategoryMapping,
   CommitImportRow,
@@ -52,12 +57,28 @@ function getDbPath() {
   return path.join(app.getPath('userData'), 'spend.db');
 }
 
+function tryExec(sql: string) {
+  try {
+    db.exec(sql);
+  } catch {
+    /** already applied */
+  }
+}
+
 function runSqliteMigrations() {
   try {
     db.exec('ALTER TABLE transactions ADD COLUMN import_hash TEXT');
   } catch {
     /** column already present */
   }
+  tryExec('ALTER TABLE transactions ADD COLUMN merchant TEXT');
+  tryExec('ALTER TABLE transactions ADD COLUMN account TEXT');
+  tryExec('ALTER TABLE transactions ADD COLUMN original_statement TEXT');
+  tryExec('ALTER TABLE transactions ADD COLUMN notes TEXT');
+  db.prepare(
+    `UPDATE transactions SET merchant = description
+     WHERE merchant IS NULL OR TRIM(COALESCE(merchant, '')) = ''`
+  ).run();
   db.exec(
     'CREATE INDEX IF NOT EXISTS idx_transactions_import_hash ON transactions(import_hash)'
   );
@@ -406,6 +427,174 @@ function getBudgetData(monthKey: string): BudgetPayload {
   return { groups: resultGroups, income };
 }
 
+type DbTxRow = {
+  id: number;
+  date: string;
+  amount_cents: number;
+  category_id: number;
+  import_hash: string | null;
+  source: string;
+  created_at: string;
+  description: string;
+  merchant: string;
+  account: string;
+  original_statement: string;
+  notes: string;
+  category_name: string;
+  group_name: string;
+  group_color: string;
+};
+
+type DbIncRow = {
+  id: number;
+  date: string;
+  source_id: number;
+  source_name: string;
+  amount_cents: number;
+  description: string;
+  import_hash: string | null;
+  created_at: string;
+};
+
+function mapDbTxToTransaction(row: DbTxRow): Transaction {
+  const src: 'manual' | 'csv' = row.source === 'csv' ? 'csv' : 'manual';
+  return {
+    id: row.id,
+    date: row.date,
+    merchant: row.merchant || row.description,
+    amountCents: -row.amount_cents,
+    categoryId: row.category_id,
+    categoryName: row.category_name,
+    groupName: row.group_name,
+    groupColor: row.group_color,
+    account: row.account,
+    originalStatement: row.original_statement,
+    notes: row.notes,
+    importHash: row.import_hash,
+    source: src,
+    createdAt: row.created_at,
+  };
+}
+
+function mapDbIncToIncomeActual(row: DbIncRow): IncomeActual {
+  return {
+    id: row.id,
+    date: row.date,
+    sourceId: row.source_id,
+    sourceName: row.source_name,
+    amountCents: row.amount_cents,
+    description: row.description,
+    importHash: row.import_hash,
+    createdAt: row.created_at,
+  };
+}
+
+function getTransactionsList(filters: TransactionFilters): TransactionListResult {
+  const monthKey = filters.monthKey;
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    throw new Error('Invalid monthKey (expected YYYY-MM).');
+  }
+  const likeMonth = `${monthKey}%`;
+  const ids = filters.categoryIds;
+  const mode: 'all' | 'none' | 'subset' =
+    filters.categoryFilter ??
+    (ids === undefined
+      ? 'all'
+      : ids.length === 0
+        ? 'none'
+        : 'subset');
+
+  let categoryFilterNone = mode === 'none';
+  let categoryFilterSubset = mode === 'subset';
+  let subsetIds: number[] =
+    mode === 'subset' && Array.isArray(ids) ? ids : [];
+
+  if (mode === 'subset' && subsetIds.length === 0) {
+    categoryFilterNone = true;
+    categoryFilterSubset = false;
+  }
+
+  const categoryFilterActive =
+    categoryFilterNone || categoryFilterSubset;
+  const includeIncome =
+    filters.includeIncome !== false && !categoryFilterActive;
+  const search = filters.search?.trim();
+
+  let sql = `
+    SELECT t.id, t.date, t.amount_cents, t.category_id, t.import_hash, t.source, t.created_at,
+           t.description,
+           COALESCE(NULLIF(TRIM(t.merchant), ''), t.description) AS merchant,
+           COALESCE(t.account, '') AS account,
+           COALESCE(t.original_statement, '') AS original_statement,
+           COALESCE(t.notes, '') AS notes,
+           c.name AS category_name, g.name AS group_name, g.color AS group_color
+    FROM transactions t
+    JOIN categories c ON c.id = t.category_id
+    JOIN category_groups g ON g.id = c.group_id
+    WHERE t.date LIKE ?
+  `;
+  const params: (string | number)[] = [likeMonth];
+
+  if (categoryFilterNone) {
+    sql += ' AND 1 = 0';
+  } else if (categoryFilterSubset) {
+    const placeholders = subsetIds.map(() => '?').join(',');
+    sql += ` AND t.category_id IN (${placeholders})`;
+    for (const cid of subsetIds) {
+      params.push(cid);
+    }
+  }
+
+  if (search) {
+    const term = `%${search.toLowerCase()}%`;
+    sql += ` AND (
+      LOWER(COALESCE(NULLIF(TRIM(t.merchant), ''), t.description)) LIKE ?
+      OR LOWER(COALESCE(t.original_statement, '')) LIKE ?
+      OR LOWER(COALESCE(t.notes, '')) LIKE ?
+    )`;
+    params.push(term, term, term);
+  }
+
+  sql += ' ORDER BY t.date DESC, t.created_at DESC';
+
+  const rawTx = db.prepare(sql).all(...params) as DbTxRow[];
+  const transactions = rawTx.map(mapDbTxToTransaction);
+
+  let income: IncomeActual[] = [];
+  if (includeIncome) {
+    let incSql = `
+      SELECT ia.id, ia.date, ia.source_id, s.name AS source_name,
+             ia.amount_cents, ia.description, ia.import_hash, ia.created_at
+      FROM income_actuals ia
+      JOIN income_sources s ON s.id = ia.source_id
+      WHERE ia.date LIKE ?
+    `;
+    const incParams: (string | number)[] = [likeMonth];
+    if (search) {
+      const term = `%${search.toLowerCase()}%`;
+      incSql += " AND LOWER(COALESCE(ia.description, '')) LIKE ?";
+      incParams.push(term);
+    }
+    incSql += ' ORDER BY ia.date DESC, ia.created_at DESC';
+    const rawInc = db.prepare(incSql).all(...incParams) as DbIncRow[];
+    income = rawInc.map(mapDbIncToIncomeActual);
+  }
+
+  const expenseCents = transactions.reduce(
+    (s, t) => s + Math.abs(t.amountCents),
+    0
+  );
+  const incomeCents = income.reduce((s, i) => s + i.amountCents, 0);
+  const netCents = incomeCents - expenseCents;
+  const count = transactions.length + income.length;
+
+  return {
+    transactions,
+    income,
+    totals: { expenseCents, incomeCents, netCents, count },
+  };
+}
+
 function registerIpcHandlers() {
   ipcMain.handle('getGroups', () => {
     const groups = db
@@ -532,31 +721,44 @@ function registerIpcHandlers() {
   );
 
   ipcMain.handle('getTransactions', (_, filters: TransactionFilters) => {
-    const monthKey = filters?.monthKey;
-    const categoryId = filters?.categoryId;
-    let sql = `SELECT id, date, description, amount_cents, category_id
-               FROM transactions WHERE 1=1`;
-    const params: (string | number)[] = [];
-    if (monthKey) {
-      sql += ' AND substr(date, 1, 7) = ?';
-      params.push(monthKey);
+    return getTransactionsList(filters);
+  });
+
+  ipcMain.handle(
+    'updateTransactionCategory',
+    (_, id: number, categoryId: number) => {
+      const r = db
+        .prepare('UPDATE transactions SET category_id = ? WHERE id = ?')
+        .run(categoryId, id);
+      if (r.changes === 0) {
+        throw new Error('Transaction not found or could not be updated.');
+      }
     }
-    if (categoryId != null) {
-      sql += ' AND category_id = ?';
-      params.push(categoryId);
+  );
+
+  ipcMain.handle('deleteTransaction', (_, id: number) => {
+    const r = db.prepare('DELETE FROM transactions WHERE id = ?').run(id);
+    if (r.changes === 0) {
+      throw new Error('Transaction not found.');
     }
-    sql += ' ORDER BY date DESC, id DESC';
-    return db.prepare(sql).all(...params);
+  });
+
+  ipcMain.handle('deleteIncomeActual', (_, id: number) => {
+    const r = db.prepare('DELETE FROM income_actuals WHERE id = ?').run(id);
+    if (r.changes === 0) {
+      throw new Error('Income entry not found.');
+    }
   });
 
   ipcMain.handle('addTransaction', (_, payload: AddTransactionPayload) => {
     const { category_id, date, description, amount_cents } = payload;
+    const desc = description ?? '';
     const r = db
       .prepare(
-        `INSERT INTO transactions (category_id, date, description, amount_cents)
-         VALUES (?, ?, ?, ?)`
+        `INSERT INTO transactions (category_id, date, description, merchant, amount_cents)
+         VALUES (?, ?, ?, ?, ?)`
       )
-      .run(category_id, date, description ?? '', amount_cents);
+      .run(category_id, date, desc, desc, amount_cents);
     return { id: Number(r.lastInsertRowid) };
   });
 
@@ -622,8 +824,10 @@ function registerIpcHandlers() {
     );
 
     const insertTx = db.prepare(
-      `INSERT INTO transactions (category_id, date, description, amount_cents, source, import_hash)
-       VALUES (?, ?, ?, ?, 'csv', ?)`
+      `INSERT INTO transactions (
+         category_id, date, description, merchant, account, original_statement, notes,
+         amount_cents, source, import_hash
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'csv', ?)`
     );
     const insertInc = db.prepare(
       `INSERT INTO income_actuals (source_id, date, description, amount_cents, import_hash)
@@ -646,6 +850,10 @@ function registerIpcHandlers() {
             row.targetId,
             row.date,
             row.merchant,
+            row.merchant,
+            row.account ?? '',
+            row.originalStatement,
+            row.notes,
             stored,
             row.importHash
           );

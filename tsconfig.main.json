@@ -11,5 +11,10 @@
     "types": ["node"],
     "skipLibCheck": true
   },
-  "include": ["main.ts", "ipc-contract.ts", "src/types/import.ts"]
+  "include": [
+    "main.ts",
+    "ipc-contract.ts",
+    "src/types/import.ts",
+    "src/types/transactions.ts"
+  ]
 }
