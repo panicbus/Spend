@@ -123,14 +123,12 @@ export function CategoryCard({
       </button>
 
       <div className="category-card__bar-wrap" aria-hidden>
-        <svg
-          className="category-card__bar"
-          viewBox="0 0 100 6"
-          preserveAspectRatio="none"
-        >
-          <rect width="100" height="6" rx="3" fill="var(--bar-track)" />
-          <rect width={barW} height="6" rx="3" fill={fill} />
-        </svg>
+        <div className="category-card__bar-track">
+          <div
+            className="category-card__bar-fill"
+            style={{ width: `${barW}%`, background: fill }}
+          />
+        </div>
       </div>
 
       <div className="category-card__footnote">
@@ -194,19 +192,12 @@ export function CategoryCard({
                       )}
                     </span>
                   </div>
-                  <svg
-                    className="category-card__line-bar"
-                    viewBox="0 0 100 6"
-                    preserveAspectRatio="none"
-                  >
-                    <rect
-                      width="100"
-                      height="6"
-                      rx="3"
-                      fill="var(--bar-track)"
+                  <div className="category-card__line-bar-track">
+                    <div
+                      className="category-card__line-bar-fill"
+                      style={{ width: `${lineW}%`, background: lineFill }}
                     />
-                    <rect width={lineW} height="6" rx="3" fill={lineFill} />
-                  </svg>
+                  </div>
                 </li>
               );
             })}

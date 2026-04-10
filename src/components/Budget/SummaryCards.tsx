@@ -22,6 +22,8 @@ export function SummaryCards({ totals }: SummaryCardsProps) {
       : 0;
 
   const incomeRemaining = incomeBudget - incomeActual;
+  const incomeAhead = incomeActual > incomeBudget;
+  const incomeAheadAmount = incomeActual - incomeBudget;
 
   return (
     <div className="summary-cards">
@@ -46,8 +48,16 @@ export function SummaryCards({ totals }: SummaryCardsProps) {
       <div className="summary-card summary-card--default">
         <div className="summary-card__label">Income earned</div>
         <div className="summary-card__value">{formatCurrency(incomeActual)}</div>
-        <div className="summary-card__meta">
-          {formatCurrency(incomeRemaining)} expected remaining
+        <div
+          className={
+            incomeAhead
+              ? 'summary-card__meta summary-card__meta--income-ahead'
+              : 'summary-card__meta'
+          }
+        >
+          {incomeAhead
+            ? `${formatCurrency(incomeAheadAmount)} ahead of budget`
+            : `${formatCurrency(incomeRemaining)} expected remaining`}
         </div>
       </div>
     </div>

@@ -16,8 +16,14 @@ export function formatInputDollars(value: string) {
   return Math.round(n * 100);
 }
 
+/** Plain dollar string for budget inputs: whole dollars without “.00”; cents only when needed. */
 export function dollarsFromCentsInput(cents: number) {
-  return ((Number(cents) || 0) / 100).toFixed(2);
+  const dollars = (Number(cents) || 0) / 100;
+  return dollars.toLocaleString('en-US', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    useGrouping: false,
+  });
 }
 
 export const CATEGORY_COLOR_PRESETS: ReadonlyArray<{

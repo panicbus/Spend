@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import type { BudgetIncomeRow } from '../../../ipc-contract';
 import {
   formatCurrency,
@@ -51,6 +51,16 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
     onChanged();
   }, [createIncomeSource, newName, onChanged]);
 
+  const totals = useMemo(() => {
+    let budget = 0;
+    let actual = 0;
+    for (const row of income) {
+      budget += row.budget_cents ?? 0;
+      actual += row.actual_cents ?? 0;
+    }
+    return { budget, actual, remaining: budget - actual };
+  }, [income]);
+
   return (
     <section className="income-section" aria-label="Income">
       <h2 className="income-section__heading">Income</h2>
@@ -101,6 +111,20 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
             </div>
           );
         })}
+        {income.length > 0 && (
+          <div className="income-section__row income-section__row--total">
+            <span className="income-section__name">Total income</span>
+            <span className="income-section__cell">
+              {formatCurrency(totals.budget)}
+            </span>
+            <span className="income-section__cell">
+              {formatCurrency(totals.actual)}
+            </span>
+            <span className="income-section__cell income-section__cell--muted">
+              {formatCurrency(totals.remaining)}
+            </span>
+          </div>
+        )}
       </div>
 
       <Button

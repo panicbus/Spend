@@ -41,6 +41,15 @@
   border-top: none;
 }
 
+.income-section__row--total {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.income-section__row--total .income-section__name {
+  font-weight: 700;
+}
+
 .income-section__name {
   font-weight: 500;
   color: var(--text-primary);

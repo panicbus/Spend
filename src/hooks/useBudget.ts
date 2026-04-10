@@ -8,25 +8,40 @@ export function useBudget(monthKey: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchBudget = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.getBudget(monthKey);
-      setGroups(res.groups ?? []);
-      setIncome(res.income ?? []);
-    } catch (e) {
-      console.error('useBudget:', e);
-      setGroups([]);
-      setIncome([]);
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [monthKey]);
+  const fetchBudget = useCallback(
+    async (mode: 'full' | 'background' = 'full') => {
+      const background = mode === 'background';
+      if (!background) {
+        setLoading(true);
+        setError(null);
+      }
+      try {
+        const res = await api.getBudget(monthKey);
+        setGroups(res.groups ?? []);
+        setIncome(res.income ?? []);
+        setError(null);
+      } catch (e) {
+        console.error('useBudget:', e);
+        if (!background) {
+          setGroups([]);
+          setIncome([]);
+        }
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!background) {
+          setLoading(false);
+        }
+      }
+    },
+    [monthKey]
+  );
 
   useEffect(() => {
-    void fetchBudget();
+    void fetchBudget('full');
+  }, [fetchBudget]);
+
+  const refetch = useCallback(() => {
+    void fetchBudget('background');
   }, [fetchBudget]);
 
   const totals = useMemo((): BudgetTotals => {
@@ -53,6 +68,6 @@ export function useBudget(monthKey: string) {
     totals,
     loading,
     error,
-    refetch: fetchBudget,
+    refetch,
   };
 }
