@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS budgets (
   category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
   month_key TEXT NOT NULL,  -- format: "YYYY-MM"
   amount_cents INTEGER NOT NULL DEFAULT 0,
+  frequency TEXT NOT NULL DEFAULT 'monthly',
+  annual_amount_cents INTEGER,
   UNIQUE(category_id, month_key)
 );
 

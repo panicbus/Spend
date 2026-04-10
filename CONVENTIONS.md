@@ -142,7 +142,7 @@ better-sqlite3 — synchronous, runs in Electron main process only. All queries 
 ### Key Tables
 - `category_groups` — id, name, color, sort_order
 - `categories` — id, group_id (FK), name, sort_order
-- `budgets` — id, category_id (FK), month_key, amount_cents
+- `budgets` — id, category_id (FK), month_key, amount_cents, frequency (`monthly` | `quarterly` | `yearly` | `bimonthly`), annual_amount_cents (nullable; sinking funds)
 - `income_sources` — id, name, sort_order
 - `income_budgets` — id, source_id (FK), month_key, amount_cents
 - `transactions` — id, category_id (FK), date, description, amount_cents, source (manual|csv), import_hash (optional)
@@ -162,7 +162,8 @@ api.deleteGroup(id)                      → void
 
 // Budgets
 api.getBudget(monthKey)                  → { groups: [...with budget amounts and spent totals], income: [...] }
-api.setBudgetAmount(categoryId, monthKey, amountCents) → void
+api.setBudgetAmount(categoryId, monthKey, amountCents) → void (monthly only; clears sinking fields)
+api.setBudgetDetails(categoryId, monthKey, { frequency, amountCents?, annualAmountCents? }) → void
 
 // Income
 api.getIncomeSources()                   → [{ id, name }]

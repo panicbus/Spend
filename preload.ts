@@ -11,6 +11,8 @@ const api: SpendApi = {
   getBudget: (monthKey) => ipcRenderer.invoke('getBudget', monthKey),
   setBudgetAmount: (categoryId, monthKey, amountCents) =>
     ipcRenderer.invoke('setBudgetAmount', categoryId, monthKey, amountCents),
+  setBudgetDetails: (categoryId, monthKey, details) =>
+    ipcRenderer.invoke('setBudgetDetails', categoryId, monthKey, details),
 
   getIncomeSources: () => ipcRenderer.invoke('getIncomeSources'),
   createIncomeSource: (payload) =>

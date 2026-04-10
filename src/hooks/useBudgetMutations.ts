@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import type { SetBudgetDetailsInput } from '../../ipc-contract';
 import { api } from '../services/api';
 
 export function useBudgetMutations() {
@@ -8,5 +9,14 @@ export function useBudgetMutations() {
     []
   );
 
-  return { setBudgetAmount };
+  const setBudgetDetails = useCallback(
+    (
+      categoryId: number,
+      monthKey: string,
+      details: SetBudgetDetailsInput
+    ) => api.setBudgetDetails(categoryId, monthKey, details),
+    []
+  );
+
+  return { setBudgetAmount, setBudgetDetails };
 }

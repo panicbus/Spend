@@ -7,10 +7,12 @@ import { parse } from 'csv-parse/sync';
 import Database from 'better-sqlite3';
 import type {
   AddTransactionPayload,
+  BudgetFrequency,
   BudgetPayload,
   CreateCategoryPayload,
   CreateGroupPayload,
   CreateIncomeSourcePayload,
+  SetBudgetDetailsInput,
 } from './ipc-contract.js';
 import type {
   IncomeActual,
@@ -82,19 +84,79 @@ function runSqliteMigrations() {
   db.exec(
     'CREATE INDEX IF NOT EXISTS idx_transactions_import_hash ON transactions(import_hash)'
   );
+  tryExec(
+    "ALTER TABLE budgets ADD COLUMN frequency TEXT NOT NULL DEFAULT 'monthly'"
+  );
+  tryExec('ALTER TABLE budgets ADD COLUMN annual_amount_cents INTEGER');
+}
+
+const BUDGET_FREQUENCIES = new Set<string>([
+  'monthly',
+  'quarterly',
+  'yearly',
+  'bimonthly',
+]);
+
+function normalizeBudgetFrequency(raw: string | null | undefined): BudgetFrequency {
+  const s = raw ?? 'monthly';
+  return BUDGET_FREQUENCIES.has(s) ? (s as BudgetFrequency) : 'monthly';
+}
+
+function monthKeyToYtdBounds(monthKey: string): { start: string; end: string } {
+  const [ys, ms] = monthKey.split('-');
+  const year = Number(ys);
+  const month = Number(ms);
+  const last = new Date(year, month, 0);
+  const dd = String(last.getDate()).padStart(2, '0');
+  const mm = String(last.getMonth() + 1).padStart(2, '0');
+  return { start: `${year}-01-01`, end: `${year}-${mm}-${dd}` };
+}
+
+function monthNumberFromMonthKey(monthKey: string): number {
+  return Number(monthKey.split('-')[1]);
 }
 
 function initDb() {
   const userData = app.getPath('userData');
   fs.mkdirSync(userData, { recursive: true });
-  db = new Database(getDbPath());
+  const dbPath = getDbPath();
+  if (
+    process.env.NODE_ENV === 'development' ||
+    process.env.ELECTRON_IS_DEV === '1'
+  ) {
+    console.info('[Spend] database file:', dbPath);
+  }
+  db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
+  /** Stronger durability than NORMAL — budget writes should survive abrupt dev-server / terminal stop. */
+  db.pragma('synchronous = FULL');
   db.pragma('foreign_keys = ON');
   const schemaPath = path.join(__dirname, '..', 'database', 'schema.sql');
   const schema = fs.readFileSync(schemaPath, 'utf8');
   db.exec(schema);
   /** Must run after schema: ADD COLUMN for legacy DBs, then index (not in schema.sql). */
   runSqliteMigrations();
+}
+
+/**
+ * WAL data lives in `-wal` until checkpointed. Merging to the main file + close ensures
+ * edits persist when the dev terminal sends SIGINT/SIGTERM (often without firing `before-quit`).
+ */
+function flushAndCloseDb() {
+  try {
+    if (db?.open) {
+      db.pragma('wal_checkpoint(TRUNCATE)');
+    }
+  } catch (e) {
+    console.error('[Spend] wal_checkpoint:', e);
+  }
+  try {
+    if (db?.open) {
+      db.close();
+    }
+  } catch (e) {
+    console.error('[Spend] db.close:', e);
+  }
 }
 
 function copyMonthTemplateIfNeeded(monthKey: string) {
@@ -118,8 +180,8 @@ function copyMonthTemplateIfNeeded(monthKey: string) {
   const prevKey = prev.month_key;
 
   db.prepare(
-    `INSERT OR REPLACE INTO budgets (category_id, month_key, amount_cents)
-     SELECT category_id, ?, amount_cents FROM budgets WHERE month_key = ?`
+    `INSERT OR REPLACE INTO budgets (category_id, month_key, amount_cents, frequency, annual_amount_cents)
+     SELECT category_id, ?, amount_cents, frequency, annual_amount_cents FROM budgets WHERE month_key = ?`
   ).run(monthKey, prevKey);
 
   db.prepare(
@@ -337,6 +399,22 @@ function getBudgetData(monthKey: string): BudgetPayload {
     spentRows.map((r) => [r.category_id, r.spent_cents])
   );
 
+  const { start: ytdStart, end: ytdEnd } = monthKeyToYtdBounds(monthKey);
+  const ytdRows = db
+    .prepare(
+      `SELECT category_id, COALESCE(SUM(amount_cents), 0) AS spent_ytd
+       FROM transactions
+       WHERE date >= ? AND date <= ?
+       GROUP BY category_id`
+    )
+    .all(ytdStart, ytdEnd) as { category_id: number; spent_ytd: number }[];
+
+  const spentYtdByCat: Record<number, number> = Object.fromEntries(
+    ytdRows.map((r) => [r.category_id, r.spent_ytd])
+  );
+
+  const monthNum = monthNumberFromMonthKey(monthKey);
+
   const actualRows = db
     .prepare(
       `SELECT source_id, COALESCE(SUM(amount_cents), 0) AS actual_cents
@@ -360,7 +438,8 @@ function getBudgetData(monthKey: string): BudgetPayload {
   }[];
 
   const getBudget = db.prepare(
-    'SELECT amount_cents FROM budgets WHERE category_id = ? AND month_key = ?'
+    `SELECT amount_cents, frequency, annual_amount_cents
+     FROM budgets WHERE category_id = ? AND month_key = ?`
   );
   const getCats = db.prepare(
     'SELECT * FROM categories WHERE group_id = ? ORDER BY sort_order ASC, id ASC'
@@ -376,10 +455,35 @@ function getBudgetData(monthKey: string): BudgetPayload {
     let groupSpent = 0;
     const categories = cats.map((c) => {
       const b = getBudget.get(c.id, monthKey) as
-        | { amount_cents: number }
+        | {
+            amount_cents: number;
+            frequency: string;
+            annual_amount_cents: number | null;
+          }
         | undefined;
       const budget_cents = b ? b.amount_cents : 0;
       const spent_cents = spentByCat[c.id] ?? 0;
+      const rawFreq = normalizeBudgetFrequency(b?.frequency);
+      const annualRaw = b?.annual_amount_cents ?? null;
+      const isSinking = rawFreq !== 'monthly' && annualRaw != null;
+      const frequency: BudgetFrequency = isSinking ? rawFreq : 'monthly';
+      const annual_amount_cents = isSinking ? annualRaw : null;
+
+      const spent_ytd_cents = spentYtdByCat[c.id] ?? 0;
+      let accumulated_cents: number;
+      let remaining_cents: number;
+      let is_on_track: boolean;
+      if (isSinking && annual_amount_cents != null) {
+        const monthlySetAside = Math.round(annual_amount_cents / 12);
+        accumulated_cents = monthlySetAside * monthNum;
+        remaining_cents = accumulated_cents - spent_ytd_cents;
+        is_on_track = spent_ytd_cents <= accumulated_cents;
+      } else {
+        accumulated_cents = budget_cents;
+        remaining_cents = budget_cents - spent_cents;
+        is_on_track = spent_cents <= budget_cents;
+      }
+
       groupBudget += budget_cents;
       groupSpent += spent_cents;
       return {
@@ -388,6 +492,12 @@ function getBudgetData(monthKey: string): BudgetPayload {
         sort_order: c.sort_order,
         budget_cents,
         spent_cents,
+        frequency,
+        annual_amount_cents,
+        accumulated_cents,
+        spent_ytd_cents: isSinking ? spent_ytd_cents : spent_cents,
+        remaining_cents,
+        is_on_track,
       };
     });
     return {
@@ -676,11 +786,57 @@ function registerIpcHandlers() {
     'setBudgetAmount',
     (_, categoryId: number, monthKey: string, amountCents: number) => {
       db.prepare(
-        `INSERT INTO budgets (category_id, month_key, amount_cents)
-       VALUES (?, ?, ?)
+        `INSERT INTO budgets (category_id, month_key, amount_cents, frequency, annual_amount_cents)
+       VALUES (?, ?, ?, 'monthly', NULL)
        ON CONFLICT(category_id, month_key) DO UPDATE SET
-         amount_cents = excluded.amount_cents`
+         amount_cents = excluded.amount_cents,
+         frequency = 'monthly',
+         annual_amount_cents = NULL`
       ).run(categoryId, monthKey, amountCents);
+    }
+  );
+
+  ipcMain.handle(
+    'setBudgetDetails',
+    (
+      _,
+      categoryId: number,
+      monthKey: string,
+      details: SetBudgetDetailsInput
+    ) => {
+      const freq = details.frequency;
+      if (!BUDGET_FREQUENCIES.has(freq)) {
+        throw new Error('Invalid budget frequency.');
+      }
+      if (freq === 'monthly') {
+        const amt = details.amountCents;
+        if (amt == null || !Number.isFinite(amt)) {
+          throw new Error('Monthly budget amount is required.');
+        }
+        db.prepare(
+          `INSERT INTO budgets (category_id, month_key, amount_cents, frequency, annual_amount_cents)
+           VALUES (?, ?, ?, 'monthly', NULL)
+           ON CONFLICT(category_id, month_key) DO UPDATE SET
+             amount_cents = excluded.amount_cents,
+             frequency = 'monthly',
+             annual_amount_cents = NULL`
+        ).run(categoryId, monthKey, Math.round(amt));
+        return;
+      }
+      const annual = details.annualAmountCents;
+      if (annual == null || !Number.isFinite(annual)) {
+        throw new Error('Annual amount is required for this frequency.');
+      }
+      const annualInt = Math.round(annual);
+      const monthlySetAside = Math.round(annualInt / 12);
+      db.prepare(
+        `INSERT INTO budgets (category_id, month_key, amount_cents, frequency, annual_amount_cents)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(category_id, month_key) DO UPDATE SET
+           amount_cents = excluded.amount_cents,
+           frequency = excluded.frequency,
+           annual_amount_cents = excluded.annual_amount_cents`
+      ).run(categoryId, monthKey, monthlySetAside, freq, annualInt);
     }
   );
 
@@ -932,9 +1088,19 @@ app.whenReady().then(() => {
   });
 });
 
+app.on('before-quit', () => {
+  flushAndCloseDb();
+});
+
 app.on('window-all-closed', () => {
-  if (db) {
-    db.close();
-  }
   if (process.platform !== 'darwin') app.quit();
 });
+
+for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(sig, () => {
+    console.info(`[Spend] ${sig} received — flushing database to disk`);
+    flushAndCloseDb();
+    /** Hard exit: avoid a half-shut app still issuing IPC against a closed DB. */
+    app.exit(0);
+  });
+}

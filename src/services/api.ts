@@ -21,6 +21,11 @@ export const api = {
   getBudget: (monthKey: string) => getBridge().getBudget(monthKey),
   setBudgetAmount: (categoryId: number, monthKey: string, amountCents: number) =>
     getBridge().setBudgetAmount(categoryId, monthKey, amountCents),
+  setBudgetDetails: (
+    categoryId: number,
+    monthKey: string,
+    details: Parameters<SpendApi['setBudgetDetails']>[2]
+  ) => getBridge().setBudgetDetails(categoryId, monthKey, details),
 
   getIncomeSources: () => getBridge().getIncomeSources(),
   createIncomeSource: (payload: Parameters<SpendApi['createIncomeSource']>[0]) =>

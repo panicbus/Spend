@@ -56,12 +56,30 @@ export interface CreateCategoryPayload {
   name: string;
 }
 
+export type BudgetFrequency =
+  | 'monthly'
+  | 'quarterly'
+  | 'yearly'
+  | 'bimonthly';
+
 export interface BudgetCategoryLine {
   id: number;
   name: string;
   sort_order: number;
   budget_cents: number;
   spent_cents: number;
+  frequency: BudgetFrequency;
+  annual_amount_cents: number | null;
+  accumulated_cents: number;
+  spent_ytd_cents: number;
+  remaining_cents: number;
+  is_on_track: boolean;
+}
+
+export interface SetBudgetDetailsInput {
+  frequency: BudgetFrequency;
+  amountCents?: number;
+  annualAmountCents?: number;
 }
 
 export interface BudgetGroup {
@@ -122,6 +140,11 @@ export interface SpendApi {
     categoryId: number,
     monthKey: string,
     amountCents: number
+  ) => Promise<void>;
+  setBudgetDetails: (
+    categoryId: number,
+    monthKey: string,
+    details: SetBudgetDetailsInput
   ) => Promise<void>;
   getIncomeSources: () => Promise<IncomeSourceRow[]>;
   createIncomeSource: (
