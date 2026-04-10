@@ -80,7 +80,8 @@
   transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.category-card--expanded .category-card__chevron {
+.category-card--expanded .category-card__chevron,
+.category-card--detail-open .category-card__chevron {
   transform: rotate(180deg);
 }
 
@@ -186,6 +187,12 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.category-card__lines--in-overlay {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .category-card__line-head {
