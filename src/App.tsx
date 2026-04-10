@@ -8,15 +8,17 @@ import { SettingsPlaceholder } from './components/Settings/SettingsPlaceholder';
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route path="/" element={<BudgetDashboard />} />
-          <Route path="/transactions" element={<TransactionList />} />
-          <Route path="/import" element={<ImportView />} />
-          <Route path="/settings" element={<SettingsPlaceholder />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <div className="app-root">
+      <BrowserRouter>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/" element={<BudgetDashboard />} />
+            <Route path="/transactions" element={<TransactionList />} />
+            <Route path="/import" element={<ImportView />} />
+            <Route path="/settings" element={<SettingsPlaceholder />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </div>
   );
 }

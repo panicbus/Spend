@@ -9,9 +9,14 @@ import React, {
 import { Link } from 'react-router-dom';
 import type { MergedTransactionRow } from '../../hooks/useTransactionList';
 import { useTransactionList } from '../../hooks/useTransactionList';
-import { formatMonthLabel, shiftMonthKey } from '../../utils/dates';
+import {
+  canGoToPreviousDataMonth,
+  formatMonthLabel,
+  shiftMonthKey,
+} from '../../utils/dates';
 import { formatCurrency } from '../../services/formatters';
 import { Button } from '../common/Button';
+import { ReturnToCurrentMonthButton } from '../common/ReturnToCurrentMonthButton';
 import '../common/Button.css';
 import type { GroupWithCategories } from '../../../ipc-contract';
 import './TransactionList.css';
@@ -252,30 +257,39 @@ export function TransactionList() {
     <div className="transaction-list">
       <header className="transaction-list__header">
         <h1 className="transaction-list__title">Transactions</h1>
-        <div className="transaction-list__month-nav">
-          <button
-            type="button"
-            className="transaction-list__nav"
-            aria-label="Previous month"
-            onClick={() => {
-              setMonthKey(shiftMonthKey(monthKey, -1));
-            }}
-          >
-            ‹
-          </button>
-          <span className="transaction-list__month-label">
-            {formatMonthLabel(monthKey)}
-          </span>
-          <button
-            type="button"
-            className="transaction-list__nav"
-            aria-label="Next month"
-            onClick={() => {
-              setMonthKey(shiftMonthKey(monthKey, 1));
-            }}
-          >
-            ›
-          </button>
+        <div className="transaction-list__month-row">
+          <span className="transaction-list__month-row-spacer" aria-hidden />
+          <div className="transaction-list__month-nav">
+            <button
+              type="button"
+              className="transaction-list__nav"
+              aria-label="Previous month"
+              disabled={!canGoToPreviousDataMonth(monthKey)}
+              onClick={() => {
+                setMonthKey(shiftMonthKey(monthKey, -1));
+              }}
+            >
+              ‹
+            </button>
+            <span className="transaction-list__month-label">
+              {formatMonthLabel(monthKey)}
+            </span>
+            <button
+              type="button"
+              className="transaction-list__nav"
+              aria-label="Next month"
+              onClick={() => {
+                setMonthKey(shiftMonthKey(monthKey, 1));
+              }}
+            >
+              ›
+            </button>
+          </div>
+          <ReturnToCurrentMonthButton
+            monthKey={monthKey}
+            setMonthKey={setMonthKey}
+            onAfterNavigate={() => setExpandedKey(null)}
+          />
         </div>
       </header>
 

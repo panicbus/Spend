@@ -18,11 +18,30 @@
   text-align: center;
 }
 
+.transaction-list__month-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.transaction-list__month-row-spacer {
+  grid-column: 1;
+  min-width: 0;
+}
+
 .transaction-list__month-nav {
+  grid-column: 2;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 20px;
+}
+
+.transaction-list__month-row .return-current-month {
+  grid-column: 3;
+  justify-self: end;
+  white-space: nowrap;
 }
 
 .transaction-list__month-label {
@@ -51,9 +70,17 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.transaction-list__nav:hover {
+.transaction-list__nav:hover:not(:disabled) {
   background: var(--bg-card-alt);
   border-color: var(--border-strong);
+}
+
+.transaction-list__nav:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  color: var(--text-tertiary);
+  background: var(--bg-card-alt);
+  border-color: var(--border);
 }
 
 .transaction-list__filters {

@@ -24,7 +24,7 @@ export interface UseTransactionListReturn {
   refreshing: boolean;
   error: string | null;
   monthKey: string;
-  setMonthKey: (k: string) => void;
+  setMonthKey: SetMonthKeyFn;
   categoryIds: number[] | undefined;
   setCategoryIds: (ids: number[] | undefined) => void;
   searchText: string;

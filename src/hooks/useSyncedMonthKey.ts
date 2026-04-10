@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { currentMonthKey } from '../utils/dates';
+import { clampMonthKeyToEarliestData, currentMonthKey } from '../utils/dates';
 import {
   MONTH_KEY_CHANGED_EVENT,
   readStoredMonthKey,
@@ -16,14 +16,17 @@ export function useSyncedMonthKey(initialFallback?: string): {
   setMonthKey: SetMonthKeyFn;
 } {
   const [monthKey, setMonthKeyState] = useState(() =>
-    readStoredMonthKey(initialFallback ?? currentMonthKey())
+    clampMonthKeyToEarliestData(
+      readStoredMonthKey(initialFallback ?? currentMonthKey())
+    )
   );
 
   useEffect(() => {
     const onExternal = (e: Event) => {
       const m = (e as CustomEvent<MonthKeyChangedDetail>).detail?.monthKey;
       if (m && /^\d{4}-\d{2}$/.test(m)) {
-        setMonthKeyState((k) => (k === m ? k : m));
+        const c = clampMonthKeyToEarliestData(m);
+        setMonthKeyState((k) => (k === c ? k : c));
       }
     };
     window.addEventListener(MONTH_KEY_CHANGED_EVENT, onExternal);
@@ -33,7 +36,8 @@ export function useSyncedMonthKey(initialFallback?: string): {
 
   const setMonthKey = useCallback((update: string | ((prev: string) => string)) => {
     setMonthKeyState((prev) => {
-      const next = typeof update === 'function' ? update(prev) : update;
+      const raw = typeof update === 'function' ? update(prev) : update;
+      const next = clampMonthKeyToEarliestData(raw);
       if (next !== prev) {
         writeStoredMonthKey(next);
       }

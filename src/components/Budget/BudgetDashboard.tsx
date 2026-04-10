@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { formatMonthLabel, shiftMonthKey } from '../../utils/dates';
+import {
+  canGoToPreviousDataMonth,
+  formatMonthLabel,
+  shiftMonthKey,
+} from '../../utils/dates';
 import { useSyncedMonthKey } from '../../hooks/useSyncedMonthKey';
 import { useBudget } from '../../hooks/useBudget';
 import { SummaryCards } from './SummaryCards';
@@ -9,6 +13,7 @@ import { IncomeSection } from './IncomeSection';
 import { AddGroupModal } from './AddGroupModal';
 import { AddCategoriesModal } from './AddCategoriesModal';
 import { Button } from '../common/Button';
+import { ReturnToCurrentMonthButton } from '../common/ReturnToCurrentMonthButton';
 import './BudgetDashboard.css';
 
 export function BudgetDashboard() {
@@ -36,31 +41,40 @@ export function BudgetDashboard() {
   return (
     <div className="budget-dashboard">
       <header className="budget-dashboard__header">
-        <button
-          type="button"
-          className="budget-dashboard__nav"
-          aria-label="Previous month"
-          onClick={() => {
-            setMonthKey((k) => shiftMonthKey(k, -1));
-            setExpandedId(null);
-          }}
-        >
-          ‹
-        </button>
-        <h1 className="budget-dashboard__title">
-          {formatMonthLabel(monthKey)}
-        </h1>
-        <button
-          type="button"
-          className="budget-dashboard__nav"
-          aria-label="Next month"
-          onClick={() => {
-            setMonthKey((k) => shiftMonthKey(k, 1));
-            setExpandedId(null);
-          }}
-        >
-          ›
-        </button>
+        <span className="budget-dashboard__header-spacer" aria-hidden />
+        <div className="budget-dashboard__month-nav">
+          <button
+            type="button"
+            className="budget-dashboard__nav"
+            aria-label="Previous month"
+            disabled={!canGoToPreviousDataMonth(monthKey)}
+            onClick={() => {
+              setMonthKey((k) => shiftMonthKey(k, -1));
+              setExpandedId(null);
+            }}
+          >
+            ‹
+          </button>
+          <h1 className="budget-dashboard__title">
+            {formatMonthLabel(monthKey)}
+          </h1>
+          <button
+            type="button"
+            className="budget-dashboard__nav"
+            aria-label="Next month"
+            onClick={() => {
+              setMonthKey((k) => shiftMonthKey(k, 1));
+              setExpandedId(null);
+            }}
+          >
+            ›
+          </button>
+        </div>
+        <ReturnToCurrentMonthButton
+          monthKey={monthKey}
+          setMonthKey={setMonthKey}
+          onAfterNavigate={() => setExpandedId(null)}
+        />
       </header>
 
       {loading && (
