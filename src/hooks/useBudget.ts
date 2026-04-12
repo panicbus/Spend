@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BudgetGroup, BudgetIncomeRow, BudgetTotals } from '../../ipc-contract';
 import { api } from '../services/api';
+import { DATA_CHANGED_EVENT } from '../utils/dataChanged';
 
 export function useBudget(monthKey: string) {
   const [groups, setGroups] = useState<BudgetGroup[]>([]);
@@ -38,6 +39,12 @@ export function useBudget(monthKey: string) {
 
   useEffect(() => {
     void fetchBudget('full');
+  }, [fetchBudget]);
+
+  useEffect(() => {
+    const onData = () => void fetchBudget('background');
+    window.addEventListener(DATA_CHANGED_EVENT, onData);
+    return () => window.removeEventListener(DATA_CHANGED_EVENT, onData);
   }, [fetchBudget]);
 
   const refetch = useCallback(() => {

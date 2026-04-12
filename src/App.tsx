@@ -4,7 +4,7 @@ import { AppShell } from './components/Layout/AppShell';
 import { BudgetDashboard } from './components/Budget/BudgetDashboard';
 import { TransactionList } from './components/Transactions/TransactionList';
 import { ImportView } from './components/Import/ImportView';
-import { SettingsPlaceholder } from './components/Settings/SettingsPlaceholder';
+import { SettingsPage } from './components/Settings/SettingsPage';
 
 export default function App() {
   return (
@@ -15,7 +15,7 @@ export default function App() {
             <Route path="/" element={<BudgetDashboard />} />
             <Route path="/transactions" element={<TransactionList />} />
             <Route path="/import" element={<ImportView />} />
-            <Route path="/settings" element={<SettingsPlaceholder />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

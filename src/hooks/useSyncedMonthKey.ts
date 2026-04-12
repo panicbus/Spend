@@ -6,7 +6,6 @@ import {
   writeStoredMonthKey,
   type MonthKeyChangedDetail,
 } from '../utils/monthKeyStorage';
-
 export type SetMonthKeyFn = (
   update: string | ((prev: string) => string)
 ) => void;

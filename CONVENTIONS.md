@@ -41,7 +41,9 @@ spend-app/
 │   │   ├── Transactions/
 │   │   │   └── TransactionList.tsx  # (Phase 2)
 │   │   ├── Import/
-│   │   │   └── ImportView.tsx       # CSV upload UI (Phase 2)
+│   │   │   └── ImportView.tsx       # CSV import + mapping
+│   │   ├── Settings/
+│   │   │   └── SettingsPage.tsx     # Categories, income, mappings, data, preferences
 │   │   ├── Setup/
 │   │   │   └── SetupWizard.tsx      # First-run onboarding (Phase 2)
 │   │   └── common/
@@ -160,6 +162,23 @@ api.createCategory({ group_id, name })   → { id }
 api.createCategoryForImport({ categoryName, existingGroupId?, newGroup? }) → { categoryId, groupId }
 api.deleteCategory(id)                   → void
 api.deleteGroup(id)                      → void
+api.getPreferences()                     → { defaultMonthOnLaunch: 'current' | 'last_viewed' }
+api.setPreferences({ defaultMonthOnLaunch? }) → void
+api.updateGroup({ id, name, color })   → void
+api.reorderGroup({ id, direction: 'up'|'down' }) → void
+api.moveGroupCategoriesDeleteGroup({ sourceGroupId, targetGroupId }) → void
+api.getGroupDeletePreview(groupId) → { categoryCount, transactionCount }
+api.updateCategory({ id, name, groupId }) → void
+api.reorderCategory({ id, direction }) → void
+api.getCategoryDeletePreview(categoryId) → { transactionCount, budgetRowCount }
+api.updateIncomeSource({ id, name })   → void
+api.reorderIncomeSource({ id, direction }) → void
+api.getIncomeSourceDeletePreview(id)   → { actualCount, budgetRowCount }
+api.deleteIncomeSource(id)             → void
+api.deleteCategoryMapping(mappingId)     → void
+api.exportDatabaseBackup()             → string | null (save dialog; null if canceled)
+api.importDatabaseBackup()             → void (confirm in UI; replaces DB; reloads windows)
+api.resetDatabase('transactions'|'full') → void (reloads windows)
 
 // Budgets
 api.getBudget(monthKey)                  → { groups: [...with budget amounts and spent totals], income: [...] }

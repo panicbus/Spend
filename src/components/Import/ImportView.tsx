@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GroupWithCategories, IncomeSourceRow } from '../../../ipc-contract';
-import type { MappingTargetType, ParsedRow } from '../../types/import';
+import type { ParsedRow } from '../../types/import';
 import {
   useImport,
   effectiveRowTarget,
@@ -8,75 +8,13 @@ import {
 } from '../../hooks/useImport';
 import type { RowOverride } from '../../hooks/useImport';
 import { api } from '../../services/api';
+import { DATA_CHANGED_EVENT } from '../../utils/dataChanged';
 import { formatCurrency } from '../../services/formatters';
 import { Button } from '../common/Button';
 import { ImportCreateCategoryForm } from './ImportCreateCategoryForm';
+import { MappingTargetSelect } from '../common/MappingTargetSelect';
+import { mappingAssignmentToSelectValue } from '../../utils/mappingSelectValue';
 import './ImportView.css';
-
-function mappingAssignmentToSelect(
-  a:
-    | { targetType: MappingTargetType; targetId: number | null }
-    | undefined
-): string {
-  if (!a) return '';
-  if (a.targetType === 'skip') return 'skip';
-  if (a.targetType === 'income_source' && a.targetId != null) {
-    return `income:${a.targetId}`;
-  }
-  if (a.targetType === 'category' && a.targetId != null) {
-    return `cat:${a.targetId}`;
-  }
-  return '';
-}
-
-function CategorySelect({
-  value,
-  onChange,
-  groups,
-  incomeSources,
-  className,
-  withCreateCategory = true,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  groups: GroupWithCategories[];
-  incomeSources: IncomeSourceRow[];
-  className?: string;
-  /** Adds "+ Create new category..." for import mapping flows */
-  withCreateCategory?: boolean;
-}) {
-  return (
-    <select
-      className={className ?? 'import-select'}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">Choose mapping…</option>
-      {withCreateCategory ? (
-        <option value="__create_category__">+ Create new category...</option>
-      ) : null}
-      <optgroup label="Skip">
-        <option value="skip">Skip these transactions</option>
-      </optgroup>
-      <optgroup label="Income">
-        {incomeSources.map((s) => (
-          <option key={s.id} value={`income:${s.id}`}>
-            {s.name}
-          </option>
-        ))}
-      </optgroup>
-      {groups.map((g) => (
-        <optgroup key={g.id} label={g.name}>
-          {g.categories.map((c) => (
-            <option key={c.id} value={`cat:${c.id}`}>
-              {c.name}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
-  );
-}
 
 function categoryColumnLabel(
   row: ParsedRow,
@@ -142,6 +80,26 @@ export function ImportView() {
   const refreshGroups = useCallback(async () => {
     const g = await api.getGroups();
     setGroups(g ?? []);
+  }, []);
+
+  useEffect(() => {
+    const onData = () => {
+      void (async () => {
+        try {
+          const [g, inc] = await Promise.all([
+            api.getGroups(),
+            api.getIncomeSources(),
+          ]);
+          setGroups(g ?? []);
+          setIncomeSources(inc ?? []);
+        } catch {
+          setGroups([]);
+          setIncomeSources([]);
+        }
+      })();
+    };
+    window.addEventListener(DATA_CHANGED_EVENT, onData);
+    return () => window.removeEventListener(DATA_CHANGED_EVENT, onData);
   }, []);
 
   useEffect(() => {
@@ -271,9 +229,9 @@ export function ImportView() {
                       }}
                     />
                   ) : (
-                    <CategorySelect
+                    <MappingTargetSelect
                       className="import-select import-map-item__select"
-                      value={mappingAssignmentToSelect(state.assignments[name])}
+                      value={mappingAssignmentToSelectValue(state.assignments[name])}
                       onChange={(v) => {
                         if (v === '__create_category__') {
                           setCreatingMapExternal(name);
@@ -283,6 +241,7 @@ export function ImportView() {
                       }}
                       groups={groupsSorted}
                       incomeSources={incomeSources}
+                      withCreateCategory
                     />
                   )}
                 </li>
@@ -360,7 +319,7 @@ export function ImportView() {
                           }}
                         />
                       ) : (
-                        <CategorySelect
+                        <MappingTargetSelect
                           className="import-select import-select--compact"
                           value={reviewSelectValue(row, state.rowOverrides)}
                           onChange={(v) => {
@@ -372,6 +331,7 @@ export function ImportView() {
                           }}
                           groups={groupsSorted}
                           incomeSources={incomeSources}
+                          withCreateCategory
                         />
                       )}
                     </span>

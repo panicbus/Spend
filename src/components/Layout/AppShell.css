@@ -13,6 +13,7 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  overflow-anchor: none;
   padding: var(--main-padding-y) var(--main-padding-x);
   background: var(--bg-app);
   color: var(--text-primary);

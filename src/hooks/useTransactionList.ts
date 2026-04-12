@@ -7,6 +7,7 @@ import type {
   TransactionListResult,
 } from '../types/transactions';
 import { api } from '../services/api';
+import { DATA_CHANGED_EVENT } from '../utils/dataChanged';
 import { currentMonthKey } from '../utils/dates';
 import {
   type SetMonthKeyFn,
@@ -157,6 +158,22 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
 
   useEffect(() => {
     void refetch();
+  }, [refetch]);
+
+  useEffect(() => {
+    const onData = () => {
+      void (async () => {
+        try {
+          const g = await api.getGroups();
+          setGroups(g ?? []);
+        } catch {
+          setGroups([]);
+        }
+      })();
+      void refetch();
+    };
+    window.addEventListener(DATA_CHANGED_EVENT, onData);
+    return () => window.removeEventListener(DATA_CHANGED_EVENT, onData);
   }, [refetch]);
 
   const mergedRows = useMemo(() => {

@@ -141,6 +141,56 @@ export interface AddTransactionPayload {
   amount_cents: number;
 }
 
+export type DefaultMonthOnLaunch = 'current' | 'last_viewed';
+
+export interface AppPreferences {
+  defaultMonthOnLaunch: DefaultMonthOnLaunch;
+}
+
+export interface UpdateGroupPayload {
+  id: number;
+  name: string;
+  color: string;
+}
+
+export interface ReorderEntityPayload {
+  id: number;
+  direction: 'up' | 'down';
+}
+
+export interface MoveGroupCategoriesPayload {
+  sourceGroupId: number;
+  targetGroupId: number;
+}
+
+export interface UpdateCategoryPayload {
+  id: number;
+  name: string;
+  groupId: number;
+}
+
+export interface UpdateIncomeSourcePayload {
+  id: number;
+  name: string;
+}
+
+export interface GroupDeletePreview {
+  categoryCount: number;
+  transactionCount: number;
+}
+
+export interface CategoryDeletePreview {
+  transactionCount: number;
+  budgetRowCount: number;
+}
+
+export interface IncomeSourceDeletePreview {
+  actualCount: number;
+  budgetRowCount: number;
+}
+
+export type ResetDatabaseMode = 'transactions' | 'full';
+
 export interface SpendApi {
   getGroups: () => Promise<GroupWithCategories[]>;
   createGroup: (payload: CreateGroupPayload) => Promise<{ id: number }>;
@@ -150,6 +200,29 @@ export interface SpendApi {
   ) => Promise<CreateCategoryForImportResult>;
   deleteCategory: (id: number) => Promise<void>;
   deleteGroup: (id: number) => Promise<void>;
+  getPreferences: () => Promise<AppPreferences>;
+  setPreferences: (partial: Partial<AppPreferences>) => Promise<void>;
+  updateGroup: (payload: UpdateGroupPayload) => Promise<void>;
+  reorderGroup: (payload: ReorderEntityPayload) => Promise<void>;
+  moveGroupCategoriesDeleteGroup: (
+    payload: MoveGroupCategoriesPayload
+  ) => Promise<void>;
+  getGroupDeletePreview: (groupId: number) => Promise<GroupDeletePreview>;
+  updateCategory: (payload: UpdateCategoryPayload) => Promise<void>;
+  reorderCategory: (payload: ReorderEntityPayload) => Promise<void>;
+  getCategoryDeletePreview: (
+    categoryId: number
+  ) => Promise<CategoryDeletePreview>;
+  updateIncomeSource: (payload: UpdateIncomeSourcePayload) => Promise<void>;
+  reorderIncomeSource: (payload: ReorderEntityPayload) => Promise<void>;
+  getIncomeSourceDeletePreview: (
+    sourceId: number
+  ) => Promise<IncomeSourceDeletePreview>;
+  deleteIncomeSource: (sourceId: number) => Promise<void>;
+  deleteCategoryMapping: (mappingId: number) => Promise<void>;
+  exportDatabaseBackup: () => Promise<string | null>;
+  importDatabaseBackup: () => Promise<void>;
+  resetDatabase: (mode: ResetDatabaseMode) => Promise<void>;
   getBudget: (monthKey: string) => Promise<BudgetPayload>;
   setBudgetAmount: (
     categoryId: number,

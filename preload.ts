@@ -9,6 +9,31 @@ const api: SpendApi = {
     ipcRenderer.invoke('createCategoryForImport', payload),
   deleteCategory: (id) => ipcRenderer.invoke('deleteCategory', id),
   deleteGroup: (id) => ipcRenderer.invoke('deleteGroup', id),
+  getPreferences: () => ipcRenderer.invoke('getPreferences'),
+  setPreferences: (partial) => ipcRenderer.invoke('setPreferences', partial),
+  updateGroup: (payload) => ipcRenderer.invoke('updateGroup', payload),
+  reorderGroup: (payload) => ipcRenderer.invoke('reorderGroup', payload),
+  moveGroupCategoriesDeleteGroup: (payload) =>
+    ipcRenderer.invoke('moveGroupCategoriesDeleteGroup', payload),
+  getGroupDeletePreview: (groupId) =>
+    ipcRenderer.invoke('getGroupDeletePreview', groupId),
+  updateCategory: (payload) => ipcRenderer.invoke('updateCategory', payload),
+  reorderCategory: (payload) => ipcRenderer.invoke('reorderCategory', payload),
+  getCategoryDeletePreview: (categoryId) =>
+    ipcRenderer.invoke('getCategoryDeletePreview', categoryId),
+  updateIncomeSource: (payload) =>
+    ipcRenderer.invoke('updateIncomeSource', payload),
+  reorderIncomeSource: (payload) =>
+    ipcRenderer.invoke('reorderIncomeSource', payload),
+  getIncomeSourceDeletePreview: (sourceId) =>
+    ipcRenderer.invoke('getIncomeSourceDeletePreview', sourceId),
+  deleteIncomeSource: (sourceId) =>
+    ipcRenderer.invoke('deleteIncomeSource', sourceId),
+  deleteCategoryMapping: (mappingId) =>
+    ipcRenderer.invoke('deleteCategoryMapping', mappingId),
+  exportDatabaseBackup: () => ipcRenderer.invoke('exportDatabaseBackup'),
+  importDatabaseBackup: () => ipcRenderer.invoke('importDatabaseBackup'),
+  resetDatabase: (mode) => ipcRenderer.invoke('resetDatabase', mode),
 
   getBudget: (monthKey) => ipcRenderer.invoke('getBudget', monthKey),
   setBudgetAmount: (categoryId, monthKey, amountCents) =>

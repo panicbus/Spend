@@ -7,13 +7,20 @@ import { parse } from 'csv-parse/sync';
 import Database from 'better-sqlite3';
 import type {
   AddTransactionPayload,
+  AppPreferences,
   BudgetFrequency,
   BudgetPayload,
   CreateCategoryForImportPayload,
   CreateCategoryPayload,
   CreateGroupPayload,
   CreateIncomeSourcePayload,
+  MoveGroupCategoriesPayload,
+  ResetDatabaseMode,
+  ReorderEntityPayload,
   SetBudgetDetailsInput,
+  UpdateCategoryPayload,
+  UpdateGroupPayload,
+  UpdateIncomeSourcePayload,
 } from './ipc-contract.js';
 import type {
   IncomeActual,
@@ -170,6 +177,95 @@ function flushAndCloseDb() {
   } catch (e) {
     console.error('[Spend] db.close:', e);
   }
+}
+
+const SETTINGS_KEY_DEFAULT_MONTH = 'default_month_on_launch';
+
+function getPreferencesFromDb(): AppPreferences {
+  const row = db
+    .prepare('SELECT value FROM settings WHERE key = ?')
+    .get(SETTINGS_KEY_DEFAULT_MONTH) as { value: string } | undefined;
+  const v = row?.value;
+  const defaultMonthOnLaunch =
+    v === 'current' || v === 'last_viewed' ? v : 'last_viewed';
+  return { defaultMonthOnLaunch };
+}
+
+function setPreferencesInDb(partial: Partial<AppPreferences>) {
+  if (partial.defaultMonthOnLaunch != null) {
+    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
+      SETTINGS_KEY_DEFAULT_MONTH,
+      partial.defaultMonthOnLaunch
+    );
+  }
+}
+
+function validateSpendBackupFile(filePath: string) {
+  const probe = new Database(filePath, { readonly: true });
+  try {
+    const names = new Set(
+      (
+        probe
+          .prepare(`SELECT name FROM sqlite_master WHERE type='table'`)
+          .all() as { name: string }[]
+      ).map((r) => r.name)
+    );
+    const required = [
+      'category_groups',
+      'categories',
+      'transactions',
+      'budgets',
+      'income_sources',
+      'income_budgets',
+      'income_actuals',
+      'category_mappings',
+    ];
+    for (const t of required) {
+      if (!names.has(t)) {
+        throw new Error(
+          `This file is not a valid Spend. backup (missing table: ${t}).`
+        );
+      }
+    }
+  } finally {
+    probe.close();
+  }
+}
+
+function reloadAllRendererWindows() {
+  for (const w of BrowserWindow.getAllWindows()) {
+    w.webContents.reload();
+  }
+}
+
+function reopenMainDatabaseFromDisk() {
+  const dbPath = getDbPath();
+  db = new Database(dbPath);
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = FULL');
+  db.pragma('foreign_keys = ON');
+  const schemaPath = path.join(__dirname, '..', 'database', 'schema.sql');
+  const schema = fs.readFileSync(schemaPath, 'utf8');
+  db.exec(schema);
+  runSqliteMigrations();
+}
+
+function replaceDatabaseWithBackupFile(backupPath: string) {
+  validateSpendBackupFile(backupPath);
+  flushAndCloseDb();
+  const dbPath = getDbPath();
+  try {
+    fs.unlinkSync(`${dbPath}-wal`);
+  } catch {
+    /** */
+  }
+  try {
+    fs.unlinkSync(`${dbPath}-shm`);
+  } catch {
+    /** */
+  }
+  fs.copyFileSync(backupPath, dbPath);
+  reopenMainDatabaseFromDisk();
 }
 
 function copyMonthTemplateIfNeeded(monthKey: string) {
@@ -868,11 +964,332 @@ function registerIpcHandlers() {
   );
 
   ipcMain.handle('deleteCategory', (_, id: number) => {
-    db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+    db.transaction(() => {
+      db.prepare(
+        `DELETE FROM category_mappings WHERE target_type = 'category' AND target_id = ?`
+      ).run(id);
+      db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+    })();
   });
 
   ipcMain.handle('deleteGroup', (_, id: number) => {
-    db.prepare('DELETE FROM category_groups WHERE id = ?').run(id);
+    db.transaction(() => {
+      db.prepare(
+        `DELETE FROM category_mappings WHERE target_type = 'category' AND target_id IN (SELECT id FROM categories WHERE group_id = ?)`
+      ).run(id);
+      db.prepare('DELETE FROM category_groups WHERE id = ?').run(id);
+    })();
+  });
+
+  ipcMain.handle('getPreferences', () => getPreferencesFromDb());
+
+  ipcMain.handle(
+    'setPreferences',
+    (_, partial: Partial<AppPreferences>) => {
+      setPreferencesInDb(partial);
+    }
+  );
+
+  ipcMain.handle('updateGroup', (_, payload: UpdateGroupPayload) => {
+    const name = payload.name.trim();
+    if (!name) throw new Error('Group name is required.');
+    const dup = db
+      .prepare(
+        'SELECT 1 AS ok FROM category_groups WHERE name = ? AND id != ?'
+      )
+      .get(name, payload.id) as { ok: number } | undefined;
+    if (dup) {
+      throw new Error('A group with this name already exists.');
+    }
+    const color = (payload.color ?? '').trim() || '#748B9D';
+    db.prepare(
+      'UPDATE category_groups SET name = ?, color = ? WHERE id = ?'
+    ).run(name, color, payload.id);
+  });
+
+  ipcMain.handle('reorderGroup', (_, payload: ReorderEntityPayload) => {
+    const rows = db
+      .prepare(
+        'SELECT id, sort_order FROM category_groups ORDER BY sort_order ASC, id ASC'
+      )
+      .all() as { id: number; sort_order: number }[];
+    const i = rows.findIndex((r) => r.id === payload.id);
+    if (i < 0) throw new Error('Group not found.');
+    const j = payload.direction === 'up' ? i - 1 : i + 1;
+    if (j < 0 || j >= rows.length) return;
+    const a = rows[i];
+    const b = rows[j];
+    db.transaction(() => {
+      db.prepare('UPDATE category_groups SET sort_order = ? WHERE id = ?').run(
+        b.sort_order,
+        a.id
+      );
+      db.prepare('UPDATE category_groups SET sort_order = ? WHERE id = ?').run(
+        a.sort_order,
+        b.id
+      );
+    })();
+  });
+
+  ipcMain.handle(
+    'moveGroupCategoriesDeleteGroup',
+    (_, payload: MoveGroupCategoriesPayload) => {
+      const { sourceGroupId, targetGroupId } = payload;
+      if (sourceGroupId === targetGroupId) {
+        throw new Error('Choose a different target group.');
+      }
+      const run = db.transaction(() => {
+        const cats = db
+          .prepare(
+            'SELECT id, name FROM categories WHERE group_id = ? ORDER BY sort_order ASC, id ASC'
+          )
+          .all(sourceGroupId) as { id: number; name: string }[];
+        let max = (
+          db
+            .prepare(
+              'SELECT COALESCE(MAX(sort_order), -1) AS n FROM categories WHERE group_id = ?'
+            )
+            .get(targetGroupId) as { n: number }
+        ).n;
+        for (const c of cats) {
+          const conflict = db
+            .prepare(
+              'SELECT 1 AS ok FROM categories WHERE group_id = ? AND name = ?'
+            )
+            .get(targetGroupId, c.name) as { ok: number } | undefined;
+          if (conflict) {
+            throw new Error(
+              `Cannot move: "${c.name}" already exists in the target group.`
+            );
+          }
+          max += 1;
+          db.prepare(
+            'UPDATE categories SET group_id = ?, sort_order = ? WHERE id = ?'
+          ).run(targetGroupId, max, c.id);
+        }
+        db.prepare('DELETE FROM category_groups WHERE id = ?').run(
+          sourceGroupId
+        );
+      });
+      run();
+    }
+  );
+
+  ipcMain.handle('getGroupDeletePreview', (_, groupId: number) => {
+    const cats = db
+      .prepare('SELECT id FROM categories WHERE group_id = ?')
+      .all(groupId) as { id: number }[];
+    const categoryCount = cats.length;
+    if (categoryCount === 0) {
+      return { categoryCount: 0, transactionCount: 0 };
+    }
+    const ph = cats.map(() => '?').join(',');
+    const ids = cats.map((c) => c.id);
+    const txRow = db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM transactions WHERE category_id IN (${ph})`
+      )
+      .get(...ids) as { n: number };
+    return { categoryCount, transactionCount: txRow.n };
+  });
+
+  ipcMain.handle('updateCategory', (_, payload: UpdateCategoryPayload) => {
+    const name = payload.name.trim();
+    if (!name) throw new Error('Category name is required.');
+    const cur = db
+      .prepare('SELECT id, group_id FROM categories WHERE id = ?')
+      .get(payload.id) as { id: number; group_id: number } | undefined;
+    if (!cur) throw new Error('Category not found.');
+    const dup = db
+      .prepare(
+        'SELECT 1 AS ok FROM categories WHERE group_id = ? AND name = ? AND id != ?'
+      )
+      .get(payload.groupId, name, payload.id) as { ok: number } | undefined;
+    if (dup) {
+      throw new Error('A category with this name already exists in that group.');
+    }
+    db.transaction(() => {
+      if (cur.group_id !== payload.groupId) {
+        const max = (
+          db
+            .prepare(
+              'SELECT COALESCE(MAX(sort_order), -1) AS n FROM categories WHERE group_id = ?'
+            )
+            .get(payload.groupId) as { n: number }
+        ).n;
+        const nextOrder = max + 1;
+        db.prepare(
+          'UPDATE categories SET name = ?, group_id = ?, sort_order = ? WHERE id = ?'
+        ).run(name, payload.groupId, nextOrder, payload.id);
+      } else {
+        db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(
+          name,
+          payload.id
+        );
+      }
+    })();
+  });
+
+  ipcMain.handle('reorderCategory', (_, payload: ReorderEntityPayload) => {
+    const row = db
+      .prepare(
+        'SELECT id, group_id, sort_order FROM categories WHERE id = ?'
+      )
+      .get(payload.id) as
+        | { id: number; group_id: number; sort_order: number }
+        | undefined;
+    if (!row) throw new Error('Category not found.');
+    const siblings = db
+      .prepare(
+        'SELECT id, sort_order FROM categories WHERE group_id = ? ORDER BY sort_order ASC, id ASC'
+      )
+      .all(row.group_id) as { id: number; sort_order: number }[];
+    const i = siblings.findIndex((s) => s.id === payload.id);
+    const j = payload.direction === 'up' ? i - 1 : i + 1;
+    if (j < 0 || j >= siblings.length) return;
+    const a = siblings[i];
+    const b = siblings[j];
+    db.transaction(() => {
+      db.prepare('UPDATE categories SET sort_order = ? WHERE id = ?').run(
+        b.sort_order,
+        a.id
+      );
+      db.prepare('UPDATE categories SET sort_order = ? WHERE id = ?').run(
+        a.sort_order,
+        b.id
+      );
+    })();
+  });
+
+  ipcMain.handle('getCategoryDeletePreview', (_, categoryId: number) => {
+    const txRow = db
+      .prepare('SELECT COUNT(*) AS n FROM transactions WHERE category_id = ?')
+      .get(categoryId) as { n: number };
+    const budRow = db
+      .prepare('SELECT COUNT(*) AS n FROM budgets WHERE category_id = ?')
+      .get(categoryId) as { n: number };
+    return { transactionCount: txRow.n, budgetRowCount: budRow.n };
+  });
+
+  ipcMain.handle(
+    'updateIncomeSource',
+    (_, payload: UpdateIncomeSourcePayload) => {
+      const name = payload.name.trim();
+      if (!name) throw new Error('Name is required.');
+      const dup = db
+        .prepare(
+          'SELECT 1 AS ok FROM income_sources WHERE name = ? AND id != ?'
+        )
+        .get(name, payload.id) as { ok: number } | undefined;
+      if (dup) {
+        throw new Error('An income source with this name already exists.');
+      }
+      db.prepare('UPDATE income_sources SET name = ? WHERE id = ?').run(
+        name,
+        payload.id
+      );
+    }
+  );
+
+  ipcMain.handle('reorderIncomeSource', (_, payload: ReorderEntityPayload) => {
+    const rows = db
+      .prepare(
+        'SELECT id, sort_order FROM income_sources ORDER BY sort_order ASC, id ASC'
+      )
+      .all() as { id: number; sort_order: number }[];
+    const i = rows.findIndex((r) => r.id === payload.id);
+    if (i < 0) throw new Error('Income source not found.');
+    const j = payload.direction === 'up' ? i - 1 : i + 1;
+    if (j < 0 || j >= rows.length) return;
+    const a = rows[i];
+    const b = rows[j];
+    db.transaction(() => {
+      db.prepare('UPDATE income_sources SET sort_order = ? WHERE id = ?').run(
+        b.sort_order,
+        a.id
+      );
+      db.prepare('UPDATE income_sources SET sort_order = ? WHERE id = ?').run(
+        a.sort_order,
+        b.id
+      );
+    })();
+  });
+
+  ipcMain.handle('getIncomeSourceDeletePreview', (_, sourceId: number) => {
+    const a = db
+      .prepare(
+        'SELECT COUNT(*) AS n FROM income_actuals WHERE source_id = ?'
+      )
+      .get(sourceId) as { n: number };
+    const b = db
+      .prepare(
+        'SELECT COUNT(*) AS n FROM income_budgets WHERE source_id = ?'
+      )
+      .get(sourceId) as { n: number };
+    return { actualCount: a.n, budgetRowCount: b.n };
+  });
+
+  ipcMain.handle('deleteIncomeSource', (_, sourceId: number) => {
+    db.transaction(() => {
+      db.prepare(
+        `DELETE FROM category_mappings WHERE target_type = 'income_source' AND target_id = ?`
+      ).run(sourceId);
+      db.prepare('DELETE FROM income_sources WHERE id = ?').run(sourceId);
+    })();
+  });
+
+  ipcMain.handle('deleteCategoryMapping', (_, mappingId: number) => {
+    db.prepare('DELETE FROM category_mappings WHERE id = ?').run(mappingId);
+  });
+
+  ipcMain.handle('exportDatabaseBackup', async () => {
+    const win =
+      BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    if (!win) throw new Error('No window.');
+    try {
+      db.pragma('wal_checkpoint(TRUNCATE)');
+    } catch {
+      /** */
+    }
+    const defaultName = `spend-backup-${new Date().toISOString().slice(0, 10)}.db`;
+    const r = await dialog.showSaveDialog(win, {
+      title: 'Export database backup',
+      defaultPath: defaultName,
+      filters: [{ name: 'SQLite database', extensions: ['db'] }],
+    });
+    if (r.canceled || !r.filePath) return null;
+    fs.copyFileSync(getDbPath(), r.filePath);
+    return r.filePath;
+  });
+
+  ipcMain.handle('importDatabaseBackup', async () => {
+    const win =
+      BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    if (!win) throw new Error('No window.');
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Import database backup',
+      properties: ['openFile'],
+      filters: [{ name: 'SQLite database', extensions: ['db'] }],
+    });
+    if (r.canceled || !r.filePaths[0]) return;
+    replaceDatabaseWithBackupFile(r.filePaths[0]);
+    reloadAllRendererWindows();
+  });
+
+  ipcMain.handle('resetDatabase', (_, mode: ResetDatabaseMode) => {
+    db.transaction(() => {
+      db.prepare('DELETE FROM transactions').run();
+      db.prepare('DELETE FROM budgets').run();
+      db.prepare('DELETE FROM income_budgets').run();
+      db.prepare('DELETE FROM income_actuals').run();
+      db.prepare('DELETE FROM category_mappings').run();
+      if (mode === 'full') {
+        db.prepare('DELETE FROM categories').run();
+        db.prepare('DELETE FROM category_groups').run();
+        db.prepare('DELETE FROM income_sources').run();
+      }
+    })();
+    reloadAllRendererWindows();
   });
 
   ipcMain.handle('getBudget', (_, monthKey: string) =>

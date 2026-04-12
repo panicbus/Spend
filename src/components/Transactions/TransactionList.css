@@ -514,13 +514,21 @@
 
 .transaction-list__select {
   min-width: 220px;
-  padding: 8px 12px;
+  padding: 8px 40px 8px 12px;
   border-radius: var(--border-radius-md);
   border: 0.5px solid var(--border);
-  background: var(--bg-card);
   font-size: 14px;
   font-family: inherit;
   color: var(--text-primary);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--bg-card);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 8px;
+  cursor: pointer;
 }
 
 .transaction-list__saved {

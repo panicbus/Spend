@@ -20,6 +20,40 @@ export const api = {
   ) => getBridge().createCategoryForImport(payload),
   deleteCategory: (id: number) => getBridge().deleteCategory(id),
   deleteGroup: (id: number) => getBridge().deleteGroup(id),
+  getPreferences: () => getBridge().getPreferences(),
+  setPreferences: (partial: Parameters<SpendApi['setPreferences']>[0]) =>
+    getBridge().setPreferences(partial),
+  updateGroup: (payload: Parameters<SpendApi['updateGroup']>[0]) =>
+    getBridge().updateGroup(payload),
+  reorderGroup: (payload: Parameters<SpendApi['reorderGroup']>[0]) =>
+    getBridge().reorderGroup(payload),
+  moveGroupCategoriesDeleteGroup: (
+    payload: Parameters<SpendApi['moveGroupCategoriesDeleteGroup']>[0]
+  ) => getBridge().moveGroupCategoriesDeleteGroup(payload),
+  getGroupDeletePreview: (groupId: number) =>
+    getBridge().getGroupDeletePreview(groupId),
+  updateCategory: (payload: Parameters<SpendApi['updateCategory']>[0]) =>
+    getBridge().updateCategory(payload),
+  reorderCategory: (payload: Parameters<SpendApi['reorderCategory']>[0]) =>
+    getBridge().reorderCategory(payload),
+  getCategoryDeletePreview: (categoryId: number) =>
+    getBridge().getCategoryDeletePreview(categoryId),
+  updateIncomeSource: (
+    payload: Parameters<SpendApi['updateIncomeSource']>[0]
+  ) => getBridge().updateIncomeSource(payload),
+  reorderIncomeSource: (
+    payload: Parameters<SpendApi['reorderIncomeSource']>[0]
+  ) => getBridge().reorderIncomeSource(payload),
+  getIncomeSourceDeletePreview: (sourceId: number) =>
+    getBridge().getIncomeSourceDeletePreview(sourceId),
+  deleteIncomeSource: (sourceId: number) =>
+    getBridge().deleteIncomeSource(sourceId),
+  deleteCategoryMapping: (mappingId: number) =>
+    getBridge().deleteCategoryMapping(mappingId),
+  exportDatabaseBackup: () => getBridge().exportDatabaseBackup(),
+  importDatabaseBackup: () => getBridge().importDatabaseBackup(),
+  resetDatabase: (mode: Parameters<SpendApi['resetDatabase']>[0]) =>
+    getBridge().resetDatabase(mode),
 
   getBudget: (monthKey: string) => getBridge().getBudget(monthKey),
   setBudgetAmount: (categoryId: number, monthKey: string, amountCents: number) =>

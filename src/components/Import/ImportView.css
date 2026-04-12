@@ -138,19 +138,27 @@
 .import-select {
   font-family: 'DM Sans', sans-serif;
   font-size: 14px;
-  padding: 8px 12px;
+  padding: 8px 40px 8px 12px;
   min-width: 200px;
   border-radius: 8px;
   border: 0.5px solid var(--border-strong);
-  background: var(--bg-card);
   color: var(--text-primary);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--bg-card);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 12px 8px;
+  cursor: pointer;
 }
 
 .import-select--compact {
   min-width: 160px;
   margin-top: 6px;
   font-size: 13px;
-  padding: 6px 8px;
+  padding: 6px 28px 6px 8px;
 }
 
 .import-map-item__select {
@@ -305,13 +313,29 @@
 .import-create-form__select {
   font-family: 'DM Sans', sans-serif;
   font-size: 13px;
-  padding: 6px 10px;
   width: 100%;
   max-width: 280px;
   border-radius: 8px;
   border: 0.5px solid var(--border-strong);
-  background: var(--bg-card-alt);
   color: var(--text-primary);
+}
+
+.import-create-form__input {
+  padding: 6px 10px;
+  background: var(--bg-card-alt);
+}
+
+.import-create-form__select {
+  padding: 6px 36px 6px 10px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: var(--bg-card-alt);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 11px 7px;
+  cursor: pointer;
 }
 
 .import-create-form__error {
