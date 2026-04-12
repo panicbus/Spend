@@ -31,3 +31,13 @@ export function currentMonthKey() {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   return `${yy}-${mm}`;
 }
+
+export function formatMonthRangeLabel(fromMonthKey: string, toMonthKey: string) {
+  const [y1, m1] = fromMonthKey.split('-').map(Number);
+  const [y2, m2] = toMonthKey.split('-').map(Number);
+  const d1 = new Date(y1, m1 - 1, 1);
+  const d2 = new Date(y2, m2 - 1, 1);
+  const a = d1.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+  const b = d2.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+  return `${a} – ${b}`;
+}

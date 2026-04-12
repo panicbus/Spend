@@ -36,6 +36,21 @@ function IconTransactions() {
   );
 }
 
+/** Line trend: stroke matches Transactions icon weight. */
+function IconTrends() {
+  return (
+    <svg className="sidebar__icon" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 16l4.5-5 4 3L20 7"
+      />
+    </svg>
+  );
+}
+
 function IconImport() {
   return (
     <svg className="sidebar__icon" viewBox="0 0 24 24" aria-hidden>
@@ -105,6 +120,15 @@ export function Sidebar() {
         >
           <IconTransactions />
           <span>Transactions</span>
+        </NavLink>
+        <NavLink
+          to="/trends"
+          className={({ isActive }) =>
+            `sidebar__link${isActive ? ' sidebar__link--active' : ''}`
+          }
+        >
+          <IconTrends />
+          <span>Trends</span>
         </NavLink>
         <NavLink
           to="/import"

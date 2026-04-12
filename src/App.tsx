@@ -5,6 +5,7 @@ import { BudgetDashboard } from './components/Budget/BudgetDashboard';
 import { TransactionList } from './components/Transactions/TransactionList';
 import { ImportView } from './components/Import/ImportView';
 import { SettingsPage } from './components/Settings/SettingsPage';
+import { TrendsPage } from './components/Trends/TrendsPage';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route path="/" element={<BudgetDashboard />} />
             <Route path="/transactions" element={<TransactionList />} />
+            <Route path="/trends" element={<TrendsPage />} />
             <Route path="/import" element={<ImportView />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

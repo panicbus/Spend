@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { GroupWithCategories } from '../../ipc-contract';
 import type {
   IncomeActual,
@@ -18,6 +24,11 @@ export type MergedTransactionRow =
   | { kind: 'expense'; tx: Transaction; sortDate: string; sortCreated: string }
   | { kind: 'income'; inc: IncomeActual; sortDate: string; sortCreated: string };
 
+export interface TransactionDateRange {
+  startMonthKey: string;
+  endMonthKey: string;
+}
+
 export interface UseTransactionListReturn {
   data: TransactionListResult | null;
   mergedRows: MergedTransactionRow[];
@@ -28,6 +39,12 @@ export interface UseTransactionListReturn {
   setMonthKey: SetMonthKeyFn;
   categoryIds: number[] | undefined;
   setCategoryIds: (ids: number[] | undefined) => void;
+  incomeOnlySourceIds: number[] | undefined;
+  setIncomeOnlySourceIds: (ids: number[] | undefined) => void;
+  incomeLineLabel: string | undefined;
+  setIncomeLineLabel: (label: string | undefined) => void;
+  dateRange: TransactionDateRange | null;
+  setDateRange: (r: TransactionDateRange | null) => void;
   searchText: string;
   setSearchText: (s: string) => void;
   debouncedSearch: string;
@@ -64,6 +81,68 @@ function mergeAndSort(
   return rows;
 }
 
+/**
+ * Read `/transactions?…` deep-link params once on mount so the first fetch matches
+ * filters (layout effect runs after the first effects flush).
+ */
+function readTransactionRouteSearch(): {
+  dateRange: TransactionDateRange | null;
+  monthFromRange: string | null;
+  categoryIds: number[] | undefined;
+  incomeOnlySourceIds: number[] | undefined;
+  incomeLineLabel: string | undefined;
+} {
+  if (typeof window === 'undefined') {
+    return {
+      dateRange: null,
+      monthFromRange: null,
+      categoryIds: undefined,
+      incomeOnlySourceIds: undefined,
+      incomeLineLabel: undefined,
+    };
+  }
+  const p = new URLSearchParams(window.location.search);
+  let dateRange: TransactionDateRange | null = null;
+  let monthFromRange: string | null = null;
+  const rf = p.get('rangeFrom');
+  const rt = p.get('rangeTo');
+  if (
+    rf &&
+    rt &&
+    /^\d{4}-\d{2}$/.test(rf) &&
+    /^\d{4}-\d{2}$/.test(rt) &&
+    rf <= rt
+  ) {
+    dateRange = { startMonthKey: rf, endMonthKey: rt };
+    monthFromRange = rt;
+  }
+
+  let categoryIds: number[] | undefined;
+  let incomeOnlySourceIds: number[] | undefined;
+  let incomeLineLabel: string | undefined;
+
+  const incomeSource = p.get('incomeSource');
+  const incomeLine = p.get('incomeLine');
+  if (incomeSource && /^\d+$/.test(incomeSource)) {
+    incomeOnlySourceIds = [Number(incomeSource)];
+    incomeLineLabel =
+      incomeLine != null && incomeLine !== '' ? incomeLine : undefined;
+  } else {
+    const cat = p.get('category');
+    if (cat && /^\d+$/.test(cat)) {
+      categoryIds = [Number(cat)];
+    }
+  }
+
+  return {
+    dateRange,
+    monthFromRange,
+    categoryIds,
+    incomeOnlySourceIds,
+    incomeLineLabel,
+  };
+}
+
 function recomputeTotals(
   transactions: Transaction[],
   income: IncomeActual[]
@@ -82,11 +161,21 @@ function recomputeTotals(
 }
 
 export function useTransactionList(initialMonth?: string): UseTransactionListReturn {
+  const routeDeepLink = useMemo(() => readTransactionRouteSearch(), []);
   const { monthKey, setMonthKey } = useSyncedMonthKey(
-    initialMonth ?? currentMonthKey()
+    routeDeepLink.monthFromRange ?? initialMonth ?? currentMonthKey()
   );
   const [categoryIds, setCategoryIds] = useState<number[] | undefined>(
-    undefined
+    () => routeDeepLink.categoryIds
+  );
+  const [incomeOnlySourceIds, setIncomeOnlySourceIds] = useState<
+    number[] | undefined
+  >(() => routeDeepLink.incomeOnlySourceIds);
+  const [incomeLineLabel, setIncomeLineLabel] = useState<string | undefined>(
+    () => routeDeepLink.incomeLineLabel
+  );
+  const [dateRange, setDateRange] = useState<TransactionDateRange | null>(
+    () => routeDeepLink.dateRange
   );
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -124,20 +213,39 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
     const base = {
       monthKey,
       search,
-      includeIncome: true as const,
+      ...(dateRange ? { dateRange } : {}),
     };
+    if (incomeOnlySourceIds && incomeOnlySourceIds.length > 0) {
+      return {
+        ...base,
+        includeIncome: true as const,
+        categoryFilter: 'none' as const,
+        incomeOnlySourceIds,
+        ...(incomeLineLabel != null && incomeLineLabel !== ''
+          ? { incomeLineLabel }
+          : {}),
+      };
+    }
+    const withIncome = { ...base, includeIncome: true as const };
     if (categoryIds === undefined) {
-      return { ...base, categoryFilter: 'all' as const };
+      return { ...withIncome, categoryFilter: 'all' as const };
     }
     if (categoryIds.length === 0) {
-      return { ...base, categoryFilter: 'none' as const };
+      return { ...withIncome, categoryFilter: 'none' as const };
     }
     return {
-      ...base,
+      ...withIncome,
       categoryFilter: 'subset' as const,
       categoryIds,
     };
-  }, [monthKey, categoryIds, debouncedSearch]);
+  }, [
+    monthKey,
+    categoryIds,
+    incomeOnlySourceIds,
+    incomeLineLabel,
+    debouncedSearch,
+    dateRange,
+  ]);
 
   const refetch = useCallback(async () => {
     const hadData = dataRef.current !== null;
@@ -284,6 +392,12 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
     setMonthKey,
     categoryIds,
     setCategoryIds,
+    incomeOnlySourceIds,
+    setIncomeOnlySourceIds,
+    incomeLineLabel,
+    setIncomeLineLabel,
+    dateRange,
+    setDateRange,
     searchText,
     setSearchText,
     debouncedSearch,

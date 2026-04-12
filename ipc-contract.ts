@@ -191,6 +191,85 @@ export interface IncomeSourceDeletePreview {
 
 export type ResetDatabaseMode = 'transactions' | 'full';
 
+/** Preset windows for the Trends analytics page. */
+export type TrendRange = '3m' | '6m' | '12m' | 'ytd' | 'all';
+
+export interface TrendGroupSlice {
+  groupId: number;
+  name: string;
+  color: string;
+  sortOrder: number;
+  amountCents: number;
+}
+
+export interface TrendCategorySlice {
+  categoryId: number;
+  name: string;
+  groupId: number;
+  groupName: string;
+  color: string;
+  amountCents: number;
+}
+
+export interface TrendIncomeSlice {
+  sourceId: number;
+  name: string;
+  amountCents: number;
+}
+
+/** One bucket of income_actuals under a source (grouped by trimmed description). */
+export interface TrendIncomeLineSlice {
+  sourceId: number;
+  /** Display label; empty descriptions use "—". */
+  label: string;
+  amountCents: number;
+}
+
+export interface TrendMonthSnapshot {
+  monthKey: string;
+  /** Short label for charts, e.g. Jan or Jan '26 */
+  label: string;
+  year: number;
+  totalBudgetCents: number;
+  totalSpendingCents: number;
+  totalIncomeCents: number;
+  netCents: number;
+  byGroup: TrendGroupSlice[];
+  byCategory: TrendCategorySlice[];
+  byIncomeSource: TrendIncomeSlice[];
+  byIncomeLine: TrendIncomeLineSlice[];
+}
+
+export interface TrendTopCategory {
+  categoryId: number;
+  name: string;
+  groupId: number;
+  groupName: string;
+  color: string;
+  totalCents: number;
+}
+
+export interface TrendGroupLegendItem {
+  id: number;
+  name: string;
+  color: string;
+  sortOrder: number;
+}
+
+export interface TrendData {
+  range: TrendRange;
+  startMonthKey: string;
+  endMonthKey: string;
+  months: TrendMonthSnapshot[];
+  topCategories: TrendTopCategory[];
+  groups: TrendGroupLegendItem[];
+  incomeSources: Array<{ id: number; name: string; sortOrder: number }>;
+  /** Months in this range with any spending or income > 0 */
+  monthsWithActivity: number;
+  /** True if there is at least one expense row or income_actual row (either can drive charts). */
+  hasTrendsData: boolean;
+}
+
 export interface SpendApi {
   getGroups: () => Promise<GroupWithCategories[]>;
   createGroup: (payload: CreateGroupPayload) => Promise<{ id: number }>;
@@ -262,4 +341,6 @@ export interface SpendApi {
   getCategoryMappings: () => Promise<CategoryMapping[]>;
   saveCategoryMapping: (input: SaveCategoryMappingInput) => Promise<void>;
   commitImport: (rows: CommitImportRow[]) => Promise<CommitImportResult>;
+
+  getTrends: (range: TrendRange) => Promise<TrendData>;
 }

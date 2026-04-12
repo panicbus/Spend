@@ -40,6 +40,11 @@ export interface IncomeActual {
 export interface TransactionFilters {
   monthKey: string;
   /**
+   * When set, expense rows are restricted to calendar months in this range (inclusive).
+   * Income uses the same range when `includeIncome` is true.
+   */
+  dateRange?: { startMonthKey: string; endMonthKey: string };
+  /**
    * Prefer always setting this from the renderer; main infers from `categoryIds` if omitted.
    */
   categoryFilter?: 'all' | 'none' | 'subset';
@@ -48,6 +53,13 @@ export interface TransactionFilters {
   search?: string;
   /** Default true — include income_actuals rows when no category filter is active. */
   includeIncome?: boolean;
+  /**
+   * When non-empty, returns no expense rows and only income_actuals for these sources.
+   * Use with `dateRange` from Trends. Optional `incomeLineLabel` narrows to one description bucket.
+   */
+  incomeOnlySourceIds?: number[];
+  /** Trimmed description match; use "—" for empty description (same as Trends buckets). */
+  incomeLineLabel?: string;
 }
 
 export interface TransactionListResult {

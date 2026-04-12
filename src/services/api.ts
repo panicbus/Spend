@@ -89,4 +89,7 @@ export const api = {
   ) => getBridge().saveCategoryMapping(input),
   commitImport: (rows: Parameters<SpendApi['commitImport']>[0]) =>
     getBridge().commitImport(rows),
+
+  getTrends: (range: Parameters<SpendApi['getTrends']>[0]) =>
+    getBridge().getTrends(range),
 };

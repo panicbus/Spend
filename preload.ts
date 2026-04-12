@@ -67,6 +67,8 @@ const api: SpendApi = {
   saveCategoryMapping: (input) =>
     ipcRenderer.invoke('saveCategoryMapping', input),
   commitImport: (rows) => ipcRenderer.invoke('commitImport', rows),
+
+  getTrends: (range) => ipcRenderer.invoke('getTrends', range),
 };
 
 contextBridge.exposeInMainWorld('api', api);

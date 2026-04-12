@@ -18,6 +18,15 @@ import type {
   ResetDatabaseMode,
   ReorderEntityPayload,
   SetBudgetDetailsInput,
+  TrendCategorySlice,
+  TrendData,
+  TrendGroupLegendItem,
+  TrendGroupSlice,
+  TrendIncomeLineSlice,
+  TrendIncomeSlice,
+  TrendMonthSnapshot,
+  TrendRange,
+  TrendTopCategory,
   UpdateCategoryPayload,
   UpdateGroupPayload,
   UpdateIncomeSourcePayload,
@@ -708,12 +717,356 @@ function mapDbIncToIncomeActual(row: DbIncRow): IncomeActual {
   };
 }
 
+function currentMonthKeyMain(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function addMonthsToKey(monthKey: string, delta: number): string {
+  const [ys, ms] = monthKey.split('-').map(Number);
+  const d = new Date(ys, ms - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function enumerateMonthKeys(start: string, end: string): string[] {
+  if (start > end) return [];
+  const keys: string[] = [];
+  let k = start;
+  for (;;) {
+    keys.push(k);
+    if (k === end) break;
+    k = addMonthsToKey(k, 1);
+  }
+  return keys;
+}
+
+function resolveTrendWindow(
+  range: TrendRange
+): { startMonthKey: string; endMonthKey: string } {
+  const end = currentMonthKeyMain();
+  if (range === 'ytd') {
+    const y = end.slice(0, 4);
+    return { startMonthKey: `${y}-01`, endMonthKey: end };
+  }
+  if (range === 'all') {
+    const txMin = db
+      .prepare('SELECT MIN(substr(date, 1, 7)) AS m FROM transactions')
+      .get() as { m: string | null };
+    const incMin = db
+      .prepare('SELECT MIN(substr(date, 1, 7)) AS m FROM income_actuals')
+      .get() as { m: string | null };
+    let start = txMin.m ?? incMin.m;
+    if (start && incMin.m && incMin.m < start) start = incMin.m;
+    if (!start) start = end;
+    if (start > end) start = end;
+    return { startMonthKey: start, endMonthKey: end };
+  }
+  const n = range === '3m' ? 3 : range === '6m' ? 6 : 12;
+  return { startMonthKey: addMonthsToKey(end, -(n - 1)), endMonthKey: end };
+}
+
+function getTrendsData(range: TrendRange): TrendData {
+  if (!['3m', '6m', '12m', 'ytd', 'all'].includes(range)) {
+    throw new Error('Invalid trend range.');
+  }
+  const { startMonthKey, endMonthKey } = resolveTrendWindow(range);
+  const monthKeys = enumerateMonthKeys(startMonthKey, endMonthKey);
+  const rangeCrossesYears =
+    monthKeys.length > 0 &&
+    monthKeys[0].slice(0, 4) !== monthKeys[monthKeys.length - 1].slice(0, 4);
+
+  const txCount = (
+    db.prepare('SELECT COUNT(*) AS c FROM transactions').get() as { c: number }
+  ).c;
+  const incomeRowCount = (
+    db.prepare('SELECT COUNT(*) AS c FROM income_actuals').get() as { c: number }
+  ).c;
+  const hasTrendsData = txCount > 0 || incomeRowCount > 0;
+
+  const groupRows = db
+    .prepare(
+      `SELECT id, name, color, sort_order FROM category_groups
+       ORDER BY sort_order ASC, id ASC`
+    )
+    .all() as {
+    id: number;
+    name: string;
+    color: string;
+    sort_order: number;
+  }[];
+
+  const groups: TrendGroupLegendItem[] = groupRows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    color: r.color,
+    sortOrder: r.sort_order,
+  }));
+
+  const incomeSourceRows = db
+    .prepare(
+      `SELECT id, name, sort_order FROM income_sources
+       ORDER BY sort_order ASC, id ASC`
+    )
+    .all() as { id: number; name: string; sort_order: number }[];
+
+  const incomeSources = incomeSourceRows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    sortOrder: r.sort_order,
+  }));
+
+  type SpentAgg = {
+    mk: string;
+    category_id: number;
+    category_name: string;
+    group_id: number;
+    group_name: string;
+    color: string;
+    sort_order: number;
+    spent_cents: number;
+  };
+
+  const spentRows = db
+    .prepare(
+      `SELECT substr(t.date, 1, 7) AS mk,
+              c.id AS category_id,
+              c.name AS category_name,
+              c.group_id,
+              g.name AS group_name,
+              g.color,
+              g.sort_order,
+              COALESCE(SUM(t.amount_cents), 0) AS spent_cents
+       FROM transactions t
+       JOIN categories c ON c.id = t.category_id
+       JOIN category_groups g ON g.id = c.group_id
+       WHERE substr(t.date, 1, 7) >= ? AND substr(t.date, 1, 7) <= ?
+       GROUP BY mk, c.id`
+    )
+    .all(startMonthKey, endMonthKey) as SpentAgg[];
+
+  type IncAgg = {
+    mk: string;
+    source_id: number;
+    source_name: string;
+    amt: number;
+  };
+
+  const incomeRows = db
+    .prepare(
+      `SELECT substr(ia.date, 1, 7) AS mk,
+              ia.source_id,
+              s.name AS source_name,
+              COALESCE(SUM(ia.amount_cents), 0) AS amt
+       FROM income_actuals ia
+       JOIN income_sources s ON s.id = ia.source_id
+       WHERE substr(ia.date, 1, 7) >= ? AND substr(ia.date, 1, 7) <= ?
+       GROUP BY mk, ia.source_id`
+    )
+    .all(startMonthKey, endMonthKey) as IncAgg[];
+
+  type IncLineAgg = {
+    mk: string;
+    source_id: number;
+    line_label: string;
+    amt: number;
+  };
+
+  const incomeLineRows = db
+    .prepare(
+      `SELECT substr(ia.date, 1, 7) AS mk,
+              ia.source_id,
+              COALESCE(NULLIF(TRIM(ia.description), ''), '—') AS line_label,
+              COALESCE(SUM(ia.amount_cents), 0) AS amt
+       FROM income_actuals ia
+       WHERE substr(ia.date, 1, 7) >= ? AND substr(ia.date, 1, 7) <= ?
+       GROUP BY mk, ia.source_id, line_label`
+    )
+    .all(startMonthKey, endMonthKey) as IncLineAgg[];
+
+  type BudgetAgg = { month_key: string; total_cents: number };
+  const budgetRows = db
+    .prepare(
+      `SELECT month_key, COALESCE(SUM(amount_cents), 0) AS total_cents
+       FROM budgets
+       WHERE month_key >= ? AND month_key <= ?
+       GROUP BY month_key`
+    )
+    .all(startMonthKey, endMonthKey) as BudgetAgg[];
+
+  const budgetByMonth = new Map<string, number>(
+    budgetRows.map((r) => [r.month_key, r.total_cents])
+  );
+
+  type TopCatRow = {
+    category_id: number;
+    category_name: string;
+    group_id: number;
+    group_name: string;
+    color: string;
+    total_cents: number;
+  };
+
+  const topCatRows = db
+    .prepare(
+      `SELECT c.id AS category_id,
+              c.name AS category_name,
+              c.group_id,
+              g.name AS group_name,
+              g.color,
+              COALESCE(SUM(t.amount_cents), 0) AS total_cents
+       FROM transactions t
+       JOIN categories c ON c.id = t.category_id
+       JOIN category_groups g ON g.id = c.group_id
+       WHERE substr(t.date, 1, 7) >= ? AND substr(t.date, 1, 7) <= ?
+       GROUP BY c.id
+       HAVING total_cents > 0
+       ORDER BY total_cents DESC
+       LIMIT 5`
+    )
+    .all(startMonthKey, endMonthKey) as TopCatRow[];
+
+  const topCategories: TrendTopCategory[] = topCatRows.map((r) => ({
+    categoryId: r.category_id,
+    name: r.category_name,
+    groupId: r.group_id,
+    groupName: r.group_name,
+    color: r.color,
+    totalCents: r.total_cents,
+  }));
+
+  const months: TrendMonthSnapshot[] = monthKeys.map((mk) => {
+    const { label, year } = (() => {
+      const [y, m] = mk.split('-').map(Number);
+      const d = new Date(y, m - 1, 1);
+      const short = d.toLocaleString('en-US', { month: 'short' });
+      return {
+        label: rangeCrossesYears ? `${short} '${String(y).slice(-2)}` : short,
+        year: y,
+      };
+    })();
+
+    const snap: TrendMonthSnapshot = {
+      monthKey: mk,
+      label,
+      year,
+      totalBudgetCents: budgetByMonth.get(mk) ?? 0,
+      totalSpendingCents: 0,
+      totalIncomeCents: 0,
+      netCents: 0,
+      byGroup: [],
+      byCategory: [],
+      byIncomeSource: [],
+      byIncomeLine: [],
+    };
+    return snap;
+  });
+
+  const monthIndex = new Map(months.map((m, i) => [m.monthKey, i]));
+
+  for (const r of spentRows) {
+    const idx = monthIndex.get(r.mk);
+    if (idx === undefined) continue;
+    const m = months[idx];
+    const cat: TrendCategorySlice = {
+      categoryId: r.category_id,
+      name: r.category_name,
+      groupId: r.group_id,
+      groupName: r.group_name,
+      color: r.color,
+      amountCents: r.spent_cents,
+    };
+    m.byCategory.push(cat);
+  }
+
+  for (const m of months) {
+    const gmap = new Map<number, TrendGroupSlice>();
+    for (const c of m.byCategory) {
+      const prev = gmap.get(c.groupId);
+      if (prev) {
+        prev.amountCents += c.amountCents;
+      } else {
+        gmap.set(c.groupId, {
+          groupId: c.groupId,
+          name: c.groupName,
+          color: c.color,
+          sortOrder: groupRows.find((g) => g.id === c.groupId)?.sort_order ?? 0,
+          amountCents: c.amountCents,
+        });
+      }
+    }
+    m.byGroup = [...gmap.values()].sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)
+    );
+    m.byCategory.sort((a, b) => a.name.localeCompare(b.name));
+    m.totalSpendingCents = m.byCategory.reduce((s, c) => s + c.amountCents, 0);
+  }
+
+  for (const r of incomeRows) {
+    const idx = monthIndex.get(r.mk);
+    if (idx === undefined) continue;
+    const m = months[idx];
+    const slice: TrendIncomeSlice = {
+      sourceId: r.source_id,
+      name: r.source_name,
+      amountCents: r.amt,
+    };
+    m.byIncomeSource.push(slice);
+    m.totalIncomeCents += r.amt;
+  }
+
+  for (const r of incomeLineRows) {
+    const idx = monthIndex.get(r.mk);
+    if (idx === undefined) continue;
+    const m = months[idx];
+    const lineSlice: TrendIncomeLineSlice = {
+      sourceId: r.source_id,
+      label: r.line_label,
+      amountCents: r.amt,
+    };
+    m.byIncomeLine.push(lineSlice);
+  }
+
+  for (const m of months) {
+    m.byIncomeSource.sort((a, b) => a.name.localeCompare(b.name));
+    m.byIncomeLine.sort(
+      (a, b) =>
+        a.sourceId - b.sourceId || a.label.localeCompare(b.label)
+    );
+    m.netCents = m.totalIncomeCents - m.totalSpendingCents;
+  }
+
+  let monthsWithActivity = 0;
+  for (const m of months) {
+    if (m.totalSpendingCents > 0 || m.totalIncomeCents > 0) {
+      monthsWithActivity += 1;
+    }
+  }
+
+  return {
+    range,
+    startMonthKey,
+    endMonthKey,
+    months,
+    topCategories,
+    groups,
+    incomeSources,
+    monthsWithActivity,
+    hasTrendsData,
+  };
+}
+
 function getTransactionsList(filters: TransactionFilters): TransactionListResult {
   const monthKey = filters.monthKey;
   if (!/^\d{4}-\d{2}$/.test(monthKey)) {
     throw new Error('Invalid monthKey (expected YYYY-MM).');
   }
   const likeMonth = `${monthKey}%`;
+  const dr = filters.dateRange;
+  const useRange =
+    dr &&
+    /^\d{4}-\d{2}$/.test(dr.startMonthKey) &&
+    /^\d{4}-\d{2}$/.test(dr.endMonthKey) &&
+    dr.startMonthKey <= dr.endMonthKey;
   const ids = filters.categoryIds;
   const mode: 'all' | 'none' | 'subset' =
     filters.categoryFilter ??
@@ -733,10 +1086,25 @@ function getTransactionsList(filters: TransactionFilters): TransactionListResult
     categoryFilterSubset = false;
   }
 
+  const incomeOnlySourceIds = (
+    Array.isArray(filters.incomeOnlySourceIds)
+      ? filters.incomeOnlySourceIds
+      : []
+  ).filter((id) => Number.isFinite(id) && id > 0);
+  const incomeOnly = incomeOnlySourceIds.length > 0;
+
+  if (incomeOnly) {
+    categoryFilterNone = true;
+    categoryFilterSubset = false;
+  }
+
   const categoryFilterActive =
     categoryFilterNone || categoryFilterSubset;
-  const includeIncome =
+  let includeIncome =
     filters.includeIncome !== false && !categoryFilterActive;
+  if (incomeOnly) {
+    includeIncome = true;
+  }
   const search = filters.search?.trim();
 
   let sql = `
@@ -750,9 +1118,11 @@ function getTransactionsList(filters: TransactionFilters): TransactionListResult
     FROM transactions t
     JOIN categories c ON c.id = t.category_id
     JOIN category_groups g ON g.id = c.group_id
-    WHERE t.date LIKE ?
+    WHERE ${useRange ? 'substr(t.date, 1, 7) >= ? AND substr(t.date, 1, 7) <= ?' : 't.date LIKE ?'}
   `;
-  const params: (string | number)[] = [likeMonth];
+  const params: (string | number)[] = useRange
+    ? [dr!.startMonthKey, dr!.endMonthKey]
+    : [likeMonth];
 
   if (categoryFilterNone) {
     sql += ' AND 1 = 0';
@@ -786,9 +1156,27 @@ function getTransactionsList(filters: TransactionFilters): TransactionListResult
              ia.amount_cents, ia.description, ia.import_hash, ia.created_at
       FROM income_actuals ia
       JOIN income_sources s ON s.id = ia.source_id
-      WHERE ia.date LIKE ?
+      WHERE ${useRange ? 'substr(ia.date, 1, 7) >= ? AND substr(ia.date, 1, 7) <= ?' : 'ia.date LIKE ?'}
     `;
-    const incParams: (string | number)[] = [likeMonth];
+    const incParams: (string | number)[] = useRange
+      ? [dr!.startMonthKey, dr!.endMonthKey]
+      : [likeMonth];
+    if (incomeOnly) {
+      const ph = incomeOnlySourceIds.map(() => '?').join(',');
+      incSql += ` AND ia.source_id IN (${ph})`;
+      for (const sid of incomeOnlySourceIds) {
+        incParams.push(sid);
+      }
+    }
+    const incLineLbl = filters.incomeLineLabel;
+    if (incLineLbl != null && incLineLbl !== '') {
+      if (incLineLbl === '—') {
+        incSql += " AND TRIM(COALESCE(ia.description, '')) = ''";
+      } else {
+        incSql += " AND TRIM(COALESCE(ia.description, '')) = ?";
+        incParams.push(incLineLbl);
+      }
+    }
     if (search) {
       const term = `%${search.toLowerCase()}%`;
       incSql += " AND LOWER(COALESCE(ia.description, '')) LIKE ?";
@@ -1411,6 +1799,8 @@ function registerIpcHandlers() {
   ipcMain.handle('getTransactions', (_, filters: TransactionFilters) => {
     return getTransactionsList(filters);
   });
+
+  ipcMain.handle('getTrends', (_, range: TrendRange) => getTrendsData(range));
 
   ipcMain.handle(
     'updateTransactionCategory',

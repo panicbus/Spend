@@ -6,12 +6,13 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { MergedTransactionRow } from '../../hooks/useTransactionList';
 import { useTransactionList } from '../../hooks/useTransactionList';
 import {
   canGoToPreviousDataMonth,
   formatMonthLabel,
+  formatMonthRangeLabel,
   shiftMonthKey,
 } from '../../utils/dates';
 import { formatCurrency } from '../../services/formatters';
@@ -19,6 +20,12 @@ import { Button } from '../common/Button';
 import { ReturnToCurrentMonthButton } from '../common/ReturnToCurrentMonthButton';
 import '../common/Button.css';
 import type { GroupWithCategories } from '../../../ipc-contract';
+import type { TrendsReturnContext } from '../../utils/trendsReturnContext';
+import {
+  clearTrendsReturnContext,
+  readTrendsReturnContext,
+  setTrendsReturnContext,
+} from '../../utils/trendsReturnContext';
 import './TransactionList.css';
 
 function formatDisplayDate(isoDate: string) {
@@ -45,6 +52,12 @@ function formatImportedAt(iso: string) {
 }
 
 export function TransactionList() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const returnToTrends: TrendsReturnContext | null =
+    (location.state as { trendsReturn?: TrendsReturnContext } | null)
+      ?.trendsReturn ?? readTrendsReturnContext();
   const {
     data,
     mergedRows,
@@ -55,6 +68,12 @@ export function TransactionList() {
     setMonthKey,
     categoryIds,
     setCategoryIds,
+    incomeOnlySourceIds,
+    setIncomeOnlySourceIds,
+    incomeLineLabel,
+    setIncomeLineLabel,
+    dateRange,
+    setDateRange,
     searchText,
     setSearchText,
     debouncedSearch,
@@ -63,6 +82,84 @@ export function TransactionList() {
     removeRow,
     removeIncomeRow,
   } = useTransactionList();
+
+  useLayoutEffect(() => {
+    const rf = searchParams.get('rangeFrom');
+    const rt = searchParams.get('rangeTo');
+    const cat = searchParams.get('category');
+    const incomeSource = searchParams.get('incomeSource');
+    const incomeLine = searchParams.get('incomeLine');
+    let next = false;
+    if (
+      rf &&
+      rt &&
+      /^\d{4}-\d{2}$/.test(rf) &&
+      /^\d{4}-\d{2}$/.test(rt) &&
+      rf <= rt
+    ) {
+      setDateRange({ startMonthKey: rf, endMonthKey: rt });
+      setMonthKey(rt);
+      next = true;
+    }
+    if (cat && /^\d+$/.test(cat)) {
+      setCategoryIds([Number(cat)]);
+      setIncomeOnlySourceIds(undefined);
+      setIncomeLineLabel(undefined);
+      next = true;
+    }
+    if (incomeSource && /^\d+$/.test(incomeSource)) {
+      setIncomeOnlySourceIds([Number(incomeSource)]);
+      setIncomeLineLabel(
+        incomeLine != null && incomeLine !== '' ? incomeLine : undefined
+      );
+      setCategoryIds(undefined);
+      next = true;
+    }
+    if (next) {
+      const p = new URLSearchParams(searchParams);
+      p.delete('rangeFrom');
+      p.delete('rangeTo');
+      p.delete('category');
+      p.delete('incomeSource');
+      p.delete('incomeLine');
+      /** Keep router state (e.g. trendsReturn); default setSearchParams drops it. */
+      setSearchParams(p, { replace: true, state: location.state });
+    }
+  }, [
+    searchParams,
+    setSearchParams,
+    setDateRange,
+    setMonthKey,
+    setCategoryIds,
+    setIncomeOnlySourceIds,
+    setIncomeLineLabel,
+    location.state,
+  ]);
+
+  useLayoutEffect(() => {
+    const st = (location.state as { trendsReturn?: TrendsReturnContext } | null)
+      ?.trendsReturn;
+    if (st) {
+      setTrendsReturnContext(st);
+      return;
+    }
+    const fromTrendsDeepLink =
+      searchParams.has('rangeFrom') ||
+      searchParams.has('rangeTo') ||
+      searchParams.has('category') ||
+      searchParams.has('incomeSource') ||
+      searchParams.has('incomeLine');
+    if (!fromTrendsDeepLink) {
+      clearTrendsReturnContext();
+    }
+  }, [location.state, searchParams]);
+
+  useEffect(() => {
+    if (categoryIds !== undefined) {
+      setIncomeOnlySourceIds(undefined);
+      setIncomeLineLabel(undefined);
+    }
+  }, [categoryIds, setIncomeOnlySourceIds, setIncomeLineLabel]);
 
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [savedForId, setSavedForId] = useState<number | null>(null);
@@ -120,7 +217,9 @@ export function TransactionList() {
 
   const clearCategoryFilter = useCallback(() => {
     setCategoryIds(undefined);
-  }, [setCategoryIds]);
+    setIncomeOnlySourceIds(undefined);
+    setIncomeLineLabel(undefined);
+  }, [setCategoryIds, setIncomeOnlySourceIds, setIncomeLineLabel]);
 
   const groupChipState = useCallback(
     (
@@ -188,7 +287,18 @@ export function TransactionList() {
 
   useEffect(() => {
     setExpandedKey(null);
-  }, [monthKey, categoryIds, debouncedSearch]);
+  }, [
+    monthKey,
+    categoryIds,
+    debouncedSearch,
+    dateRange,
+    incomeOnlySourceIds,
+    incomeLineLabel,
+  ]);
+
+  const exitDateRange = useCallback(() => {
+    setDateRange(null);
+  }, [setDateRange]);
 
   useEffect(() => {
     if (!catMenuOpen) return;
@@ -214,8 +324,12 @@ export function TransactionList() {
     };
   }, []);
 
+  const hasIncomeDrill =
+    !!incomeOnlySourceIds && incomeOnlySourceIds.length > 0;
   const noFilters =
-    debouncedSearch.trim() === '' && categoryIds === undefined;
+    debouncedSearch.trim() === '' &&
+    categoryIds === undefined &&
+    !hasIncomeDrill;
   const isEmpty =
     !loading && !error && data !== null && data.totals.count === 0;
   const emptyMonth = isEmpty && noFilters;
@@ -244,8 +358,11 @@ export function TransactionList() {
     [updateRowCategory, flashSaved]
   );
 
-  const filterButtonLabel =
-    categoryIds === undefined
+  const filterButtonLabel = hasIncomeDrill
+    ? incomeLineLabel
+      ? `Income · ${incomeLineLabel}`
+      : 'Income only'
+    : categoryIds === undefined
       ? 'All categories'
       : categoryIds.length === 0
         ? 'No categories'
@@ -258,13 +375,34 @@ export function TransactionList() {
       <header className="transaction-list__header">
         <h1 className="transaction-list__title">Transactions</h1>
         <div className="transaction-list__month-row">
-          <span className="transaction-list__month-row-spacer" aria-hidden />
+          <div className="transaction-list__month-row-spacer">
+            {returnToTrends ? (
+              <button
+                type="button"
+                className="transaction-list__back-trends"
+                onClick={() => {
+                  if (!returnToTrends) {
+                    navigate('/trends');
+                    return;
+                  }
+                  clearTrendsReturnContext();
+                  navigate('/trends', {
+                    state: { trendsRestore: returnToTrends },
+                  });
+                }}
+              >
+                ← Back to Trends
+              </button>
+            ) : null}
+          </div>
           <div className="transaction-list__month-nav">
             <button
               type="button"
               className="transaction-list__nav"
               aria-label="Previous month"
-              disabled={!canGoToPreviousDataMonth(monthKey)}
+              disabled={
+                dateRange !== null || !canGoToPreviousDataMonth(monthKey)
+              }
               onClick={() => {
                 setMonthKey(shiftMonthKey(monthKey, -1));
               }}
@@ -272,12 +410,18 @@ export function TransactionList() {
               ‹
             </button>
             <span className="transaction-list__month-label">
-              {formatMonthLabel(monthKey)}
+              {dateRange
+                ? formatMonthRangeLabel(
+                    dateRange.startMonthKey,
+                    dateRange.endMonthKey
+                  )
+                : formatMonthLabel(monthKey)}
             </span>
             <button
               type="button"
               className="transaction-list__nav"
               aria-label="Next month"
+              disabled={dateRange !== null}
               onClick={() => {
                 setMonthKey(shiftMonthKey(monthKey, 1));
               }}
@@ -285,11 +429,24 @@ export function TransactionList() {
               ›
             </button>
           </div>
-          <ReturnToCurrentMonthButton
-            monthKey={monthKey}
-            setMonthKey={setMonthKey}
-            onAfterNavigate={() => setExpandedKey(null)}
-          />
+          {dateRange ? (
+            <button
+              type="button"
+              className="transaction-list__exit-range"
+              onClick={() => {
+                exitDateRange();
+                setExpandedKey(null);
+              }}
+            >
+              Month view
+            </button>
+          ) : (
+            <ReturnToCurrentMonthButton
+              monthKey={monthKey}
+              setMonthKey={setMonthKey}
+              onAfterNavigate={() => setExpandedKey(null)}
+            />
+          )}
         </div>
       </header>
 
@@ -454,6 +611,8 @@ export function TransactionList() {
             onClick={() => {
               setSearchText('');
               setCategoryIds(undefined);
+              setIncomeOnlySourceIds(undefined);
+              setIncomeLineLabel(undefined);
             }}
           >
             Clear filters
