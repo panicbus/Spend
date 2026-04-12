@@ -56,6 +56,18 @@ export interface CreateCategoryPayload {
   name: string;
 }
 
+/** Atomic create for CSV import mapping: new category in an existing or newly created group. */
+export interface CreateCategoryForImportPayload {
+  categoryName: string;
+  existingGroupId?: number;
+  newGroup?: { name: string; color: string };
+}
+
+export interface CreateCategoryForImportResult {
+  categoryId: number;
+  groupId: number;
+}
+
 export type BudgetFrequency =
   | 'monthly'
   | 'quarterly'
@@ -133,6 +145,9 @@ export interface SpendApi {
   getGroups: () => Promise<GroupWithCategories[]>;
   createGroup: (payload: CreateGroupPayload) => Promise<{ id: number }>;
   createCategory: (payload: CreateCategoryPayload) => Promise<{ id: number }>;
+  createCategoryForImport: (
+    payload: CreateCategoryForImportPayload
+  ) => Promise<CreateCategoryForImportResult>;
   deleteCategory: (id: number) => Promise<void>;
   deleteGroup: (id: number) => Promise<void>;
   getBudget: (monthKey: string) => Promise<BudgetPayload>;
@@ -144,7 +159,9 @@ export interface SpendApi {
   setBudgetDetails: (
     categoryId: number,
     monthKey: string,
-    details: SetBudgetDetailsInput
+    details: SetBudgetDetailsInput,
+    /** When true with a non-monthly frequency, sync this category’s budget rows for all 12 months of monthKey’s year. Passed separately so it cannot be dropped by IPC cloning. */
+    applyToFullYear?: boolean
   ) => Promise<void>;
   getIncomeSources: () => Promise<IncomeSourceRow[]>;
   createIncomeSource: (

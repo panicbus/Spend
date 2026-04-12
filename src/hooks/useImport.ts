@@ -190,7 +190,7 @@ export function useImport() {
 
   const assignMapping = useCallback(
     (externalName: string, selectValue: string) => {
-      if (!selectValue) return;
+      if (!selectValue || selectValue === '__create_category__') return;
       const { targetType, targetId } = parseSelectValue(selectValue);
       setState((s) => {
         if (s.kind !== 'mapping') return s;
@@ -199,6 +199,25 @@ export function useImport() {
           assignments: {
             ...s.assignments,
             [externalName]: { targetType, targetId },
+          },
+        };
+      });
+    },
+    []
+  );
+
+  const setAssignmentDirect = useCallback(
+    (
+      externalName: string,
+      assignment: { targetType: MappingTargetType; targetId: number | null }
+    ) => {
+      setState((s) => {
+        if (s.kind !== 'mapping') return s;
+        return {
+          ...s,
+          assignments: {
+            ...s.assignments,
+            [externalName]: assignment,
           },
         };
       });
@@ -249,6 +268,7 @@ export function useImport() {
   }, []);
 
   const overrideRow = useCallback((rowIndex: number, selectValue: string) => {
+    if (selectValue === '__create_category__') return;
     const { targetType, targetId } = parseSelectValue(selectValue);
     const skip = targetType === 'skip';
     setState((s) => {
@@ -326,6 +346,7 @@ export function useImport() {
     pickFile,
     parseDroppedFile,
     assignMapping,
+    setAssignmentDirect,
     confirmMappings,
     mappingsReady,
     overrideRow,

@@ -64,6 +64,10 @@
   color: var(--text-secondary);
 }
 
+.income-section__cell--income-ahead {
+  color: var(--accent-text);
+}
+
 .income-section__editable {
   padding: 0;
   font: inherit;

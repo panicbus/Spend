@@ -1,11 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GroupWithCategories, IncomeSourceRow } from '../../../ipc-contract';
 import type { MappingTargetType, ParsedRow } from '../../types/import';
-import { useImport, effectiveRowTarget, reviewSelectValue } from '../../hooks/useImport';
+import {
+  useImport,
+  effectiveRowTarget,
+  reviewSelectValue,
+} from '../../hooks/useImport';
 import type { RowOverride } from '../../hooks/useImport';
 import { api } from '../../services/api';
 import { formatCurrency } from '../../services/formatters';
 import { Button } from '../common/Button';
+import { ImportCreateCategoryForm } from './ImportCreateCategoryForm';
 import './ImportView.css';
 
 function mappingAssignmentToSelect(
@@ -30,12 +35,15 @@ function CategorySelect({
   groups,
   incomeSources,
   className,
+  withCreateCategory = true,
 }: {
   value: string;
   onChange: (v: string) => void;
   groups: GroupWithCategories[];
   incomeSources: IncomeSourceRow[];
   className?: string;
+  /** Adds "+ Create new category..." for import mapping flows */
+  withCreateCategory?: boolean;
 }) {
   return (
     <select
@@ -44,6 +52,9 @@ function CategorySelect({
       onChange={(e) => onChange(e.target.value)}
     >
       <option value="">Choose mapping…</option>
+      {withCreateCategory ? (
+        <option value="__create_category__">+ Create new category...</option>
+      ) : null}
       <optgroup label="Skip">
         <option value="skip">Skip these transactions</option>
       </optgroup>
@@ -102,6 +113,7 @@ export function ImportView() {
     pickFile,
     parseDroppedFile,
     assignMapping,
+    setAssignmentDirect,
     confirmMappings,
     mappingsReady,
     overrideRow,
@@ -112,6 +124,25 @@ export function ImportView() {
   const [groups, setGroups] = useState<GroupWithCategories[]>([]);
   const [incomeSources, setIncomeSources] = useState<IncomeSourceRow[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [creatingMapExternal, setCreatingMapExternal] = useState<string | null>(
+    null
+  );
+  const [creatingReviewKey, setCreatingReviewKey] = useState<string | null>(
+    null
+  );
+
+  const groupsSorted = useMemo(
+    () =>
+      [...groups].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+      ),
+    [groups]
+  );
+
+  const refreshGroups = useCallback(async () => {
+    const g = await api.getGroups();
+    setGroups(g ?? []);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -212,6 +243,7 @@ export function ImportView() {
                 (r) => r.externalCategory === name
               ).length;
               const label = name || '(Uncategorized)';
+              const isCreating = creatingMapExternal === name;
               return (
                 <li key={name || '__empty__'} className="import-map-item">
                   <div className="import-map-item__left">
@@ -220,13 +252,39 @@ export function ImportView() {
                       {count} transactions
                     </span>
                   </div>
-                  <CategorySelect
-                    className="import-select import-map-item__select"
-                    value={mappingAssignmentToSelect(state.assignments[name])}
-                    onChange={(v) => assignMapping(name, v)}
-                    groups={groups}
-                    incomeSources={incomeSources}
-                  />
+                  {isCreating ? (
+                    <ImportCreateCategoryForm
+                      groupsSorted={groupsSorted}
+                      onCancel={() => setCreatingMapExternal(null)}
+                      onSubmitSuccess={async (categoryId) => {
+                        await api.saveCategoryMapping({
+                          externalName: name,
+                          targetType: 'category',
+                          targetId: categoryId,
+                        });
+                        await refreshGroups();
+                        setAssignmentDirect(name, {
+                          targetType: 'category',
+                          targetId: categoryId,
+                        });
+                        setCreatingMapExternal(null);
+                      }}
+                    />
+                  ) : (
+                    <CategorySelect
+                      className="import-select import-map-item__select"
+                      value={mappingAssignmentToSelect(state.assignments[name])}
+                      onChange={(v) => {
+                        if (v === '__create_category__') {
+                          setCreatingMapExternal(name);
+                          return;
+                        }
+                        assignMapping(name, v);
+                      }}
+                      groups={groupsSorted}
+                      incomeSources={incomeSources}
+                    />
+                  )}
                 </li>
               );
             })}
@@ -262,35 +320,61 @@ export function ImportView() {
               <span>Skip</span>
             </div>
             <div className="import-review__body">
-              {state.rows.map((row, idx) => (
-                <div
-                  key={`${row.importHash}-${idx}`}
-                  className={`import-review__row${idx % 2 === 1 ? ' import-review__row--alt' : ''}`}
-                >
-                  <span className="import-review__cell">{row.date}</span>
-                  <span
-                    className="import-review__cell import-review__cell--merchant"
-                    title={row.merchant}
+              {state.rows.map((row, idx) => {
+                const reviewCreateKey = `review:${row.rowIndex}`;
+                const isCreatingRow = creatingReviewKey === reviewCreateKey;
+                return (
+                  <div
+                    key={`${row.importHash}-${idx}`}
+                    className={`import-review__row${idx % 2 === 1 ? ' import-review__row--alt' : ''}`}
                   >
-                    {row.merchant}
-                  </span>
-                  <span className="import-review__cell import-review__cell--cat">
-                    <span className="import-review__cat-label">
-                      {categoryColumnLabel(
-                        row,
-                        state.rowOverrides[row.rowIndex],
-                        groups,
-                        incomeSources
+                    <span className="import-review__cell">{row.date}</span>
+                    <span
+                      className="import-review__cell import-review__cell--merchant"
+                      title={row.merchant}
+                    >
+                      {row.merchant}
+                    </span>
+                    <span className="import-review__cell import-review__cell--cat">
+                      <span className="import-review__cat-label">
+                        {categoryColumnLabel(
+                          row,
+                          state.rowOverrides[row.rowIndex],
+                          groups,
+                          incomeSources
+                        )}
+                      </span>
+                      {isCreatingRow ? (
+                        <ImportCreateCategoryForm
+                          groupsSorted={groupsSorted}
+                          onCancel={() => setCreatingReviewKey(null)}
+                          onSubmitSuccess={async (categoryId) => {
+                            await api.saveCategoryMapping({
+                              externalName: row.externalCategory,
+                              targetType: 'category',
+                              targetId: categoryId,
+                            });
+                            await refreshGroups();
+                            overrideRow(row.rowIndex, `cat:${categoryId}`);
+                            setCreatingReviewKey(null);
+                          }}
+                        />
+                      ) : (
+                        <CategorySelect
+                          className="import-select import-select--compact"
+                          value={reviewSelectValue(row, state.rowOverrides)}
+                          onChange={(v) => {
+                            if (v === '__create_category__') {
+                              setCreatingReviewKey(reviewCreateKey);
+                              return;
+                            }
+                            overrideRow(row.rowIndex, v);
+                          }}
+                          groups={groupsSorted}
+                          incomeSources={incomeSources}
+                        />
                       )}
                     </span>
-                    <CategorySelect
-                      className="import-select import-select--compact"
-                      value={reviewSelectValue(row, state.rowOverrides)}
-                      onChange={(v) => overrideRow(row.rowIndex, v)}
-                      groups={groups}
-                      incomeSources={incomeSources}
-                    />
-                  </span>
                   <span
                     className={`import-review__cell import-review__cell--amt ${amountClass(row.amountCents)}`}
                   >
@@ -312,7 +396,8 @@ export function ImportView() {
                     />
                   </label>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
           <div className="import-actions">

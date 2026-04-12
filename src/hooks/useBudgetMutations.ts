@@ -13,8 +13,9 @@ export function useBudgetMutations() {
     (
       categoryId: number,
       monthKey: string,
-      details: SetBudgetDetailsInput
-    ) => api.setBudgetDetails(categoryId, monthKey, details),
+      details: SetBudgetDetailsInput,
+      applyToFullYear?: boolean
+    ) => api.setBudgetDetails(categoryId, monthKey, details, applyToFullYear),
     []
   );
 

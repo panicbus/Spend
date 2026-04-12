@@ -10,8 +10,8 @@ function pctUsed(spent: number, budget: number) {
 }
 
 function barFillColor(pct: number, groupColor: string) {
-  if (pct >= 100) return 'var(--danger)';
-  if (pct >= 85) return 'var(--warn)';
+  if (pct > 100) return 'var(--danger)';
+  if (pct >= 85 && pct < 100) return 'var(--warn)';
   return groupColor;
 }
 

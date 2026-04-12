@@ -9,6 +9,7 @@ import type {
   AddTransactionPayload,
   BudgetFrequency,
   BudgetPayload,
+  CreateCategoryForImportPayload,
   CreateCategoryPayload,
   CreateGroupPayload,
   CreateIncomeSourcePayload,
@@ -114,6 +115,18 @@ function monthKeyToYtdBounds(monthKey: string): { start: string; end: string } {
 
 function monthNumberFromMonthKey(monthKey: string): number {
   return Number(monthKey.split('-')[1]);
+}
+
+function monthKeysForCalendarYear(monthKey: string): string[] {
+  const m = /^(\d{4})-(\d{2})$/.exec(monthKey.trim());
+  if (!m) {
+    throw new Error('Invalid monthKey (expected YYYY-MM).');
+  }
+  const y = m[1];
+  return Array.from(
+    { length: 12 },
+    (_, i) => `${y}-${String(i + 1).padStart(2, '0')}`
+  );
 }
 
 function initDb() {
@@ -770,6 +783,90 @@ function registerIpcHandlers() {
     return { id: Number(r.lastInsertRowid) };
   });
 
+  ipcMain.handle(
+    'createCategoryForImport',
+    (_, payload: CreateCategoryForImportPayload) => {
+      const catNameRaw = (payload.categoryName ?? '').trim();
+      if (!catNameRaw) {
+        throw new Error('Category name is required.');
+      }
+      const ng = payload.newGroup;
+      const eg = payload.existingGroupId;
+      const hasNew = ng != null;
+      const hasExisting = eg != null && Number.isFinite(eg);
+      if (hasNew && hasExisting) {
+        throw new Error(
+          'Select either an existing group or a new group, not both.'
+        );
+      }
+      if (!hasNew && !hasExisting) {
+        throw new Error('Select a group.');
+      }
+
+      const run = db.transaction(() => {
+        let groupId: number;
+
+        if (hasNew) {
+          const gn = (ng!.name ?? '').trim();
+          if (!gn) {
+            throw new Error('Group name is required.');
+          }
+          const dupG = db
+            .prepare('SELECT 1 AS ok FROM category_groups WHERE name = ?')
+            .get(gn) as { ok: number } | undefined;
+          if (dupG) {
+            throw new Error('A group with this name already exists.');
+          }
+          const color = (ng!.color ?? '').trim() || '#748B9D';
+          const rowG = db
+            .prepare(
+              'SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM category_groups'
+            )
+            .get() as { n: number };
+          const rG = db
+            .prepare(
+              'INSERT INTO category_groups (name, color, sort_order) VALUES (?, ?, ?)'
+            )
+            .run(gn, color, rowG.n);
+          groupId = Number(rG.lastInsertRowid);
+        } else {
+          groupId = eg as number;
+          const gRow = db
+            .prepare('SELECT id, name FROM category_groups WHERE id = ?')
+            .get(groupId) as { id: number; name: string } | undefined;
+          if (!gRow) {
+            throw new Error('Group not found.');
+          }
+          const dupC = db
+            .prepare(
+              'SELECT 1 AS ok FROM categories WHERE group_id = ? AND name = ?'
+            )
+            .get(groupId, catNameRaw) as { ok: number } | undefined;
+          if (dupC) {
+            throw new Error(
+              `A category with this name already exists in ${gRow.name}.`
+            );
+          }
+        }
+
+        const rowC = db
+          .prepare(
+            'SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM categories WHERE group_id = ?'
+          )
+          .get(groupId) as { n: number };
+        const rC = db
+          .prepare(
+            'INSERT INTO categories (group_id, name, sort_order) VALUES (?, ?, ?)'
+          )
+          .run(groupId, catNameRaw, rowC.n);
+        const categoryId = Number(rC.lastInsertRowid);
+        return { categoryId, groupId };
+      });
+
+      return run();
+    }
+  );
+
   ipcMain.handle('deleteCategory', (_, id: number) => {
     db.prepare('DELETE FROM categories WHERE id = ?').run(id);
   });
@@ -802,7 +899,8 @@ function registerIpcHandlers() {
       _,
       categoryId: number,
       monthKey: string,
-      details: SetBudgetDetailsInput
+      details: SetBudgetDetailsInput,
+      applyToFullYear?: boolean
     ) => {
       const freq = details.frequency;
       if (!BUDGET_FREQUENCIES.has(freq)) {
@@ -829,14 +927,31 @@ function registerIpcHandlers() {
       }
       const annualInt = Math.round(annual);
       const monthlySetAside = Math.round(annualInt / 12);
-      db.prepare(
+      const upsertSinking = db.prepare(
         `INSERT INTO budgets (category_id, month_key, amount_cents, frequency, annual_amount_cents)
          VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(category_id, month_key) DO UPDATE SET
            amount_cents = excluded.amount_cents,
            frequency = excluded.frequency,
            annual_amount_cents = excluded.annual_amount_cents`
-      ).run(categoryId, monthKey, monthlySetAside, freq, annualInt);
+      );
+      if (applyToFullYear === true) {
+        const keys = monthKeysForCalendarYear(monthKey);
+        const runAll = db.transaction(() => {
+          for (const mk of keys) {
+            upsertSinking.run(categoryId, mk, monthlySetAside, freq, annualInt);
+          }
+        });
+        runAll();
+      } else {
+        upsertSinking.run(
+          categoryId,
+          monthKey,
+          monthlySetAside,
+          freq,
+          annualInt
+        );
+      }
     }
   );
 

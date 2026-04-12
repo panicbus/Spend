@@ -10,6 +10,31 @@ import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
 import './IncomeSection.css';
 
+/** Remaining column: muted shortfall / neutral $0, or "+$X ahead" in accent when actual exceeds budget. */
+function incomeRemainingDisplay(
+  budgetCents: number,
+  actualCents: number
+): { text: string; className: string } {
+  const budget = Number(budgetCents) || 0;
+  const actual = Number(actualCents) || 0;
+  if (actual > budget) {
+    return {
+      text: `+${formatCurrency(actual - budget)} ahead`,
+      className: 'income-section__cell income-section__cell--income-ahead',
+    };
+  }
+  if (actual === budget) {
+    return {
+      text: formatCurrency(0),
+      className: 'income-section__cell income-section__cell--muted',
+    };
+  }
+  return {
+    text: formatCurrency(budget - actual),
+    className: 'income-section__cell income-section__cell--muted',
+  };
+}
+
 type IncomeSectionProps = {
   income: BudgetIncomeRow[];
   monthKey: string;
@@ -58,8 +83,13 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
       budget += row.budget_cents ?? 0;
       actual += row.actual_cents ?? 0;
     }
-    return { budget, actual, remaining: budget - actual };
+    return { budget, actual };
   }, [income]);
+
+  const totalIncomeRemaining =
+    income.length > 0
+      ? incomeRemainingDisplay(totals.budget, totals.actual)
+      : null;
 
   return (
     <section className="income-section" aria-label="Income">
@@ -73,7 +103,10 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
           <span>Remaining</span>
         </div>
         {income.map((row) => {
-          const rem = (row.budget_cents ?? 0) - (row.actual_cents ?? 0);
+          const remaining = incomeRemainingDisplay(
+            row.budget_cents ?? 0,
+            row.actual_cents ?? 0
+          );
           const isEdit = editingId === row.id;
           return (
             <div key={row.id} className="income-section__row">
@@ -105,13 +138,11 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
               <span className="income-section__cell">
                 {formatCurrency(row.actual_cents ?? 0)}
               </span>
-              <span className="income-section__cell income-section__cell--muted">
-                {formatCurrency(rem)}
-              </span>
+              <span className={remaining.className}>{remaining.text}</span>
             </div>
           );
         })}
-        {income.length > 0 && (
+        {totalIncomeRemaining && (
           <div className="income-section__row income-section__row--total">
             <span className="income-section__name">Total income</span>
             <span className="income-section__cell">
@@ -120,8 +151,8 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
             <span className="income-section__cell">
               {formatCurrency(totals.actual)}
             </span>
-            <span className="income-section__cell income-section__cell--muted">
-              {formatCurrency(totals.remaining)}
+            <span className={totalIncomeRemaining.className}>
+              {totalIncomeRemaining.text}
             </span>
           </div>
         )}

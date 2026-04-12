@@ -37,8 +37,8 @@ function pctUsed(spent: number, budget: number) {
 }
 
 function barFillColor(pct: number, groupColor: string) {
-  if (pct >= 100) return 'var(--danger)';
-  if (pct >= 85) return 'var(--warn)';
+  if (pct > 100) return 'var(--danger)';
+  if (pct >= 85 && pct < 100) return 'var(--warn)';
   return groupColor;
 }
 
@@ -71,6 +71,11 @@ type CategoryCardLineListProps = {
   variant?: 'in-card' | 'overlay';
 };
 
+function calendarYearLabel(monthKey: string): string {
+  const m = /^(\d{4})-\d{2}$/.exec(monthKey.trim());
+  return m ? m[1] : monthKey.slice(0, 4);
+}
+
 export function CategoryCardLineList({
   group,
   monthKey,
@@ -81,6 +86,7 @@ export function CategoryCardLineList({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFreq, setEditFreq] = useState<BudgetFrequency>('monthly');
   const [editDraft, setEditDraft] = useState('');
+  const [applyToFullYear, setApplyToFullYear] = useState(true);
 
   const saveEdit = useCallback(
     async (categoryId: number) => {
@@ -91,13 +97,18 @@ export function CategoryCardLineList({
             amountCents: formatInputDollars(editDraft),
           });
         } else {
-          await setBudgetDetails(categoryId, monthKey, {
-            frequency: editFreq,
-            annualAmountCents: annualCentsFromPerOccurrenceCents(
-              formatInputDollars(editDraft),
-              editFreq
-            ),
-          });
+          await setBudgetDetails(
+            categoryId,
+            monthKey,
+            {
+              frequency: editFreq,
+              annualAmountCents: annualCentsFromPerOccurrenceCents(
+                formatInputDollars(editDraft),
+                editFreq
+              ),
+            },
+            applyToFullYear
+          );
         }
         setEditingId(null);
         onBudgetUpdated();
@@ -105,7 +116,14 @@ export function CategoryCardLineList({
         console.error('CategoryCardLineList saveEdit:', err);
       }
     },
-    [editDraft, editFreq, monthKey, onBudgetUpdated, setBudgetDetails]
+    [
+      applyToFullYear,
+      editDraft,
+      editFreq,
+      monthKey,
+      onBudgetUpdated,
+      setBudgetDetails,
+    ]
   );
 
   const onAmountKeyDown = useCallback(
@@ -122,6 +140,7 @@ export function CategoryCardLineList({
     setEditingId(c.id);
     const freq = c.frequency ?? 'monthly';
     setEditFreq(freq);
+    setApplyToFullYear(freq !== 'monthly');
     if (freq === 'monthly') {
       setEditDraft(dollarsFromCentsInput(c.budget_cents ?? 0));
     } else {
@@ -139,6 +158,7 @@ export function CategoryCardLineList({
   const selectFreqWhileEditing = useCallback(
     (c: BudgetCategoryLine, newFreq: BudgetFrequency) => {
       if (newFreq === 'monthly') {
+        setApplyToFullYear(false);
         setEditFreq('monthly');
         if (editFreq !== 'monthly') {
           const annualBridge = annualCentsFromPerOccurrenceCents(
@@ -154,6 +174,7 @@ export function CategoryCardLineList({
         return;
       }
       if (editFreq === 'monthly') {
+        setApplyToFullYear(true);
         setEditFreq(newFreq);
         const monthlyCents =
           formatInputDollars(editDraft) || (c.budget_cents ?? 0);
@@ -222,6 +243,7 @@ export function CategoryCardLineList({
           editFreq !== 'monthly'
             ? Math.round(annualFromDraftHint / 12)
             : 0;
+        const yearLabel = calendarYearLabel(monthKey);
 
         return (
           <li key={c.id} className="category-card__line">
@@ -329,6 +351,20 @@ export function CategoryCardLineList({
                       </>
                     )}
                   </p>
+                )}
+                {editFreq !== 'monthly' && (
+                  <label className="category-card__budget-full-year">
+                    <input
+                      type="checkbox"
+                      checked={applyToFullYear}
+                      onChange={(e) =>
+                        setApplyToFullYear(e.target.checked)
+                      }
+                    />
+                    <span>
+                      Apply to all months in {yearLabel}
+                    </span>
+                  </label>
                 )}
                 <div className="category-card__budget-actions">
                   <button

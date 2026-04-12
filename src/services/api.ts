@@ -15,6 +15,9 @@ export const api = {
     getBridge().createGroup(payload),
   createCategory: (payload: Parameters<SpendApi['createCategory']>[0]) =>
     getBridge().createCategory(payload),
+  createCategoryForImport: (
+    payload: Parameters<SpendApi['createCategoryForImport']>[0]
+  ) => getBridge().createCategoryForImport(payload),
   deleteCategory: (id: number) => getBridge().deleteCategory(id),
   deleteGroup: (id: number) => getBridge().deleteGroup(id),
 
@@ -24,8 +27,9 @@ export const api = {
   setBudgetDetails: (
     categoryId: number,
     monthKey: string,
-    details: Parameters<SpendApi['setBudgetDetails']>[2]
-  ) => getBridge().setBudgetDetails(categoryId, monthKey, details),
+    details: Parameters<SpendApi['setBudgetDetails']>[2],
+    applyToFullYear?: Parameters<SpendApi['setBudgetDetails']>[3]
+  ) => getBridge().setBudgetDetails(categoryId, monthKey, details, applyToFullYear),
 
   getIncomeSources: () => getBridge().getIncomeSources(),
   createIncomeSource: (payload: Parameters<SpendApi['createIncomeSource']>[0]) =>

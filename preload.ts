@@ -5,14 +5,22 @@ const api: SpendApi = {
   getGroups: () => ipcRenderer.invoke('getGroups'),
   createGroup: (payload) => ipcRenderer.invoke('createGroup', payload),
   createCategory: (payload) => ipcRenderer.invoke('createCategory', payload),
+  createCategoryForImport: (payload) =>
+    ipcRenderer.invoke('createCategoryForImport', payload),
   deleteCategory: (id) => ipcRenderer.invoke('deleteCategory', id),
   deleteGroup: (id) => ipcRenderer.invoke('deleteGroup', id),
 
   getBudget: (monthKey) => ipcRenderer.invoke('getBudget', monthKey),
   setBudgetAmount: (categoryId, monthKey, amountCents) =>
     ipcRenderer.invoke('setBudgetAmount', categoryId, monthKey, amountCents),
-  setBudgetDetails: (categoryId, monthKey, details) =>
-    ipcRenderer.invoke('setBudgetDetails', categoryId, monthKey, details),
+  setBudgetDetails: (categoryId, monthKey, details, applyToFullYear) =>
+    ipcRenderer.invoke(
+      'setBudgetDetails',
+      categoryId,
+      monthKey,
+      details,
+      applyToFullYear
+    ),
 
   getIncomeSources: () => ipcRenderer.invoke('getIncomeSources'),
   createIncomeSource: (payload) =>

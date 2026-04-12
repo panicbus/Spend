@@ -1,6 +1,6 @@
 {
   "name": "spend-app",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "private": true,
   "main": "dist-electron/main.js",
   "type": "module",
@@ -11,7 +11,7 @@
     "dev:electron": "npm run build:electron && wait-on tcp:127.0.0.1:5173 file:dist-electron/main.js file:dist-electron/preload.js && ELECTRON_IS_DEV=1 electron .",
     "electron:only": "npm run build:electron && ELECTRON_IS_DEV=1 electron .",
     "build": "vite build && npm run build:electron",
-    "start": "npm run build:electron && electron .",
+    "start": "npm run build && electron .",
     "typecheck": "tsc -p tsconfig.app.json && tsc -p tsconfig.node.json",
     "bump:patch": "node scripts/bump-version.mjs patch",
     "bump:minor": "node scripts/bump-version.mjs minor",

@@ -157,13 +157,14 @@ All calls go through `window.api.*`:
 api.getGroups()                          → [{ id, name, color, sort_order, categories: [...] }]
 api.createGroup({ name, color })         → { id }
 api.createCategory({ group_id, name })   → { id }
+api.createCategoryForImport({ categoryName, existingGroupId?, newGroup? }) → { categoryId, groupId }
 api.deleteCategory(id)                   → void
 api.deleteGroup(id)                      → void
 
 // Budgets
 api.getBudget(monthKey)                  → { groups: [...with budget amounts and spent totals], income: [...] }
 api.setBudgetAmount(categoryId, monthKey, amountCents) → void (monthly only; clears sinking fields)
-api.setBudgetDetails(categoryId, monthKey, { frequency, amountCents?, annualAmountCents? }) → void
+api.setBudgetDetails(categoryId, monthKey, { frequency, amountCents?, annualAmountCents? }, applyToFullYear?) → void
 
 // Income
 api.getIncomeSources()                   → [{ id, name }]
