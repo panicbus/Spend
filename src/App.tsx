@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AppShell } from './components/Layout/AppShell';
 import { BudgetDashboard } from './components/Budget/BudgetDashboard';
 import { TransactionList } from './components/Transactions/TransactionList';
@@ -10,7 +10,7 @@ import { TrendsPage } from './components/Trends/TrendsPage';
 export default function App() {
   return (
     <div className="app-root">
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<BudgetDashboard />} />
@@ -20,7 +20,7 @@ export default function App() {
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </div>
   );
 }

@@ -1976,15 +1976,14 @@ function createWindow() {
     },
   });
 
-  const isDev =
-    process.env.NODE_ENV === 'development' ||
-    process.env.ELECTRON_IS_DEV === '1';
+  /** Only the explicit flag loads Vite; NODE_ENV is unreliable when running `electron .` after a build. */
+  const useViteDevServer = process.env.ELECTRON_IS_DEV === '1';
 
   win.webContents.on('preload-error', (_event, preloadPath, err) => {
     console.error('[Spend] preload-error', preloadPath, err);
   });
 
-  if (isDev) {
+  if (useViteDevServer) {
     win.loadURL('http://127.0.0.1:5173');
   } else {
     win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
