@@ -143,8 +143,12 @@ export interface AddTransactionPayload {
 
 export type DefaultMonthOnLaunch = 'current' | 'last_viewed';
 
+export type ColorMode = 'light' | 'dark';
+
 export interface AppPreferences {
   defaultMonthOnLaunch: DefaultMonthOnLaunch;
+  /** UI theme; persisted in settings. Default light when unset. */
+  colorMode: ColorMode;
 }
 
 export interface UpdateGroupPayload {

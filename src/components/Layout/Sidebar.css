@@ -45,7 +45,7 @@
 }
 
 .sidebar__brand-dot {
-  color: var(--accent);
+  color: var(--sidebar-accent);
 }
 
 .sidebar__version {
@@ -101,4 +101,36 @@
   min-height: 16px;
   -webkit-app-region: no-drag;
   app-region: no-drag;
+}
+
+.sidebar__theme {
+  flex-shrink: 0;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--sidebar-border);
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.sidebar__theme-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--sidebar-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  text-align: left;
+}
+
+.sidebar__theme-btn:hover {
+  background: var(--sidebar-hover-bg);
+  color: var(--sidebar-text);
 }

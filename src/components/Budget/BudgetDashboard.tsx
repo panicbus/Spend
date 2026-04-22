@@ -7,6 +7,7 @@ import {
 import { useSyncedMonthKey } from '../../hooks/useSyncedMonthKey';
 import { useBudget } from '../../hooks/useBudget';
 import { SummaryCards } from './SummaryCards';
+import { MonthlyPulseCheck } from './MonthlyPulseCheck';
 import { SpendingDonut } from './SpendingDonut';
 import { CategoryGrid } from './CategoryGrid';
 import { IncomeSection } from './IncomeSection';
@@ -105,6 +106,11 @@ export function BudgetDashboard() {
       {!loading && !error && hasGroups && (
         <>
           <SummaryCards totals={totals} />
+          <MonthlyPulseCheck
+            monthKey={monthKey}
+            groups={groups}
+            totals={totals}
+          />
           <SpendingDonut groups={groups} />
           <CategoryGrid
             groups={groups}

@@ -79,11 +79,11 @@
   max-width: 640px;
   padding: 16px 18px;
   border-radius: 12px;
-  border: 0.5px solid #c94a4a;
-  background: #fdf2f2;
+  border: 0.5px solid var(--danger);
+  background: var(--danger-bg);
   font-size: 14px;
   line-height: 1.5;
-  color: #5c1f1f;
+  color: var(--danger-text);
 }
 
 .budget-dashboard__error strong {

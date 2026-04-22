@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, nativeImage } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -232,6 +232,7 @@ function flushAndCloseDb() {
 }
 
 const SETTINGS_KEY_DEFAULT_MONTH = 'default_month_on_launch';
+const SETTINGS_KEY_COLOR_MODE = 'color_mode';
 
 function getPreferencesFromDb(): AppPreferences {
   const row = db
@@ -240,7 +241,11 @@ function getPreferencesFromDb(): AppPreferences {
   const v = row?.value;
   const defaultMonthOnLaunch =
     v === 'current' || v === 'last_viewed' ? v : 'last_viewed';
-  return { defaultMonthOnLaunch };
+  const colorRow = db
+    .prepare('SELECT value FROM settings WHERE key = ?')
+    .get(SETTINGS_KEY_COLOR_MODE) as { value: string } | undefined;
+  const colorMode = colorRow?.value === 'dark' ? 'dark' : 'light';
+  return { defaultMonthOnLaunch, colorMode };
 }
 
 function setPreferencesInDb(partial: Partial<AppPreferences>) {
@@ -248,6 +253,12 @@ function setPreferencesInDb(partial: Partial<AppPreferences>) {
     db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
       SETTINGS_KEY_DEFAULT_MONTH,
       partial.defaultMonthOnLaunch
+    );
+  }
+  if (partial.colorMode != null) {
+    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
+      SETTINGS_KEY_COLOR_MODE,
+      partial.colorMode
     );
   }
 }
@@ -2045,16 +2056,26 @@ function registerIpcHandlers() {
   });
 }
 
-/** Unpacked / dev: `dist-electron` → `build/icon.icns`. Omitted in packaged app (bundle icon from electron-builder). */
-function resolveLocalAppIconPath(): string | undefined {
+/**
+ * Unpacked / dev: `dist-electron` → `build/icon.icns`.
+ * Omitted in packaged app (bundle icon from electron-builder).
+ * Uses nativeImage so a missing/corrupt file never crashes startup.
+ */
+function resolveLocalAppIcon(): Electron.NativeImage | undefined {
   const icns = path.join(__dirname, '..', 'build', 'icon.icns');
-  return fs.existsSync(icns) ? icns : undefined;
+  if (!fs.existsSync(icns)) return undefined;
+  const img = nativeImage.createFromPath(icns);
+  return img.isEmpty() ? undefined : img;
 }
 
 function createWindow() {
-  const iconPath = resolveLocalAppIconPath();
-  if (process.platform === 'darwin' && app.dock && iconPath) {
-    app.dock.setIcon(iconPath);
+  const icon = resolveLocalAppIcon();
+  if (process.platform === 'darwin' && app.dock && icon) {
+    try {
+      app.dock.setIcon(icon);
+    } catch {
+      /* invalid icon should not block launch */
+    }
   }
   const win = new BrowserWindow({
     width: 1200,
@@ -2064,7 +2085,7 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 14 },
     backgroundColor: '#F6F5F0',
-    ...(iconPath ? { icon: iconPath } : {}),
+    ...(icon ? { icon } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,

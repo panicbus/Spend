@@ -323,3 +323,8 @@
 .recharts-default-legend {
   display: none;
 }
+
+/* Theme-aware hover highlight on bars (Recharts default can look wrong in dark mode). */
+.recharts-tooltip-cursor {
+  fill: var(--surface-subtle) !important;
+}

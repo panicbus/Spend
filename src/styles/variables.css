@@ -22,6 +22,12 @@
   --text-on-accent: #ffffff;
   --overlay-scrim: rgba(0, 0, 0, 0.35);
   --accent-border-soft: rgba(45, 159, 117, 0.28);
+  --warn-border-soft: rgba(229, 149, 62, 0.25);
+  --warn-border-mid: rgba(229, 149, 62, 0.35);
+  --danger-border-soft: rgba(217, 79, 79, 0.22);
+  --shadow-elevated: 0 8px 28px rgba(0, 0, 0, 0.08);
+  --surface-subtle: rgba(0, 0, 0, 0.03);
+  --control-border: rgba(0, 0, 0, 0.12);
 
   /* Sidebar (dark chrome; main content uses tokens above) */
   --sidebar-text: rgba(255, 255, 255, 0.92);
@@ -31,6 +37,8 @@
   --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
   --sidebar-active-bg: rgba(255, 255, 255, 0.1);
   --sidebar-border: rgba(255, 255, 255, 0.08);
+  /** Brand accent in sidebar; not tied to main `--accent` so dark mode can change chart/button green independently. */
+  --sidebar-accent: #2d9f75;
 
   --cat-housing: #3a7bd5;
   --cat-utilities: #6b5ce7;
@@ -49,4 +57,37 @@
   --main-padding-x: 40px;
   --main-padding-y: 32px;
   --sidebar-drag-padding: 40px;
+}
+
+[data-theme='dark'] {
+  --bg-app: #121214;
+  --bg-card: #1c1c1e;
+  --bg-card-alt: #242426;
+  --text-primary: #f0f0f0;
+  --text-secondary: #9a9a9a;
+  --text-tertiary: #666666;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --accent: #5dcaa5;
+  --accent-bg: #0f3d2a;
+  --accent-text: #5dcaa5;
+  --danger: #f07575;
+  --danger-bg: #3d1a1a;
+  --danger-text: #f09595;
+  --warn: #f5b04a;
+  --warn-bg: #3d2a0f;
+  --warn-text: #fac775;
+  --bar-track: #2c2c2e;
+
+  --text-on-accent: #121214;
+  --overlay-scrim: rgba(0, 0, 0, 0.55);
+  --accent-border-soft: rgba(93, 202, 165, 0.35);
+  --warn-border-soft: rgba(250, 199, 117, 0.3);
+  --warn-border-mid: rgba(250, 199, 117, 0.45);
+  --danger-border-soft: rgba(240, 149, 149, 0.28);
+  --shadow-elevated: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --surface-subtle: rgba(255, 255, 255, 0.04);
+  --control-border: rgba(255, 255, 255, 0.12);
+
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%23E0E0E0' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round' d='M1.5 1.5 6 6 10.5 1.5'/%3E%3C/svg%3E");
 }

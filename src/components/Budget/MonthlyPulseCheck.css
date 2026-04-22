@@ -1,0 +1,109 @@
+.monthly-pulse-check {
+  width: 100%;
+  margin-top: 20px;
+  margin-bottom: 4px;
+  padding: 14px 16px 12px;
+  border-radius: 14px;
+  border: 0.5px solid var(--border);
+  border-left-width: 4px;
+  background: var(--bg-card-alt);
+}
+
+.monthly-pulse-check--tone-good {
+  border-left-color: var(--accent);
+  background: var(--accent-bg);
+  border-color: var(--accent-border-soft);
+}
+
+.monthly-pulse-check--tone-soft-warn {
+  border-left-color: var(--warn);
+  background: var(--warn-bg);
+  border-color: var(--warn-border-soft);
+}
+
+.monthly-pulse-check--tone-warn {
+  border-left-color: var(--warn);
+  background: var(--warn-bg);
+  border-color: var(--warn-border-mid);
+}
+
+.monthly-pulse-check--tone-danger {
+  border-left-color: var(--danger);
+  background: var(--danger-bg);
+  border-color: var(--danger-border-soft);
+}
+
+.monthly-pulse-check--tone-muted {
+  border-left-color: var(--text-tertiary);
+  background: var(--bg-card-alt);
+}
+
+.monthly-pulse-check__headline {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.monthly-pulse-check__secondary {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.monthly-pulse-check__hot {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.monthly-pulse-check__hot-item {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--bg-card);
+  border: 0.5px solid var(--border);
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--text-secondary);
+}
+
+.monthly-pulse-check__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.monthly-pulse-check__hot-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.monthly-pulse-check__hot-meta {
+  flex-basis: 100%;
+  padding-left: 14px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+@media (min-width: 520px) {
+  .monthly-pulse-check__hot-item {
+    flex-wrap: nowrap;
+    flex-basis: auto;
+  }
+
+  .monthly-pulse-check__hot-meta {
+    flex-basis: auto;
+    padding-left: 0;
+  }
+}

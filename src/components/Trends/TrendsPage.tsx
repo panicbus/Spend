@@ -747,7 +747,7 @@ export function TrendsPage() {
                       {drillMeta.keys.map((key) => {
                         const id = Number(key.slice(2));
                         const meta = drillMeta.catById.get(id);
-                        const fill = meta?.color ?? '#888';
+                        const fill = meta?.color ?? 'var(--text-tertiary)';
                         const name = meta?.name ?? key;
                         return (
                           <Bar

@@ -21,6 +21,7 @@ import {
   mappingAssignmentToSelectValue,
   parseMappingSelectValue,
 } from '../../utils/mappingSelectValue';
+import { useColorMode } from '../../theme/ColorModeContext';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
 import { MappingTargetSelect } from '../common/MappingTargetSelect';
@@ -1555,6 +1556,7 @@ function SettingsDataSection() {
 
 function SettingsPreferencesSection() {
   const [prefs, setPrefs] = useState<AppPreferences | null>(null);
+  const { colorMode, setColorMode } = useColorMode();
 
   useEffect(() => {
     void api.getPreferences().then(setPrefs);
@@ -1578,7 +1580,26 @@ function SettingsPreferencesSection() {
         </p>
         {prefs ? (
           <div className="settings-pref-row">
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>Appearance</div>
+            <label>
+              <input
+                type="radio"
+                name="color-mode"
+                checked={colorMode === 'light'}
+                onChange={() => setColorMode('light')}
+              />
+              <span>Light</span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="color-mode"
+                checked={colorMode === 'dark'}
+                onChange={() => setColorMode('dark')}
+              />
+              <span>Dark</span>
+            </label>
+            <div style={{ fontWeight: 600, margin: '20px 0 8px' }}>
               Default month on launch
             </div>
             <label>

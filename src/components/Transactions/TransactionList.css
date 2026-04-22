@@ -190,7 +190,7 @@
   border-radius: var(--border-radius-md);
   border: 0.5px solid var(--border);
   background: var(--bg-card);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-elevated);
 }
 
 .transaction-list__cat-master {
@@ -321,11 +321,11 @@
   max-width: 640px;
   padding: 16px 18px;
   border-radius: 12px;
-  border: 0.5px solid #c94a4a;
-  background: #fdf2f2;
+  border: 0.5px solid var(--danger);
+  background: var(--danger-bg);
   font-size: 14px;
   line-height: 1.5;
-  color: #5c1f1f;
+  color: var(--danger-text);
 }
 
 .transaction-list__error strong {
@@ -439,7 +439,7 @@
 }
 
 .transaction-list__tr--alt:hover {
-  background: rgba(0, 0, 0, 0.03);
+  background: var(--bar-track);
 }
 
 .transaction-list__td {

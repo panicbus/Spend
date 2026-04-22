@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { useColorMode } from '../../theme/ColorModeContext';
 import './Sidebar.css';
 
 function IconBudget() {
@@ -13,30 +14,22 @@ function IconBudget() {
   );
 }
 
-/** Receipt: stroke weight matches Budget; group scaled +25% from center. */
+/** Heroicons outline "arrows-right-left" (MIT) — money in / out, matches other stroke icons. */
 function IconTransactions() {
   return (
     <svg className="sidebar__icon" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <g transform="translate(12 12) scale(1.25) translate(-12 -12)">
-        <path
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          d="M7.5 6.2Q7.5 4.35 9.35 4.35h5.3Q16.5 4.35 16.5 6.2v10.3l-1.35 2.45-1.3-2.45-1.35 2.45-1.3-2.45-1.35 2.45-1.3-2.45-1.35 2.45L7.5 16.5V6.2z"
-        />
-        <path
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-          d="M9.15 8.35h5.7M9.15 10.85h5.7M9.15 13.35h4.1"
-        />
-      </g>
+      <path
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
+      />
     </svg>
   );
 }
 
-/** Line trend: stroke matches Transactions icon weight. */
+/** Heroicons outline "chart-bar" (MIT) — reads clearly as analytics / trends. */
 function IconTrends() {
   return (
     <svg className="sidebar__icon" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -45,7 +38,7 @@ function IconTrends() {
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M4 16l4.5-5 4 3L20 7"
+        d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"
       />
     </svg>
   );
@@ -62,24 +55,73 @@ function IconImport() {
   );
 }
 
-/** Filled gear: Rp−Rv = 4, ring (Rv−hole) = 4; center punched out; solid white. */
-const ICON_SETTINGS_GEAR_D =
-  'M8.939 4.609L9.061 1.319A1 1 0 0 0 10.061 0.356L13.939 0.356A1 1 0 0 0 14.939 1.319L15.061 4.609L17.474 2.369A1 1 0 0 0 18.861 2.395L21.605 5.139A1 1 0 0 0 21.631 6.526L19.391 8.939L22.681 9.061A1 1 0 0 0 23.644 10.061L23.644 13.939A1 1 0 0 0 22.681 14.939L19.391 15.061L21.631 17.474A1 1 0 0 0 21.605 18.861L18.861 21.605A1 1 0 0 0 17.474 21.631L15.061 19.391L14.939 22.681A1 1 0 0 0 13.939 23.644L10.061 23.644A1 1 0 0 0 9.061 22.681L8.939 19.391L6.526 21.631A1 1 0 0 0 5.139 21.605L2.395 18.861A1 1 0 0 0 2.369 17.474L4.609 15.061L1.319 14.939A1 1 0 0 0 0.356 13.939L0.356 10.061A1 1 0 0 0 1.319 9.061L4.609 8.939L2.369 6.526A1 1 0 0 0 2.395 5.139L5.139 2.395A1 1 0 0 0 6.526 2.369L8.939 4.609Z M12 5 A7 7 0 1 0 12 19 A7 7 0 1 0 12 5 Z';
-
+/** Heroicons outline "cog-6-tooth" (MIT) — stroke matches Transactions / Trends. */
 function IconSettings() {
   return (
-    <svg className="sidebar__icon" viewBox="0 0 24 24" aria-hidden>
+    <svg className="sidebar__icon" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
-        d={ICON_SETTINGS_GEAR_D}
-        fill="#ffffff"
-        fillRule="evenodd"
-        clipRule="evenodd"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.99l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281Z"
+      />
+      <path
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
       />
     </svg>
   );
 }
 
 const appVersion = import.meta.env.VITE_APP_VERSION ?? '';
+
+function IconSun() {
+  return (
+    <svg className="sidebar__icon" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
+      <path
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+      />
+    </svg>
+  );
+}
+
+function IconMoon() {
+  return (
+    <svg className="sidebar__icon" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+      />
+    </svg>
+  );
+}
+
+function SidebarThemeToggle() {
+  const { colorMode, setColorMode } = useColorMode();
+  const isDark = colorMode === 'dark';
+  return (
+    <div className="sidebar__theme">
+      <button
+        type="button"
+        className="sidebar__theme-btn"
+        onClick={() => setColorMode(isDark ? 'light' : 'dark')}
+        aria-pressed={isDark}
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        {isDark ? <IconSun /> : <IconMoon />}
+        <span>{isDark ? 'Light mode' : 'Dark mode'}</span>
+      </button>
+    </div>
+  );
+}
 
 export function Sidebar() {
   return (
@@ -151,6 +193,7 @@ export function Sidebar() {
       </nav>
 
       <div className="sidebar__spacer" />
+      <SidebarThemeToggle />
     </aside>
   );
 }
