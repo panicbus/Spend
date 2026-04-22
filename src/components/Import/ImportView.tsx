@@ -380,6 +380,9 @@ export function ImportView() {
           <p className="import-done__text">
             Imported {state.result.imported}, skipped {state.result.skipped},
             found {state.result.duplicates} duplicates
+            {state.result.staleTargets > 0
+              ? ` (${state.result.staleTargets} had a removed category or income source)`
+              : ''}
           </p>
           <Button type="button" variant="primary" onClick={reset}>
             Import another file

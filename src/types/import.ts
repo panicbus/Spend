@@ -56,4 +56,6 @@ export interface CommitImportResult {
   imported: number;
   skipped: number;
   duplicates: number;
+  /** Rows not imported because category_id or source_id no longer exists (stale mapping). */
+  staleTargets: number;
 }

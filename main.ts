@@ -47,6 +47,39 @@ import type {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/** Append one line to /tmp (or TMPDIR) for debugging dock-bounce exits; open `spend-electron-boot.log`. */
+function appendBootLog(message: string) {
+  try {
+    const base = process.env.TMPDIR || '/tmp';
+    fs.appendFileSync(
+      path.join(base, 'spend-electron-boot.log'),
+      `${new Date().toISOString()} ${message}\n`
+    );
+  } catch {
+    /** */
+  }
+}
+
+appendBootLog(
+  `main loaded __dirname=${__dirname} isPackaged=${app.isPackaged} exec=${process.execPath}`
+);
+
+app.on('web-contents-created', (_e, contents) => {
+  contents.on('render-process-gone', (_ev, details) => {
+    appendBootLog(
+      `render-process-gone reason=${details.reason} exitCode=${details.exitCode}`
+    );
+    try {
+      dialog.showErrorBox(
+        'Spend display process exited',
+        `${String(details.reason)} (exit ${details.exitCode}).\n\nDetails in: ${path.join(process.env.TMPDIR || '/tmp', 'spend-electron-boot.log')}`
+      );
+    } catch {
+      /** */
+    }
+  });
+});
+
 const MONARCH_HEADERS = [
   'Date',
   'Merchant',
@@ -65,9 +98,19 @@ app.setPath('userData', path.join(app.getPath('appData'), 'spend-app'));
 
 process.on('uncaughtException', (err) => {
   console.error('[Spend] uncaughtException:', err);
+  appendBootLog(`uncaughtException: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
+  try {
+    dialog.showErrorBox(
+      'Spend hit an error',
+      err instanceof Error ? err.message : String(err)
+    );
+  } catch {
+    /** */
+  }
 });
 process.on('unhandledRejection', (reason) => {
   console.error('[Spend] unhandledRejection:', reason);
+  appendBootLog(`unhandledRejection: ${String(reason)}`);
 });
 
 let db!: Database.Database;
@@ -369,14 +412,33 @@ function toCategoryMapping(
   incomeNames: Map<number, string>
 ): CategoryMapping {
   const targetType = row.target_type as MappingTargetType;
+  if (targetType === 'skip' || row.target_id == null) {
+    return {
+      id: row.id,
+      source: 'monarch',
+      externalName: row.external_name,
+      targetType: 'skip',
+      targetId: null,
+    };
+  }
   const tn = targetDisplayName(targetType, row.target_id, catNames, incomeNames);
+  if (!tn) {
+    /** Saved mapping still points at a deleted category or income source — treat as unassigned. */
+    return {
+      id: row.id,
+      source: 'monarch',
+      externalName: row.external_name,
+      targetType: 'skip',
+      targetId: null,
+    };
+  }
   return {
     id: row.id,
     source: 'monarch',
     externalName: row.external_name,
     targetType,
     targetId: row.target_id,
-    ...(tn ? { targetName: tn } : {}),
+    targetName: tn,
   };
 }
 
@@ -1893,12 +1955,19 @@ function registerIpcHandlers() {
     let imported = 0;
     let skipped = 0;
     let duplicates = 0;
+    let staleTargets = 0;
 
     const dupTx = db.prepare(
       'SELECT 1 AS ok FROM transactions WHERE import_hash = ? LIMIT 1'
     );
     const dupInc = db.prepare(
       'SELECT 1 AS ok FROM income_actuals WHERE import_hash = ? LIMIT 1'
+    );
+    const catExists = db.prepare(
+      'SELECT 1 AS ok FROM categories WHERE id = ? LIMIT 1'
+    );
+    const incomeSrcExists = db.prepare(
+      'SELECT 1 AS ok FROM income_sources WHERE id = ? LIMIT 1'
     );
 
     const insertTx = db.prepare(
@@ -1923,6 +1992,14 @@ function registerIpcHandlers() {
           continue;
         }
         if (row.targetType === 'category' && row.targetId != null) {
+          if (
+            !Number.isFinite(row.targetId) ||
+            !catExists.get(row.targetId)
+          ) {
+            staleTargets++;
+            skipped++;
+            continue;
+          }
           const stored = -row.amountCents;
           insertTx.run(
             row.targetId,
@@ -1940,6 +2017,14 @@ function registerIpcHandlers() {
           row.targetType === 'income_source' &&
           row.targetId != null
         ) {
+          if (
+            !Number.isFinite(row.targetId) ||
+            !incomeSrcExists.get(row.targetId)
+          ) {
+            staleTargets++;
+            skipped++;
+            continue;
+          }
           const stored = Math.abs(row.amountCents);
           insertInc.run(
             row.targetId,
@@ -1956,11 +2041,21 @@ function registerIpcHandlers() {
     });
 
     runBatch(rows);
-    return { imported, skipped, duplicates };
+    return { imported, skipped, duplicates, staleTargets };
   });
 }
 
+/** Unpacked / dev: `dist-electron` → `build/icon.icns`. Omitted in packaged app (bundle icon from electron-builder). */
+function resolveLocalAppIconPath(): string | undefined {
+  const icns = path.join(__dirname, '..', 'build', 'icon.icns');
+  return fs.existsSync(icns) ? icns : undefined;
+}
+
 function createWindow() {
+  const iconPath = resolveLocalAppIconPath();
+  if (process.platform === 'darwin' && app.dock && iconPath) {
+    app.dock.setIcon(iconPath);
+  }
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -1969,6 +2064,7 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 14 },
     backgroundColor: '#F6F5F0',
+    ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -1993,13 +2089,26 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  appendBootLog('app.whenReady');
   try {
     initDb();
+    appendBootLog('initDb ok');
     registerIpcHandlers();
     createWindow();
+    appendBootLog('createWindow ok');
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
     console.error('[Spend] startup failed:', err);
+    appendBootLog(`startup catch: ${msg}`);
     if (err instanceof Error && err.stack) console.error(err.stack);
+    try {
+      dialog.showErrorBox(
+        'Spend could not start',
+        `${msg}\n\nLog: ${path.join(process.env.TMPDIR || '/tmp', 'spend-electron-boot.log')}\n\nOr run: Spend.app/Contents/MacOS/Spend in Terminal.`
+      );
+    } catch {
+      /* */
+    }
     app.quit();
     process.exit(1);
   }

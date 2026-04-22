@@ -1,6 +1,6 @@
 {
   "name": "spend-app",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "private": true,
   "description": "Personal budget and spending desktop app",
   "author": "Spend contributors",
@@ -14,6 +14,7 @@
     "electron:only": "npm run build:electron && ELECTRON_IS_DEV=1 electron .",
     "build": "vite build && npm run build:electron",
     "start": "npm run build && electron .",
+    "icons:mac": "bash scripts/generate-mac-icon.sh",
     "pack:mac": "node scripts/pack-mac-dir.mjs",
     "pack:mac:arm64": "npm run build && electron-builder --mac --dir --arm64",
     "pack:mac:x64": "npm run build && electron-builder --mac --dir --x64",
@@ -51,7 +52,8 @@
     "appId": "com.panicbus.spend",
     "productName": "Spend",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
@@ -59,10 +61,9 @@
       "database/**/*",
       "package.json"
     ],
-    "asarUnpack": [
-      "**/node_modules/better-sqlite3/**"
-    ],
+    "asar": false,
     "mac": {
+      "icon": "build/icon.icns",
       "category": "public.app-category.finance",
       "target": [
         "dmg",
