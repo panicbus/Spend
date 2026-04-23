@@ -1004,22 +1004,26 @@ function TransactionTableRows({
               onClick={onCloseExpansion}
               role="presentation"
             >
-              <p className="transaction-list__income-from">
-                Income from {inc.sourceName}
-              </p>
-              <div className="transaction-list__detail-grid">
-                <div>
-                  <div className="transaction-list__detail-label">
-                    Description
+              <div className="transaction-list__detail-main">
+                <p className="transaction-list__income-from">
+                  Income from {inc.sourceName}
+                </p>
+                <div className="transaction-list__detail-grid">
+                  <div>
+                    <div className="transaction-list__detail-label">
+                      Description
+                    </div>
+                    <div className="transaction-list__detail-value">
+                      {inc.description.trim() ? inc.description : '—'}
+                    </div>
                   </div>
-                  <div className="transaction-list__detail-value">
-                    {inc.description.trim() ? inc.description : '—'}
-                  </div>
-                </div>
-                <div>
-                  <div className="transaction-list__detail-label">Imported</div>
-                  <div className="transaction-list__detail-value">
-                    {formatImportedDateOnly(inc.createdAt)}
+                  <div>
+                    <div className="transaction-list__detail-label">
+                      Imported
+                    </div>
+                    <div className="transaction-list__detail-value">
+                      {formatImportedDateOnly(inc.createdAt)}
+                    </div>
                   </div>
                 </div>
               </div>

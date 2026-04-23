@@ -618,7 +618,7 @@
 }
 
 .transaction-list__detail-slide--open {
-  max-height: 560px;
+  max-height: 380px;
   background: var(--bar-track);
   border-bottom: 0.5px solid var(--border);
   transition: max-height 0.24s ease-in;
@@ -629,21 +629,29 @@
   cursor: pointer;
 }
 
+.transaction-list__detail-main {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .transaction-list__detail {
-  padding: 16px 18px 18px;
+  padding: 10px 14px 12px;
   display: flex;
   flex-wrap: wrap;
-  gap: 16px 24px;
-  align-items: flex-start;
+  gap: 10px 16px;
+  align-items: center;
   justify-content: space-between;
 }
 
 .transaction-list__detail-grid {
   flex: 1;
-  min-width: 240px;
+  min-width: 200px;
   display: grid;
-  gap: 14px 20px;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px 14px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
 }
 
 .transaction-list__detail-label {
@@ -652,12 +660,12 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-tertiary);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .transaction-list__detail-value {
   font-size: 14px;
-  line-height: 1.45;
+  line-height: 1.35;
   color: var(--text-primary);
   word-break: break-word;
 }
@@ -670,13 +678,13 @@
 .transaction-list__recat-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
   flex-wrap: wrap;
 }
 
 .transaction-list__select {
-  min-width: 220px;
-  padding: 8px 40px 8px 12px;
+  min-width: 200px;
+  padding: 6px 36px 6px 10px;
   border-radius: var(--border-radius-md);
   border: 0.5px solid var(--border);
   font-size: 14px;
@@ -688,7 +696,7 @@
   background-color: var(--bg-card);
   background-image: var(--select-chevron);
   background-repeat: no-repeat;
-  background-position: right 14px center;
+  background-position: right 12px center;
   background-size: 12px 8px;
   cursor: pointer;
 }
@@ -716,21 +724,20 @@
 }
 
 .transaction-list__income-from {
-  width: 100%;
-  margin: 0 0 4px;
-  font-size: 15px;
+  margin: 0;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .transaction-list__detail-actions {
   flex-shrink: 0;
-  align-self: flex-end;
+  align-self: center;
   cursor: default;
 }
 
 .transaction-list__delete {
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-radius: var(--border-radius-md);
   border: 0.5px solid var(--border-strong);
   background: var(--danger-bg);
@@ -766,7 +773,7 @@
 }
 
 .transaction-list__delete-confirm {
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-radius: var(--border-radius-md);
   border: 0.5px solid var(--danger);
   background: var(--danger);
