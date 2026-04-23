@@ -9,6 +9,7 @@ type MappingTargetSelectProps = {
   className?: string;
   /** Import flow only: first option to create a new category inline */
   withCreateCategory?: boolean;
+  disabled?: boolean;
 };
 
 export function MappingTargetSelect({
@@ -18,11 +19,13 @@ export function MappingTargetSelect({
   incomeSources,
   className,
   withCreateCategory = false,
+  disabled = false,
 }: MappingTargetSelectProps) {
   return (
     <select
       className={className ?? 'import-select'}
       value={value}
+      disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
     >
       <option value="">Choose mapping…</option>

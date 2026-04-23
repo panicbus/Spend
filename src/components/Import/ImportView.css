@@ -57,6 +57,35 @@
   color: var(--text-secondary);
 }
 
+.import-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.import-card__head--status {
+  align-items: center;
+}
+
+.import-card__head--status .import-status {
+  text-align: left;
+  padding: 0;
+}
+
+.import-card__head--review {
+  margin-bottom: 12px;
+}
+
+.import-card__head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-card__head-text .import-card__title {
+  margin-bottom: 8px;
+}
+
 .import-drop {
   display: flex;
   flex-direction: column;
@@ -173,6 +202,52 @@
   margin-top: 8px;
 }
 
+.import-actions--spread {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.import-btn-cancel.btn--ghost {
+  border-color: var(--danger-border-soft);
+  color: var(--danger-text);
+}
+
+.import-btn-cancel.btn--ghost:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger-border-soft);
+  color: var(--danger-text);
+}
+
+.import-duplicate-panel__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.import-duplicate-panel__btns--end {
+  justify-content: flex-end;
+}
+
+.import-duplicate-panel__btns--split {
+  justify-content: space-between;
+}
+
+.import-duplicate-panel__btns-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.import-review__date-range {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
 .import-review__summary {
   margin: 0 0 16px;
   font-size: 14px;
@@ -271,11 +346,46 @@
   padding-top: 4px;
 }
 
+.import-card--done .btn {
+  margin-top: 4px;
+}
+
 .import-done__text {
-  margin: 0 0 20px;
+  margin: 0 0 16px;
   font-size: 15px;
   color: var(--text-secondary);
   line-height: 1.5;
+}
+
+.import-done__details {
+  margin: 0 0 16px;
+}
+
+.import-done__detail {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.import-done__detail:last-child {
+  margin-bottom: 0;
+}
+
+.import-done__detail--months {
+  line-height: 1.6;
+}
+
+.import-done__callout {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 0.5px solid var(--accent-border-soft);
+  background: var(--accent-bg);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.45;
 }
 
 .import-error__text {

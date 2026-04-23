@@ -89,6 +89,11 @@ export const api = {
   ) => getBridge().saveCategoryMapping(input),
   commitImport: (rows: Parameters<SpendApi['commitImport']>[0]) =>
     getBridge().commitImport(rows),
+  checkDuplicates: (hashes: Parameters<SpendApi['checkDuplicates']>[0]) =>
+    getBridge().checkDuplicates(hashes),
+  getMonthSpendingTotal: (
+    monthKey: Parameters<SpendApi['getMonthSpendingTotal']>[0]
+  ) => getBridge().getMonthSpendingTotal(monthKey),
 
   getTrends: (range: Parameters<SpendApi['getTrends']>[0]) =>
     getBridge().getTrends(range),

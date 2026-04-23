@@ -14,6 +14,9 @@ import { Button } from '../common/Button';
 import { ImportCreateCategoryForm } from './ImportCreateCategoryForm';
 import { MappingTargetSelect } from '../common/MappingTargetSelect';
 import { mappingAssignmentToSelectValue } from '../../utils/mappingSelectValue';
+import { formatImportFileDateRange } from '../../utils/importDateRange';
+import { currentMonthKey, formatMonthLabel } from '../../utils/dates';
+import type { CommitImportResult } from '../../types/import';
 import './ImportView.css';
 
 function categoryColumnLabel(
@@ -56,7 +59,9 @@ export function ImportView() {
     mappingsReady,
     overrideRow,
     setRowSkip,
-    commit,
+    requestImport,
+    confirmImportDespiteDuplicates,
+    cancelDuplicateWarning,
   } = useImport();
 
   const [groups, setGroups] = useState<GroupWithCategories[]>([]);
@@ -185,7 +190,17 @@ export function ImportView() {
 
       {state.kind === 'parsing' && (
         <div className="import-card import-card--muted">
-          <p className="import-status">Reading CSV…</p>
+          <div className="import-card__head import-card__head--status">
+            <p className="import-status">Reading CSV…</p>
+            <Button
+              type="button"
+              variant="ghost"
+              className="import-btn-cancel"
+              onClick={reset}
+            >
+              Cancel import
+            </Button>
+          </div>
         </div>
       )}
 
@@ -248,7 +263,15 @@ export function ImportView() {
               );
             })}
           </ul>
-          <div className="import-actions">
+          <div className="import-actions import-actions--spread">
+            <Button
+              type="button"
+              variant="ghost"
+              className="import-btn-cancel"
+              onClick={reset}
+            >
+              Cancel import
+            </Button>
             <Button
               type="button"
               variant="primary"
@@ -261,11 +284,28 @@ export function ImportView() {
         </div>
       )}
 
-      {state.kind === 'reviewing' && (
+      {(state.kind === 'reviewing' ||
+        state.kind === 'checking_duplicates' ||
+        state.kind === 'duplicate_warning') && (
         <div className="import-card import-card--wide">
-          <h2 className="import-card__title">
-            Review {state.rows.length} transactions
-          </h2>
+          <div className="import-card__head import-card__head--review">
+            <div className="import-card__head-text">
+              <h2 className="import-card__title">
+                Review {state.rows.length} transactions
+              </h2>
+              <p className="import-review__date-range">
+                {formatImportFileDateRange(state.rows)}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              className="import-btn-cancel"
+              onClick={reset}
+            >
+              Cancel import
+            </Button>
+          </div>
           <ReviewSummary
             rows={state.rows}
             rowOverrides={state.rowOverrides}
@@ -282,6 +322,9 @@ export function ImportView() {
               {state.rows.map((row, idx) => {
                 const reviewCreateKey = `review:${row.rowIndex}`;
                 const isCreatingRow = creatingReviewKey === reviewCreateKey;
+                const reviewLocked =
+                  state.kind === 'checking_duplicates' ||
+                  state.kind === 'duplicate_warning';
                 return (
                   <div
                     key={`${row.importHash}-${idx}`}
@@ -332,6 +375,7 @@ export function ImportView() {
                           groups={groupsSorted}
                           incomeSources={incomeSources}
                           withCreateCategory
+                          disabled={reviewLocked}
                         />
                       )}
                     </span>
@@ -343,6 +387,7 @@ export function ImportView() {
                   <label className="import-review__cell import-review__skip">
                     <input
                       type="checkbox"
+                      disabled={reviewLocked}
                       checked={
                         effectiveRowTarget(
                           row,
@@ -360,10 +405,70 @@ export function ImportView() {
               })}
             </div>
           </div>
-          <div className="import-actions">
-            <Button type="button" variant="primary" onClick={() => void commit()}>
-              Import
-            </Button>
+          <div className="import-actions import-actions--review">
+            {state.kind === 'reviewing' && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => void requestImport()}
+              >
+                Import
+              </Button>
+            )}
+            {state.kind === 'checking_duplicates' && (
+              <p className="import-review__checking" role="status">
+                Checking for duplicates…
+              </p>
+            )}
+            {state.kind === 'duplicate_warning' && (
+              <div className="import-duplicate-panel">
+                <p className="import-duplicate-panel__lead">
+                  {state.newCount === 0
+                    ? `${state.duplicateCount} of ${state.importCandidateCount} rows already exist in your database — nothing new to import.`
+                    : `${state.duplicateCount} of ${state.importCandidateCount} rows already exist in your database.`}
+                </p>
+                {state.newCount > 0 ? (
+                  <p className="import-duplicate-panel__sub">
+                    Only {state.newCount} new transaction
+                    {state.newCount === 1 ? '' : 's'} will be imported.
+                  </p>
+                ) : null}
+                <div
+                  className={
+                    state.newCount === 0
+                      ? 'import-duplicate-panel__btns import-duplicate-panel__btns--end'
+                      : 'import-duplicate-panel__btns import-duplicate-panel__btns--split'
+                  }
+                >
+                  {state.newCount > 0 ? (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={() => void confirmImportDespiteDuplicates()}
+                    >
+                      Import {state.newCount} new
+                    </Button>
+                  ) : null}
+                  <div className="import-duplicate-panel__btns-right">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={cancelDuplicateWarning}
+                    >
+                      Back to review
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="import-btn-cancel"
+                      onClick={reset}
+                    >
+                      Cancel import
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -375,15 +480,12 @@ export function ImportView() {
       )}
 
       {state.kind === 'done' && (
-        <div className="import-card">
+        <div className="import-card import-card--done">
           <h2 className="import-card__title">Import complete</h2>
-          <p className="import-done__text">
-            Imported {state.result.imported}, skipped {state.result.skipped},
-            found {state.result.duplicates} duplicates
-            {state.result.staleTargets > 0
-              ? ` (${state.result.staleTargets} had a removed category or income source)`
-              : ''}
-          </p>
+          <ImportDoneBody
+            result={state.result}
+            monthSpendingTotal={state.monthSpendingTotal}
+          />
           <Button type="button" variant="primary" onClick={reset}>
             Import another file
           </Button>
@@ -400,6 +502,81 @@ export function ImportView() {
         </div>
       )}
     </div>
+  );
+}
+
+function ImportDoneBody({
+  result,
+  monthSpendingTotal,
+}: {
+  result: CommitImportResult;
+  monthSpendingTotal: number | null;
+}) {
+  const curKey = currentMonthKey();
+  const staleNote =
+    result.staleTargets > 0
+      ? ` (${result.staleTargets} had a removed category or income source)`
+      : '';
+
+  const expenseMonths = Object.entries(result.addedExpenseCentsByMonth)
+    .filter(([, cents]) => cents > 0)
+    .sort(([a], [b]) => a.localeCompare(b));
+  const showMonthSplit = expenseMonths.length > 1;
+
+  if (result.imported === 0) {
+    return (
+      <p className="import-done__text">
+        No transactions imported — all rows were skipped or duplicates.
+        {result.staleTargets > 0
+          ? ` (${result.staleTargets} could not be applied because a category or income source was removed.)`
+          : ''}
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <p className="import-done__text">
+        Imported {result.imported} transaction
+        {result.imported === 1 ? '' : 's'}, skipped {result.skipped},{' '}
+        {result.duplicates} duplicate
+        {result.duplicates === 1 ? '' : 's'}
+        {staleNote}.
+      </p>
+      <div className="import-done__details">
+        {result.addedExpenseCents > 0 ? (
+          <p className="import-done__detail">
+            Added {formatCurrency(result.addedExpenseCents)} in expenses across{' '}
+            {result.addedExpenseCategoryCount} categor
+            {result.addedExpenseCategoryCount === 1 ? 'y' : 'ies'}.
+          </p>
+        ) : null}
+        {result.addedIncomeCents > 0 ? (
+          <p className="import-done__detail">
+            Added {formatCurrency(result.addedIncomeCents)} in income from{' '}
+            {result.addedIncomeSourceCount} source
+            {result.addedIncomeSourceCount === 1 ? '' : 's'}.
+          </p>
+        ) : null}
+        {showMonthSplit ? (
+          <p className="import-done__detail import-done__detail--months">
+            {expenseMonths.map(([mk, cents], i) => (
+              <span key={mk}>
+                {i > 0 ? ' · ' : ''}
+                {formatMonthLabel(mk)}: {formatCurrency(cents)}
+              </span>
+            ))}
+          </p>
+        ) : null}
+      </div>
+      {monthSpendingTotal != null &&
+      (result.addedExpenseCentsByMonth[curKey] ?? 0) > 0 ? (
+        <p className="import-done__callout">
+          Your {formatMonthLabel(curKey)} spending is now{' '}
+          {formatCurrency(monthSpendingTotal)}.
+        </p>
+      ) : null}
+    </>
   );
 }
 

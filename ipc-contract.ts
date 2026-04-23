@@ -345,6 +345,10 @@ export interface SpendApi {
   getCategoryMappings: () => Promise<CategoryMapping[]>;
   saveCategoryMapping: (input: SaveCategoryMappingInput) => Promise<void>;
   commitImport: (rows: CommitImportRow[]) => Promise<CommitImportResult>;
+  /** How many of the given import hashes already exist in transactions or income_actuals (row-wise). */
+  checkDuplicates: (hashes: string[]) => Promise<number>;
+  /** Sum of transaction amount_cents for the month (matches budget “spent” basis). */
+  getMonthSpendingTotal: (monthKey: string) => Promise<number>;
 
   getTrends: (range: TrendRange) => Promise<TrendData>;
 }

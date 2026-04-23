@@ -6,6 +6,7 @@ import type {
   ParsedRow,
 } from '../types/import';
 import { api } from '../services/api';
+import { currentMonthKey } from '../utils/dates';
 
 export type RowOverride = {
   targetType: MappingTargetType;
@@ -32,8 +33,27 @@ export type ImportState =
       rows: ParsedRow[];
       rowOverrides: Record<number, RowOverride>;
     }
+  | {
+      kind: 'checking_duplicates';
+      filePath: string;
+      rows: ParsedRow[];
+      rowOverrides: Record<number, RowOverride>;
+    }
+  | {
+      kind: 'duplicate_warning';
+      filePath: string;
+      rows: ParsedRow[];
+      rowOverrides: Record<number, RowOverride>;
+      duplicateCount: number;
+      importCandidateCount: number;
+      newCount: number;
+    }
   | { kind: 'committing' }
-  | { kind: 'done'; result: CommitImportResult }
+  | {
+      kind: 'done';
+      result: CommitImportResult;
+      monthSpendingTotal: number | null;
+    }
   | { kind: 'error'; message: string };
 
 function parseSelectValue(v: string): {
@@ -122,20 +142,26 @@ function isMappingReady(
 export function useImport() {
   const [state, setState] = useState<ImportState>({ kind: 'idle' });
   const stateRef = useRef(state);
+  /** Bumped on reset so in-flight parse / duplicate-check / commit ignores stale results. */
+  const importSessionRef = useRef(0);
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
 
   const reset = useCallback(() => {
+    importSessionRef.current += 1;
     setState({ kind: 'idle' });
   }, []);
 
   const pickFile = useCallback(async () => {
+    let sessionAtParse = importSessionRef.current;
     try {
       const filePath = await api.openCSVDialog();
       if (!filePath) return;
+      sessionAtParse = importSessionRef.current;
       setState({ kind: 'parsing', filePath });
       const result = await api.parseCSV(filePath);
+      if (importSessionRef.current !== sessionAtParse) return;
       if (result.unknownCategories.length > 0) {
         setState({
           kind: 'mapping',
@@ -153,6 +179,7 @@ export function useImport() {
         });
       }
     } catch (e) {
+      if (importSessionRef.current !== sessionAtParse) return;
       setState({
         kind: 'error',
         message: e instanceof Error ? e.message : String(e),
@@ -161,9 +188,11 @@ export function useImport() {
   }, []);
 
   const parseDroppedFile = useCallback(async (filePath: string) => {
+    const sessionAtParse = importSessionRef.current;
     try {
       setState({ kind: 'parsing', filePath });
       const result = await api.parseCSV(filePath);
+      if (importSessionRef.current !== sessionAtParse) return;
       if (result.unknownCategories.length > 0) {
         setState({
           kind: 'mapping',
@@ -181,6 +210,7 @@ export function useImport() {
         });
       }
     } catch (e) {
+      if (importSessionRef.current !== sessionAtParse) return;
       setState({
         kind: 'error',
         message: e instanceof Error ? e.message : String(e),
@@ -231,6 +261,7 @@ export function useImport() {
     if (!isMappingReady(s.unknownCategories, s.assignments)) return;
 
     const { filePath, unknownCategories, assignments } = s;
+    const sessionAt = importSessionRef.current;
     setState({ kind: 'parsing', filePath });
     try {
       await Promise.all(
@@ -244,7 +275,9 @@ export function useImport() {
           });
         })
       );
+      if (importSessionRef.current !== sessionAt) return;
       const result = await api.parseCSV(filePath);
+      if (importSessionRef.current !== sessionAt) return;
       if (result.unknownCategories.length > 0) {
         setState({
           kind: 'error',
@@ -260,6 +293,7 @@ export function useImport() {
         rowOverrides: {},
       });
     } catch (e) {
+      if (importSessionRef.current !== sessionAt) return;
       setState({
         kind: 'error',
         message: e instanceof Error ? e.message : String(e),
@@ -317,23 +351,100 @@ export function useImport() {
     });
   }, []);
 
-  const commit = useCallback(async () => {
-    const s = stateRef.current;
-    if (s.kind !== 'reviewing') return;
-    const { rows, rowOverrides } = s;
-    const payload = rows.map((r) =>
-      toCommitRow(r, rowOverrides[r.rowIndex])
-    );
+  const finishCommit = useCallback(async (payload: CommitImportRow[]) => {
+    const sessionAt = importSessionRef.current;
     setState({ kind: 'committing' });
     try {
       const result = await api.commitImport(payload);
-      setState({ kind: 'done', result });
+      if (importSessionRef.current !== sessionAt) return;
+      let monthSpendingTotal: number | null = null;
+      const cur = currentMonthKey();
+      if (
+        result.imported > 0 &&
+        (result.addedExpenseCentsByMonth[cur] ?? 0) > 0
+      ) {
+        monthSpendingTotal = await api.getMonthSpendingTotal(cur);
+      }
+      if (importSessionRef.current !== sessionAt) return;
+      setState({ kind: 'done', result, monthSpendingTotal });
     } catch (e) {
+      if (importSessionRef.current !== sessionAt) return;
       setState({
         kind: 'error',
         message: e instanceof Error ? e.message : String(e),
       });
     }
+  }, []);
+
+  const requestImport = useCallback(async () => {
+    const s = stateRef.current;
+    if (s.kind !== 'reviewing') return;
+    const { rows, rowOverrides, filePath } = s;
+    const payload = rows.map((r) =>
+      toCommitRow(r, rowOverrides[r.rowIndex])
+    );
+    const hashes = payload.filter((r) => !r.skip).map((r) => r.importHash);
+    const importCandidateCount = hashes.length;
+
+    if (importCandidateCount === 0) {
+      await finishCommit(payload);
+      return;
+    }
+
+    const sessionAt = importSessionRef.current;
+    setState({
+      kind: 'checking_duplicates',
+      filePath,
+      rows,
+      rowOverrides,
+    });
+    try {
+      const duplicateCount = await api.checkDuplicates(hashes);
+      if (importSessionRef.current !== sessionAt) return;
+      if (duplicateCount === 0) {
+        await finishCommit(payload);
+        return;
+      }
+      const newCount = importCandidateCount - duplicateCount;
+      if (importSessionRef.current !== sessionAt) return;
+      setState({
+        kind: 'duplicate_warning',
+        filePath,
+        rows,
+        rowOverrides,
+        duplicateCount,
+        importCandidateCount,
+        newCount,
+      });
+    } catch (e) {
+      if (importSessionRef.current !== sessionAt) return;
+      setState({
+        kind: 'error',
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }, [finishCommit]);
+
+  const confirmImportDespiteDuplicates = useCallback(async () => {
+    const s = stateRef.current;
+    if (s.kind !== 'duplicate_warning') return;
+    const { rows, rowOverrides } = s;
+    const payload = rows.map((r) =>
+      toCommitRow(r, rowOverrides[r.rowIndex])
+    );
+    await finishCommit(payload);
+  }, [finishCommit]);
+
+  const cancelDuplicateWarning = useCallback(() => {
+    setState((s) => {
+      if (s.kind !== 'duplicate_warning') return s;
+      return {
+        kind: 'reviewing',
+        filePath: s.filePath,
+        rows: s.rows,
+        rowOverrides: s.rowOverrides,
+      };
+    });
   }, []);
 
   const mappingsReady =
@@ -351,6 +462,8 @@ export function useImport() {
     mappingsReady,
     overrideRow,
     setRowSkip,
-    commit,
+    requestImport,
+    confirmImportDespiteDuplicates,
+    cancelDuplicateWarning,
   };
 }

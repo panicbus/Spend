@@ -58,4 +58,14 @@ export interface CommitImportResult {
   duplicates: number;
   /** Rows not imported because category_id or source_id no longer exists (stale mapping). */
   staleTargets: number;
+  /** Expense cents inserted this commit (category targets only). */
+  addedExpenseCents: number;
+  /** Income cents inserted this commit. */
+  addedIncomeCents: number;
+  /** Distinct categories that received new expense rows. */
+  addedExpenseCategoryCount: number;
+  /** Distinct income sources that received new rows. */
+  addedIncomeSourceCount: number;
+  /** Expense cents added per calendar month (YYYY-MM) from new rows only. */
+  addedExpenseCentsByMonth: Record<string, number>;
 }

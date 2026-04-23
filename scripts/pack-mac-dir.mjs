@@ -19,5 +19,6 @@ if (build.status !== 0) process.exit(build.status ?? 1);
 const pack = spawnSync(process.execPath, [ebCli, '--mac', '--dir', `--${arch}`], {
   stdio: 'inherit',
   cwd: repoRoot,
+  env: { ...process.env, CSC_IDENTITY_AUTO_SELECT: 'false' },
 });
 process.exit(pack.status ?? 1);

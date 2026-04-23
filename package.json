@@ -1,6 +1,6 @@
 {
   "name": "spend-app",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "private": true,
   "description": "Personal budget and spending desktop app",
   "author": "Spend contributors",
@@ -16,8 +16,9 @@
     "start": "npm run build && electron .",
     "icons:mac": "bash scripts/generate-mac-icon.sh",
     "pack:mac": "node scripts/pack-mac-dir.mjs",
-    "pack:mac:arm64": "npm run build && electron-builder --mac --dir --arm64",
-    "pack:mac:x64": "npm run build && electron-builder --mac --dir --x64",
+    "pack:mac:arm64": "npm run build && CSC_IDENTITY_AUTO_SELECT=false electron-builder --mac --dir --arm64",
+    "pack:mac:arm64:verbose": "npm run build && DEBUG=electron-builder* CSC_IDENTITY_AUTO_SELECT=false electron-builder --mac --dir --arm64",
+    "pack:mac:x64": "npm run build && CSC_IDENTITY_AUTO_SELECT=false electron-builder --mac --dir --x64",
     "dist:mac": "npm run build && electron-builder --mac",
     "typecheck": "tsc -p tsconfig.app.json && tsc -p tsconfig.node.json",
     "bump:patch": "node scripts/bump-version.mjs patch",
@@ -61,10 +62,15 @@
       "database/**/*",
       "package.json"
     ],
-    "asar": false,
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "compression": "store",
     "mac": {
       "icon": "build/icon.icns",
       "category": "public.app-category.finance",
+      "identity": null,
       "target": [
         "dmg",
         "zip"

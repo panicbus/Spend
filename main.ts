@@ -1962,11 +1962,56 @@ function registerIpcHandlers() {
     }
   );
 
+  function countExistingImportHashes(hashes: string[]): number {
+    if (hashes.length === 0) return 0;
+    const unique = [...new Set(hashes.filter((h) => h != null && h !== ''))];
+    const existing = new Set<string>();
+    const chunkSize = 400;
+    for (let i = 0; i < unique.length; i += chunkSize) {
+      const chunk = unique.slice(i, i + chunkSize);
+      const ph = chunk.map(() => '?').join(',');
+      const found = db
+        .prepare(
+          `SELECT import_hash FROM transactions WHERE import_hash IN (${ph})
+           UNION
+           SELECT import_hash FROM income_actuals WHERE import_hash IN (${ph})`
+        )
+        .all(...chunk, ...chunk) as { import_hash: string }[];
+      for (const r of found) {
+        if (r.import_hash) existing.add(r.import_hash);
+      }
+    }
+    let n = 0;
+    for (const h of hashes) {
+      if (h && existing.has(h)) n++;
+    }
+    return n;
+  }
+
+  ipcMain.handle('checkDuplicates', (_, hashes: string[]) =>
+    countExistingImportHashes(Array.isArray(hashes) ? hashes : [])
+  );
+
+  ipcMain.handle('getMonthSpendingTotal', (_, monthKey: string) => {
+    const row = db
+      .prepare(
+        `SELECT COALESCE(SUM(amount_cents), 0) AS t
+         FROM transactions WHERE substr(date, 1, 7) = ?`
+      )
+      .get(monthKey) as { t: number };
+    return Number(row?.t ?? 0);
+  });
+
   ipcMain.handle('commitImport', (_, rows: CommitImportRow[]) => {
     let imported = 0;
     let skipped = 0;
     let duplicates = 0;
     let staleTargets = 0;
+    let addedExpenseCents = 0;
+    let addedIncomeCents = 0;
+    const expenseCatIds = new Set<number>();
+    const incomeSrcIds = new Set<number>();
+    const expenseByMonth: Record<string, number> = {};
 
     const dupTx = db.prepare(
       'SELECT 1 AS ok FROM transactions WHERE import_hash = ? LIMIT 1'
@@ -2024,6 +2069,12 @@ function registerIpcHandlers() {
             row.importHash
           );
           imported++;
+          addedExpenseCents += stored;
+          expenseCatIds.add(row.targetId);
+          const mk = row.date.length >= 7 ? row.date.slice(0, 7) : '';
+          if (mk) {
+            expenseByMonth[mk] = (expenseByMonth[mk] ?? 0) + stored;
+          }
         } else if (
           row.targetType === 'income_source' &&
           row.targetId != null
@@ -2045,6 +2096,8 @@ function registerIpcHandlers() {
             row.importHash
           );
           imported++;
+          addedIncomeCents += stored;
+          incomeSrcIds.add(row.targetId);
         } else {
           skipped++;
         }
@@ -2052,7 +2105,17 @@ function registerIpcHandlers() {
     });
 
     runBatch(rows);
-    return { imported, skipped, duplicates, staleTargets };
+    return {
+      imported,
+      skipped,
+      duplicates,
+      staleTargets,
+      addedExpenseCents,
+      addedIncomeCents,
+      addedExpenseCategoryCount: expenseCatIds.size,
+      addedIncomeSourceCount: incomeSrcIds.size,
+      addedExpenseCentsByMonth: expenseByMonth,
+    };
   });
 }
 

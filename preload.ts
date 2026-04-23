@@ -67,6 +67,9 @@ const api: SpendApi = {
   saveCategoryMapping: (input) =>
     ipcRenderer.invoke('saveCategoryMapping', input),
   commitImport: (rows) => ipcRenderer.invoke('commitImport', rows),
+  checkDuplicates: (hashes) => ipcRenderer.invoke('checkDuplicates', hashes),
+  getMonthSpendingTotal: (monthKey) =>
+    ipcRenderer.invoke('getMonthSpendingTotal', monthKey),
 
   getTrends: (range) => ipcRenderer.invoke('getTrends', range),
 };
