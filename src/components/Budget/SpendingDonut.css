@@ -135,7 +135,7 @@
   margin: -6px -8px;
 }
 
-.spending-donut__legend-item-wrap:hover .spending-donut__legend-name {
+.spending-donut__legend-name:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -159,14 +159,18 @@
 }
 
 .spending-donut__legend-name {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* Intrinsic label width; cap so long names ellipsize; gap before amount is inert. */
+  max-width: calc(100% - 6rem);
 }
 
 .spending-donut__legend-amt {
+  margin-left: auto;
+  flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
   font-weight: 500;

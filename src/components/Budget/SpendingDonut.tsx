@@ -80,12 +80,14 @@ export function SpendingDonut({
   const leaveDonutSegment = useCallback(
     (e: React.MouseEvent<SVGPathElement>) => {
       const next = e.relatedTarget as Node | null;
-      const svg = e.currentTarget.ownerSVGElement;
-      if (next && svg?.contains(next)) return;
+      /** `svg.contains(svg)` is true, so leaving a slice for the SVG “background” must still hide the tooltip. */
+      const stillOnSlice =
+        next instanceof SVGPathElement &&
+        next.classList.contains('spending-donut__segment');
+      if (stillOnSlice) return;
       setTooltip(null);
-      if (!sectionRef.current?.contains(next)) {
-        setActiveSegmentId(null);
-      }
+      /** Leaving the ring (for SVG hole, legend, etc.): drop dimming unless another slice handles it. */
+      setActiveSegmentId(null);
     },
     []
   );
@@ -94,9 +96,9 @@ export function SpendingDonut({
     setActiveSegmentId(seg.id);
   }, []);
 
-  const leaveLegendArea = useCallback((e: React.MouseEvent) => {
+  const leaveLegendName = useCallback((e: React.MouseEvent) => {
     const next = e.relatedTarget as Node | null;
-    if (next && sectionRef.current?.contains(next)) return;
+    if (next && e.currentTarget.contains(next)) return;
     setActiveSegmentId(null);
   }, []);
 
@@ -238,20 +240,21 @@ export function SpendingDonut({
                   opacity={s.opacity}
                 />
               </svg>
-              <span className="spending-donut__legend-name">{s.name}</span>
+              <span
+                className="spending-donut__legend-name"
+                onMouseEnter={() => syncLegendHighlight(s)}
+                onMouseMove={() => syncLegendHighlight(s)}
+                onMouseLeave={leaveLegendName}
+              >
+                {s.name}
+              </span>
               <span className="spending-donut__legend-amt">
                 {formatCurrency(s.spent)}
               </span>
             </>
           );
           return (
-            <li
-              key={s.id}
-              className="spending-donut__legend-item-wrap"
-              onMouseEnter={() => syncLegendHighlight(s)}
-              onMouseMove={() => syncLegendHighlight(s)}
-              onMouseLeave={leaveLegendArea}
-            >
+            <li key={s.id} className="spending-donut__legend-item-wrap">
               {canDrill && g ? (
                 <button
                   type="button"
