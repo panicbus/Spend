@@ -51,45 +51,54 @@ export function SpendingDonut({
   onLegendGroupClick,
 }: SpendingDonutProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
+  /** Drives donut dimming; updated from both the ring and the legend. */
+  const [activeSegmentId, setActiveSegmentId] = useState<number | null>(null);
+  /** Floating card only while hovering donut slices (not the list). */
   const [tooltip, setTooltip] = useState<{
-    id: number;
     name: string;
     spent: number;
     x: number;
     y: number;
   } | null>(null);
 
-  const moveTooltip = useCallback((e: React.MouseEvent, seg: DonutSeg) => {
-    const root = sectionRef.current;
-    if (!root) return;
-    const rect = root.getBoundingClientRect();
-    setTooltip({
-      id: seg.id,
-      name: seg.name,
-      spent: seg.spent,
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
-  }, []);
+  const updateTooltipFromDonut = useCallback(
+    (e: React.MouseEvent, seg: DonutSeg) => {
+      const root = sectionRef.current;
+      if (!root) return;
+      const rect = root.getBoundingClientRect();
+      setActiveSegmentId(seg.id);
+      setTooltip({
+        name: seg.name,
+        spent: seg.spent,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
+    },
+    []
+  );
 
   const leaveDonutSegment = useCallback(
-    (e: React.MouseEvent<SVGPathElement>, seg: DonutSeg) => {
+    (e: React.MouseEvent<SVGPathElement>) => {
       const next = e.relatedTarget as Node | null;
       const svg = e.currentTarget.ownerSVGElement;
       if (next && svg?.contains(next)) return;
-      setTooltip((t) => (t?.id === seg.id ? null : t));
+      setTooltip(null);
+      if (!sectionRef.current?.contains(next)) {
+        setActiveSegmentId(null);
+      }
     },
     []
   );
 
-  const leaveLegendRow = useCallback(
-    (e: React.MouseEvent, seg: DonutSeg) => {
-      const next = e.relatedTarget as Node | null;
-      if (next && sectionRef.current?.contains(next)) return;
-      setTooltip((t) => (t?.id === seg.id ? null : t));
-    },
-    []
-  );
+  const syncLegendHighlight = useCallback((seg: DonutSeg) => {
+    setActiveSegmentId(seg.id);
+  }, []);
+
+  const leaveLegendArea = useCallback((e: React.MouseEvent) => {
+    const next = e.relatedTarget as Node | null;
+    if (next && sectionRef.current?.contains(next)) return;
+    setActiveSegmentId(null);
+  }, []);
 
   const { segments, pctSpent, totalBudget } = useMemo(() => {
     const alloc = (groups ?? []).filter((g) => (g.budget_cents ?? 0) > 0);
@@ -161,7 +170,8 @@ export function SpendingDonut({
             strokeWidth={R_OUT - R_IN}
           />
           {segments.map((s) => {
-            const inactive = tooltip != null && tooltip.id !== s.id;
+            const inactive =
+              activeSegmentId != null && activeSegmentId !== s.id;
             return (
               <path
                 key={s.id}
@@ -172,9 +182,9 @@ export function SpendingDonut({
                 strokeWidth={6}
                 vectorEffect="non-scaling-stroke"
                 className="spending-donut__segment"
-                onMouseEnter={(e) => moveTooltip(e, s)}
-                onMouseMove={(e) => moveTooltip(e, s)}
-                onMouseLeave={(e) => leaveDonutSegment(e, s)}
+                onMouseEnter={(e) => updateTooltipFromDonut(e, s)}
+                onMouseMove={(e) => updateTooltipFromDonut(e, s)}
+                onMouseLeave={leaveDonutSegment}
               />
             );
           })}
@@ -238,9 +248,9 @@ export function SpendingDonut({
             <li
               key={s.id}
               className="spending-donut__legend-item-wrap"
-              onMouseEnter={(e) => moveTooltip(e, s)}
-              onMouseMove={(e) => moveTooltip(e, s)}
-              onMouseLeave={(e) => leaveLegendRow(e, s)}
+              onMouseEnter={() => syncLegendHighlight(s)}
+              onMouseMove={() => syncLegendHighlight(s)}
+              onMouseLeave={leaveLegendArea}
             >
               {canDrill && g ? (
                 <button

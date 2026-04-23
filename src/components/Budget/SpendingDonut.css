@@ -135,8 +135,15 @@
   margin: -6px -8px;
 }
 
-.spending-donut__legend-item--clickable:hover {
-  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+.spending-donut__legend-item-wrap:hover .spending-donut__legend-name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.spending-donut__legend-item--clickable:focus-visible
+  .spending-donut__legend-name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .spending-donut__legend-item--clickable:focus-visible {
