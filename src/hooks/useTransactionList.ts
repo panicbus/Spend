@@ -128,9 +128,20 @@ function readTransactionRouteSearch(): {
     incomeLineLabel =
       incomeLine != null && incomeLine !== '' ? incomeLine : undefined;
   } else {
-    const cat = p.get('category');
-    if (cat && /^\d+$/.test(cat)) {
-      categoryIds = [Number(cat)];
+    const cats = p.get('categories');
+    if (cats != null && cats !== '') {
+      const ids = cats
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => /^\d+$/.test(s))
+        .map(Number);
+      if (ids.length > 0) categoryIds = ids;
+    }
+    if (categoryIds === undefined) {
+      const cat = p.get('category');
+      if (cat && /^\d+$/.test(cat)) {
+        categoryIds = [Number(cat)];
+      }
     }
   }
 

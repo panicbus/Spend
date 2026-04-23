@@ -10,9 +10,12 @@
   margin-bottom: 28px;
 }
 
-.budget-dashboard__header-spacer {
+.budget-dashboard__header-note {
   grid-column: 1;
+  justify-self: start;
+  align-self: center;
   min-width: 0;
+  max-width: 100%;
 }
 
 .budget-dashboard__month-nav {
@@ -52,6 +55,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 

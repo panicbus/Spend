@@ -1,0 +1,97 @@
+.month-note-section__anchor {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.month-note-section__link {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.4;
+  max-width: 220px;
+}
+
+.month-note-section__link:hover {
+  color: var(--accent-text);
+}
+
+.month-note-section__link--has {
+  color: var(--accent-text);
+}
+
+.month-note-section__link--has:hover {
+  color: var(--accent-text);
+}
+
+.month-note-modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+}
+
+.month-note-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: var(--overlay-scrim);
+  pointer-events: auto;
+}
+
+.month-note-modal__panel {
+  position: fixed;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 200px;
+  max-width: 200px;
+  max-height: 200px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 0.5px solid var(--border-strong);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-elevated);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  pointer-events: auto;
+}
+
+.month-note-modal__textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  max-height: 118px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 0.5px solid var(--border);
+  background: var(--bg-card-alt);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+  resize: none;
+}
+
+.month-note-modal__textarea:focus {
+  outline: none;
+  border-color: var(--accent-border-soft);
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+
+.month-note-modal__save.month-note-modal__save {
+  flex-shrink: 0;
+  width: auto;
+  min-width: unset;
+  align-self: flex-start;
+  padding: 8px 16px;
+  font-size: 13px;
+}

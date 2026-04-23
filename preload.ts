@@ -72,6 +72,12 @@ const api: SpendApi = {
     ipcRenderer.invoke('getMonthSpendingTotal', monthKey),
 
   getTrends: (range) => ipcRenderer.invoke('getTrends', range),
+
+  getMerchantInsights: (merchantName) =>
+    ipcRenderer.invoke('getMerchantInsights', merchantName),
+  getMonthNote: (monthKey) => ipcRenderer.invoke('getMonthNote', monthKey),
+  setMonthNote: (monthKey, note) =>
+    ipcRenderer.invoke('setMonthNote', monthKey, note),
 };
 
 contextBridge.exposeInMainWorld('api', api);

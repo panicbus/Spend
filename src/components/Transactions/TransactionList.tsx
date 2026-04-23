@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -20,12 +21,20 @@ import { Button } from '../common/Button';
 import { ReturnToCurrentMonthButton } from '../common/ReturnToCurrentMonthButton';
 import '../common/Button.css';
 import type { GroupWithCategories } from '../../../ipc-contract';
+import type { BudgetReturnContext } from '../../utils/budgetReturnContext';
+import {
+  clearBudgetReturnContext,
+  readBudgetReturnContext,
+  setBudgetReturnContext,
+} from '../../utils/budgetReturnContext';
 import type { TrendsReturnContext } from '../../utils/trendsReturnContext';
 import {
   clearTrendsReturnContext,
   readTrendsReturnContext,
   setTrendsReturnContext,
 } from '../../utils/trendsReturnContext';
+import { MerchantInsightsCard } from './MerchantInsightsCard';
+import { resolveMerchantForInsights } from '../../utils/merchantInsightEligible';
 import './TransactionList.css';
 
 function formatDisplayDate(isoDate: string) {
@@ -39,16 +48,50 @@ function formatDisplayDate(isoDate: string) {
   });
 }
 
-function formatImportedAt(iso: string) {
+/** Import timestamp shown as calendar date only (no time or source label). */
+function formatImportedDateOnly(iso: string) {
+  const dayPart = iso.includes('T') ? iso.split('T')[0]! : iso.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dayPart)) {
+    return formatDisplayDate(dayPart);
+  }
   const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return iso;
-  return dt.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const d = String(dt.getDate()).padStart(2, '0');
+  return formatDisplayDate(`${y}-${m}-${d}`);
+}
+
+function TransactionNoteBadge({ note }: { note: string }) {
+  const tipId = useId();
+  return (
+    <span
+      className="transaction-list__note-wrap"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span
+        className="transaction-list__note-badge"
+        aria-describedby={tipId}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </span>
+      <span id={tipId} className="transaction-list__note-tooltip" role="tooltip">
+        {note}
+      </span>
+    </span>
+  );
 }
 
 export function TransactionList() {
@@ -58,6 +101,9 @@ export function TransactionList() {
   const returnToTrends: TrendsReturnContext | null =
     (location.state as { trendsReturn?: TrendsReturnContext } | null)
       ?.trendsReturn ?? readTrendsReturnContext();
+  const returnToBudget: BudgetReturnContext | null =
+    (location.state as { budgetReturn?: BudgetReturnContext } | null)
+      ?.budgetReturn ?? readBudgetReturnContext();
   const {
     data,
     mergedRows,
@@ -87,6 +133,7 @@ export function TransactionList() {
     const rf = searchParams.get('rangeFrom');
     const rt = searchParams.get('rangeTo');
     const cat = searchParams.get('category');
+    const catsRaw = searchParams.get('categories');
     const incomeSource = searchParams.get('incomeSource');
     const incomeLine = searchParams.get('incomeLine');
     let next = false;
@@ -101,7 +148,22 @@ export function TransactionList() {
       setMonthKey(rt);
       next = true;
     }
-    if (cat && /^\d+$/.test(cat)) {
+    let appliedCategoryIds = false;
+    if (catsRaw != null && catsRaw !== '') {
+      const ids = catsRaw
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => /^\d+$/.test(s))
+        .map(Number);
+      if (ids.length > 0) {
+        setCategoryIds(ids);
+        setIncomeOnlySourceIds(undefined);
+        setIncomeLineLabel(undefined);
+        appliedCategoryIds = true;
+        next = true;
+      }
+    }
+    if (!appliedCategoryIds && cat && /^\d+$/.test(cat)) {
       setCategoryIds([Number(cat)]);
       setIncomeOnlySourceIds(undefined);
       setIncomeLineLabel(undefined);
@@ -120,6 +182,7 @@ export function TransactionList() {
       p.delete('rangeFrom');
       p.delete('rangeTo');
       p.delete('category');
+      p.delete('categories');
       p.delete('incomeSource');
       p.delete('incomeLine');
       /** Keep router state (e.g. trendsReturn); default setSearchParams drops it. */
@@ -137,20 +200,32 @@ export function TransactionList() {
   ]);
 
   useLayoutEffect(() => {
-    const st = (location.state as { trendsReturn?: TrendsReturnContext } | null)
-      ?.trendsReturn;
-    if (st) {
-      setTrendsReturnContext(st);
+    const trendSt = (
+      location.state as { trendsReturn?: TrendsReturnContext } | null
+    )?.trendsReturn;
+    const budgetSt = (
+      location.state as { budgetReturn?: BudgetReturnContext } | null
+    )?.budgetReturn;
+    if (trendSt) {
+      setTrendsReturnContext(trendSt);
+      clearBudgetReturnContext();
       return;
     }
-    const fromTrendsDeepLink =
+    if (budgetSt) {
+      setBudgetReturnContext(budgetSt);
+      clearTrendsReturnContext();
+      return;
+    }
+    const fromListDeepLink =
       searchParams.has('rangeFrom') ||
       searchParams.has('rangeTo') ||
       searchParams.has('category') ||
+      searchParams.has('categories') ||
       searchParams.has('incomeSource') ||
       searchParams.has('incomeLine');
-    if (!fromTrendsDeepLink) {
+    if (!fromListDeepLink) {
       clearTrendsReturnContext();
+      clearBudgetReturnContext();
     }
   }, [location.state, searchParams]);
 
@@ -335,6 +410,11 @@ export function TransactionList() {
   const emptyMonth = isEmpty && noFilters;
   const emptyFiltered = isEmpty && !noFilters;
 
+  const insightMerchant = useMemo(
+    () => resolveMerchantForInsights(mergedRows, debouncedSearch),
+    [mergedRows, debouncedSearch]
+  );
+
   const flashSaved = useCallback((id: number) => {
     if (savedTimerRef.current != null) {
       window.clearTimeout(savedTimerRef.current);
@@ -376,7 +456,20 @@ export function TransactionList() {
         <h1 className="transaction-list__title">Transactions</h1>
         <div className="transaction-list__month-row">
           <div className="transaction-list__month-row-spacer">
-            {returnToTrends ? (
+            {returnToBudget ? (
+              <button
+                type="button"
+                className="transaction-list__back-trends"
+                onClick={() => {
+                  clearBudgetReturnContext();
+                  navigate('/', {
+                    state: { budgetRestore: returnToBudget },
+                  });
+                }}
+              >
+                ← Back to Budget
+              </button>
+            ) : returnToTrends ? (
               <button
                 type="button"
                 className="transaction-list__back-trends"
@@ -620,6 +713,10 @@ export function TransactionList() {
         </div>
       )}
 
+      {data && !isEmpty && insightMerchant && (
+        <MerchantInsightsCard merchantName={insightMerchant} />
+      )}
+
       {data && !isEmpty && (
         <div
           className={
@@ -634,7 +731,7 @@ export function TransactionList() {
               <col className="transaction-list__col transaction-list__col--merchant" />
               <col className="transaction-list__col transaction-list__col--category" />
               <col className="transaction-list__col transaction-list__col--amount" />
-              <col className="transaction-list__col transaction-list__col--account" />
+              <col className="transaction-list__col transaction-list__col--notes" />
             </colgroup>
             <tbody>
               {mergedRows.map((row, index) => (
@@ -707,85 +804,79 @@ function TransactionTableRows({
 
   if (row.kind === 'expense') {
     const { tx } = row;
+    const notesTrim = tx.notes?.trim() ?? '';
     return (
       <>
         <tr
-          className={cls}
+          className={`${cls} transaction-list__tr--clickable${expanded ? ' transaction-list__tr--expanded' : ''}`}
+          onClick={onToggleRow}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onToggleRow();
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-expanded={expanded}
         >
-          <td className="transaction-list__td">
-            <button
-              type="button"
-              className="transaction-list__row-hit"
-              onClick={onToggleRow}
-            >
+          <td className="transaction-list__td transaction-list__td--date">
+            <span className="transaction-list__row-cell transaction-list__row-cell--date">
               {formatDisplayDate(tx.date)}
-            </button>
+            </span>
           </td>
           <td className="transaction-list__td transaction-list__td--truncate">
-            <button
-              type="button"
-              className="transaction-list__row-hit"
-              onClick={onToggleRow}
-            >
+            <span className="transaction-list__row-cell transaction-list__row-cell--truncate">
               {tx.merchant}
-            </button>
+            </span>
           </td>
-          <td className="transaction-list__td transaction-list__td--truncate">
-            <button
-              type="button"
-              className="transaction-list__row-hit transaction-list__row-hit--cat"
-              onClick={onToggleRow}
-            >
+          <td className="transaction-list__td transaction-list__td--truncate transaction-list__td--category">
+            <span className="transaction-list__row-cell transaction-list__row-cell--cat">
               <span
                 className="transaction-list__dot"
                 style={{ background: tx.groupColor }}
               />
               {tx.categoryName}
-            </button>
+            </span>
           </td>
-          <td
-            className="transaction-list__td transaction-list__td--amount transaction-list__td--expense"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <td className="transaction-list__td transaction-list__td--amount transaction-list__td--expense">
             {formatCurrency(tx.amountCents)}
           </td>
-          <td className="transaction-list__td transaction-list__td--muted transaction-list__td--truncate">
-            <button
-              type="button"
-              className="transaction-list__row-hit"
-              onClick={onToggleRow}
-            >
-              {tx.account || '—'}
-            </button>
+          <td className="transaction-list__td transaction-list__td--notes">
+            {notesTrim ? <TransactionNoteBadge note={notesTrim} /> : null}
           </td>
         </tr>
-        {expanded && (
-          <tr className="transaction-list__detail-tr">
-            <td colSpan={5} className="transaction-list__detail-td">
-              <div className="transaction-list__detail">
+        <tr className="transaction-list__detail-tr" aria-hidden={!expanded}>
+          <td colSpan={5} className="transaction-list__detail-td">
+            <div
+              className={
+                expanded
+                  ? 'transaction-list__detail-slide transaction-list__detail-slide--open'
+                  : 'transaction-list__detail-slide'
+              }
+            >
+              <div
+                className="transaction-list__detail transaction-list__detail--panel"
+                onClick={onCloseExpansion}
+                role="presentation"
+              >
                 <div className="transaction-list__detail-grid">
-                  <div>
-                    <div className="transaction-list__detail-label">
-                      Original statement
-                    </div>
-                    <div className="transaction-list__detail-value">
-                      {tx.originalStatement || '—'}
-                    </div>
-                  </div>
                   <div>
                     <div className="transaction-list__detail-label">Notes</div>
                     <div className="transaction-list__detail-value">
-                      {tx.notes?.trim() ? tx.notes : '—'}
+                      {notesTrim || '—'}
                     </div>
                   </div>
                   <div>
                     <div className="transaction-list__detail-label">Imported</div>
                     <div className="transaction-list__detail-value">
-                      {formatImportedAt(tx.createdAt)} ·{' '}
-                      {tx.source === 'csv' ? 'CSV import' : 'Manual'}
+                      {formatImportedDateOnly(tx.createdAt)}
                     </div>
                   </div>
-                  <div className="transaction-list__detail-recat">
+                  <div
+                    className="transaction-list__detail-recat"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="transaction-list__detail-label">
                       Recategorize
                     </div>
@@ -814,7 +905,10 @@ function TransactionTableRows({
                     </div>
                   </div>
                 </div>
-                <div className="transaction-list__detail-actions">
+                <div
+                  className="transaction-list__detail-actions"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {deleteConfirmExpense ? (
                     <div className="transaction-list__confirm">
                       <span>Delete this transaction?</span>
@@ -848,9 +942,9 @@ function TransactionTableRows({
                   )}
                 </div>
               </div>
-            </td>
-          </tr>
-        )}
+            </div>
+          </td>
+        </tr>
       </>
     );
   }
@@ -859,58 +953,57 @@ function TransactionTableRows({
   const merchantLabel = inc.description.trim() || inc.sourceName;
   return (
     <>
-      <tr className={cls}>
-        <td className="transaction-list__td">
-          <button
-            type="button"
-            className="transaction-list__row-hit"
-            onClick={onToggleRow}
-          >
+      <tr
+        className={`${cls} transaction-list__tr--clickable${expanded ? ' transaction-list__tr--expanded' : ''}`}
+        onClick={onToggleRow}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggleRow();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+      >
+        <td className="transaction-list__td transaction-list__td--date">
+          <span className="transaction-list__row-cell transaction-list__row-cell--date">
             {formatDisplayDate(inc.date)}
-          </button>
+          </span>
         </td>
         <td className="transaction-list__td transaction-list__td--truncate">
-          <button
-            type="button"
-            className="transaction-list__row-hit"
-            onClick={onToggleRow}
-          >
+          <span className="transaction-list__row-cell transaction-list__row-cell--truncate">
             {merchantLabel}
-          </button>
+          </span>
         </td>
-        <td className="transaction-list__td transaction-list__td--truncate">
-          <button
-            type="button"
-            className="transaction-list__row-hit transaction-list__row-hit--cat"
-            onClick={onToggleRow}
-          >
+        <td className="transaction-list__td transaction-list__td--truncate transaction-list__td--category">
+          <span className="transaction-list__row-cell transaction-list__row-cell--cat">
             <span
               className="transaction-list__dot"
               style={{ background: 'var(--accent)' }}
             />
             {inc.sourceName}
-          </button>
+          </span>
         </td>
-        <td
-          className="transaction-list__td transaction-list__td--amount transaction-list__td--income"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <td className="transaction-list__td transaction-list__td--amount transaction-list__td--income">
           {formatCurrency(inc.amountCents)}
         </td>
-        <td className="transaction-list__td transaction-list__td--muted">
-          <button
-            type="button"
-            className="transaction-list__row-hit"
-            onClick={onToggleRow}
-          >
-            —
-          </button>
-        </td>
+        <td className="transaction-list__td transaction-list__td--notes" />
       </tr>
-      {expanded && (
-        <tr className="transaction-list__detail-tr">
-          <td colSpan={5} className="transaction-list__detail-td">
-            <div className="transaction-list__detail">
+      <tr className="transaction-list__detail-tr" aria-hidden={!expanded}>
+        <td colSpan={5} className="transaction-list__detail-td">
+          <div
+            className={
+              expanded
+                ? 'transaction-list__detail-slide transaction-list__detail-slide--open'
+                : 'transaction-list__detail-slide'
+            }
+          >
+            <div
+              className="transaction-list__detail transaction-list__detail--panel"
+              onClick={onCloseExpansion}
+              role="presentation"
+            >
               <p className="transaction-list__income-from">
                 Income from {inc.sourceName}
               </p>
@@ -926,12 +1019,14 @@ function TransactionTableRows({
                 <div>
                   <div className="transaction-list__detail-label">Imported</div>
                   <div className="transaction-list__detail-value">
-                    {formatImportedAt(inc.createdAt)} ·{' '}
-                    {inc.importHash ? 'CSV import' : 'Manual'}
+                    {formatImportedDateOnly(inc.createdAt)}
                   </div>
                 </div>
               </div>
-              <div className="transaction-list__detail-actions">
+              <div
+                className="transaction-list__detail-actions"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {deleteConfirmIncome ? (
                   <div className="transaction-list__confirm">
                     <span>Delete this transaction?</span>
@@ -965,9 +1060,9 @@ function TransactionTableRows({
                 )}
               </div>
             </div>
-          </td>
-        </tr>
-      )}
+          </div>
+        </td>
+      </tr>
     </>
   );
 }

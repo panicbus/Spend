@@ -27,6 +27,7 @@ import type {
   TrendMonthSnapshot,
   TrendRange,
   TrendTopCategory,
+  MerchantInsights,
   UpdateCategoryPayload,
   UpdateGroupPayload,
   UpdateIncomeSourcePayload,
@@ -148,6 +149,12 @@ function runSqliteMigrations() {
     "ALTER TABLE budgets ADD COLUMN frequency TEXT NOT NULL DEFAULT 'monthly'"
   );
   tryExec('ALTER TABLE budgets ADD COLUMN annual_amount_cents INTEGER');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS month_notes (
+      month_key TEXT PRIMARY KEY,
+      note TEXT NOT NULL DEFAULT ''
+    )
+  `);
 }
 
 const BUDGET_FREQUENCIES = new Set<string>([
@@ -1275,6 +1282,165 @@ function getTransactionsList(filters: TransactionFilters): TransactionListResult
   };
 }
 
+function merchantMatchWhere(alias = 't'): string {
+  return `LOWER(TRIM(COALESCE(NULLIF(TRIM(${alias}.merchant), ''), ${alias}.description))) = ?`;
+}
+
+function inclusiveMonthSpanMonths(firstMk: string, lastMk: string): number {
+  const pa = /^(\d{4})-(\d{2})$/.exec(firstMk);
+  const pb = /^(\d{4})-(\d{2})$/.exec(lastMk);
+  if (!pa || !pb) return 1;
+  const y1 = Number(pa[1]);
+  const m1 = Number(pa[2]);
+  const y2 = Number(pb[1]);
+  const m2 = Number(pb[2]);
+  return Math.max(1, (y2 - y1) * 12 + (m2 - m1) + 1);
+}
+
+function lastSixMonthKeysFrom(endMonthKey: string): string[] {
+  const m = /^(\d{4})-(\d{2})$/.exec(endMonthKey);
+  if (!m) return [];
+  let y = Number(m[1]);
+  let mo = Number(m[2]);
+  const keys: string[] = [];
+  for (let i = 0; i < 6; i++) {
+    keys.push(`${y}-${String(mo).padStart(2, '0')}`);
+    mo -= 1;
+    if (mo < 1) {
+      mo = 12;
+      y -= 1;
+    }
+  }
+  return keys.reverse();
+}
+
+function getMerchantInsightsData(merchantName: string): MerchantInsights {
+  const trim = merchantName.trim();
+  if (!trim) {
+    throw new Error('Merchant name is required.');
+  }
+  const norm = trim.toLowerCase();
+  const match = merchantMatchWhere('t');
+
+  const agg = db
+    .prepare(
+      `SELECT
+         COALESCE(SUM(ABS(t.amount_cents)), 0) AS total_cents,
+         COUNT(*) AS cnt,
+         MIN(t.date) AS first_d,
+         MAX(t.date) AS last_d
+       FROM transactions t
+       WHERE ${match}`
+    )
+    .get(norm) as {
+    total_cents: number;
+    cnt: number;
+    first_d: string | null;
+    last_d: string | null;
+  };
+
+  const transactionCount = Number(agg.cnt) || 0;
+  const totalCents = Math.round(Number(agg.total_cents) || 0);
+  const averageCents =
+    transactionCount > 0 ? Math.round(totalCents / transactionCount) : 0;
+
+  const firstDate = agg.first_d ?? '';
+  const lastDate = agg.last_d ?? '';
+  const firstMk = firstDate.slice(0, 7);
+  const lastMk = lastDate.slice(0, 7);
+  const monthSpan =
+    firstMk.length === 7 && lastMk.length === 7
+      ? inclusiveMonthSpanMonths(firstMk, lastMk)
+      : 1;
+  const frequencyPerMonth =
+    monthSpan > 0 ? transactionCount / monthSpan : transactionCount;
+
+  const top = db
+    .prepare(
+      `SELECT t.category_id AS id, c.name AS name, g.name AS group_name, g.color AS group_color
+       FROM transactions t
+       JOIN categories c ON c.id = t.category_id
+       JOIN category_groups g ON g.id = c.group_id
+       WHERE ${match}
+       GROUP BY t.category_id
+       ORDER BY COUNT(*) DESC
+       LIMIT 1`
+    )
+    .get(norm) as
+    | { id: number; name: string; group_name: string; group_color: string }
+    | undefined;
+
+  const topCategory = top
+    ? {
+        id: top.id,
+        name: top.name,
+        groupName: top.group_name,
+        groupColor: top.group_color,
+      }
+    : {
+        id: 0,
+        name: '—',
+        groupName: '',
+        groupColor: '#888888',
+      };
+
+  const endMk = lastMk.length === 7 ? lastMk : '';
+  const months = endMk ? lastSixMonthKeysFrom(endMk) : [];
+  const monthlySpending: Array<{ monthKey: string; totalCents: number }> = [];
+  if (months.length > 0) {
+    const rows = db
+      .prepare(
+        `SELECT substr(t.date, 1, 7) AS mk, SUM(ABS(t.amount_cents)) AS total
+         FROM transactions t
+         WHERE ${match}
+         GROUP BY mk`
+      )
+      .all(norm) as { mk: string; total: number }[];
+    const map = new Map(
+      rows.map((r) => [r.mk, Math.round(Number(r.total) || 0)])
+    );
+    for (const mk of months) {
+      monthlySpending.push({ monthKey: mk, totalCents: map.get(mk) ?? 0 });
+    }
+  }
+
+  return {
+    totalCents,
+    transactionCount,
+    averageCents,
+    firstDate,
+    lastDate,
+    frequencyPerMonth,
+    topCategory,
+    monthlySpending,
+  };
+}
+
+function getMonthNoteRow(monthKey: string): string {
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    return '';
+  }
+  const row = db
+    .prepare('SELECT note FROM month_notes WHERE month_key = ?')
+    .get(monthKey) as { note: string } | undefined;
+  return row?.note ?? '';
+}
+
+function setMonthNoteRow(monthKey: string, note: string): void {
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    throw new Error('Invalid monthKey (expected YYYY-MM).');
+  }
+  const t = note.trim();
+  if (t === '') {
+    db.prepare('DELETE FROM month_notes WHERE month_key = ?').run(monthKey);
+  } else {
+    db.prepare(
+      `INSERT INTO month_notes (month_key, note) VALUES (?, ?)
+       ON CONFLICT(month_key) DO UPDATE SET note = excluded.note`
+    ).run(monthKey, t);
+  }
+}
+
 function registerIpcHandlers() {
   ipcMain.handle('getGroups', () => {
     const groups = db
@@ -2000,6 +2166,21 @@ function registerIpcHandlers() {
       )
       .get(monthKey) as { t: number };
     return Number(row?.t ?? 0);
+  });
+
+  ipcMain.handle('getMerchantInsights', (_, merchantName: string) =>
+    getMerchantInsightsData(typeof merchantName === 'string' ? merchantName : '')
+  );
+
+  ipcMain.handle('getMonthNote', (_, monthKey: string) =>
+    getMonthNoteRow(typeof monthKey === 'string' ? monthKey : '')
+  );
+
+  ipcMain.handle('setMonthNote', (_, monthKey: string, note: string) => {
+    setMonthNoteRow(
+      typeof monthKey === 'string' ? monthKey : '',
+      typeof note === 'string' ? note : ''
+    );
   });
 
   ipcMain.handle('commitImport', (_, rows: CommitImportRow[]) => {

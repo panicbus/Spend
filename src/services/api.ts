@@ -97,4 +97,14 @@ export const api = {
 
   getTrends: (range: Parameters<SpendApi['getTrends']>[0]) =>
     getBridge().getTrends(range),
+
+  getMerchantInsights: (
+    merchantName: Parameters<SpendApi['getMerchantInsights']>[0]
+  ) => getBridge().getMerchantInsights(merchantName),
+  getMonthNote: (monthKey: Parameters<SpendApi['getMonthNote']>[0]) =>
+    getBridge().getMonthNote(monthKey),
+  setMonthNote: (
+    monthKey: Parameters<SpendApi['setMonthNote']>[0],
+    note: Parameters<SpendApi['setMonthNote']>[1]
+  ) => getBridge().setMonthNote(monthKey, note),
 };

@@ -18,9 +18,12 @@ import type {
   TrendRange,
 } from '../../../ipc-contract';
 import { useTrends } from '../../hooks/useTrends';
+import { api } from '../../services/api';
 import { formatCurrency } from '../../services/formatters';
+import { MONTH_NOTES_CHANGED_EVENT } from '../../utils/dataChanged';
 import { writeStoredMonthKey } from '../../utils/monthKeyStorage';
 import type { TrendsReturnContext } from '../../utils/trendsReturnContext';
+import { clearBudgetReturnContext } from '../../utils/budgetReturnContext';
 import { setTrendsReturnContext } from '../../utils/trendsReturnContext';
 import { Button } from '../common/Button';
 import '../common/Button.css';
@@ -179,16 +182,29 @@ function pctOf(part: number, whole: number): number | null {
   return (part / whole) * 100;
 }
 
+function truncateTrendNote(note: string): string {
+  return note.length > 100 ? `${note.slice(0, 100)}…` : note;
+}
+
+function TrendsTooltipNote({ note }: { note?: string }) {
+  if (!note) return null;
+  return (
+    <div className="trends-tooltip__note">{truncateTrendNote(note)}</div>
+  );
+}
+
 type TrendsTooltipProps = {
   active?: boolean;
   payload?: Array<{ payload?: VsRow }>;
   months: TrendMonthSnapshot[];
+  monthNotes?: Record<string, string>;
 };
 
 function VsBudgetTooltip({
   active,
   payload,
   months,
+  monthNotes,
 }: TrendsTooltipProps) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload as VsRow | undefined;
@@ -215,6 +231,7 @@ function VsBudgetTooltip({
             : `${ch >= 0 ? '+' : ''}${ch.toFixed(1)}% vs prior month`}
         </div>
       )}
+      <TrendsTooltipNote note={monthNotes?.[row.monthKey]} />
     </div>
   );
 }
@@ -222,18 +239,20 @@ function VsBudgetTooltip({
 function StackSliceTooltip({
   active,
   payload,
+  monthNotes,
 }: {
   active?: boolean;
   payload?: Array<{
-    name?: string;
-    dataKey?: string | number;
-    value?: number;
+    name?: unknown;
+    dataKey?: unknown;
+    value?: unknown;
     payload?: StackRow;
   }>;
+  monthNotes?: Record<string, string>;
 }) {
   if (!active || !payload?.length) return null;
   const p = payload[0];
-  const name = p.name ?? String(p.dataKey ?? '');
+  const name = p.name != null ? String(p.name) : String(p.dataKey ?? '');
   const cents = Number(p.value) || 0;
   const row = p.payload;
   let total = 0;
@@ -244,6 +263,8 @@ function StackSliceTooltip({
     }
   }
   const pct = pctOf(cents, total);
+  const mk =
+    row && typeof row.monthKey === 'string' ? row.monthKey : undefined;
   return (
     <div className="trends-tooltip">
       <div className="trends-tooltip__title">{String(name)}</div>
@@ -256,6 +277,7 @@ function StackSliceTooltip({
           {pct.toFixed(1)}% of month total
         </div>
       )}
+      <TrendsTooltipNote note={mk ? monthNotes?.[mk] : undefined} />
     </div>
   );
 }
@@ -264,10 +286,12 @@ function NetTooltip({
   active,
   payload,
   months,
+  monthNotes,
 }: {
   active?: boolean;
   payload?: Array<{ payload?: { monthKey: string; netCents: number; label: string } }>;
   months: TrendMonthSnapshot[];
+  monthNotes?: Record<string, string>;
 }) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
@@ -289,6 +313,7 @@ function NetTooltip({
           {ch.toFixed(1)}% vs prior month
         </div>
       )}
+      <TrendsTooltipNote note={monthNotes?.[row.monthKey]} />
     </div>
   );
 }
@@ -299,6 +324,7 @@ type XTickProps = {
   payload?: { value: string };
   months: TrendMonthSnapshot[];
   onMonthClick: (mk: string) => void;
+  monthNotes?: Record<string, string>;
 };
 
 function ClickableMonthTick({
@@ -307,10 +333,12 @@ function ClickableMonthTick({
   payload,
   months,
   onMonthClick,
+  monthNotes,
 }: XTickProps) {
   const mk = payload?.value ?? '';
   const m = months.find((row) => row.monthKey === mk);
   const text = m?.label ?? mk;
+  const hasNote = Boolean(monthNotes?.[mk]);
   return (
     <g transform={`translate(${x},${y})`} className="trends-page__x-tick-wrap">
       <text
@@ -332,6 +360,11 @@ function ClickableMonthTick({
         }}
       >
         {text}
+        {hasNote ? (
+          <tspan className="trends-page__x-tick-asterisk" dx={2}>
+            {' *'}
+          </tspan>
+        ) : null}
       </text>
     </g>
   );
@@ -350,6 +383,47 @@ export function TrendsPage() {
   const pendingScrollToTrendsSectionRef = useRef<'category' | 'income' | null>(
     null
   );
+  const [monthNotes, setMonthNotes] = useState<Record<string, string>>({});
+
+  const loadMonthNotesForData = useCallback(async (trend: TrendData) => {
+    const keys = trend.months.map((m) => m.monthKey);
+    if (keys.length === 0) {
+      setMonthNotes({});
+      return;
+    }
+    const entries = await Promise.all(
+      keys.map(async (k) => {
+        try {
+          const n = await api.getMonthNote(k);
+          return n.trim() ? ([k, n] as const) : null;
+        } catch {
+          return null;
+        }
+      })
+    );
+    const o: Record<string, string> = {};
+    for (const e of entries) {
+      if (e) o[e[0]] = e[1];
+    }
+    setMonthNotes(o);
+  }, []);
+
+  useEffect(() => {
+    if (!data) {
+      setMonthNotes({});
+      return;
+    }
+    void loadMonthNotesForData(data);
+  }, [data, loadMonthNotesForData]);
+
+  useEffect(() => {
+    const onNotes = () => {
+      if (data) void loadMonthNotesForData(data);
+    };
+    window.addEventListener(MONTH_NOTES_CHANGED_EVENT, onNotes);
+    return () =>
+      window.removeEventListener(MONTH_NOTES_CHANGED_EVENT, onNotes);
+  }, [data, loadMonthNotesForData]);
 
   useEffect(() => {
     const restore = (
@@ -431,6 +505,7 @@ export function TrendsPage() {
         drillIncomeLineLabel: lineLabel,
       };
       setTrendsReturnContext(ctx);
+      clearBudgetReturnContext();
       const q = new URLSearchParams({
         rangeFrom: trend.startMonthKey,
         rangeTo: trend.endMonthKey,
@@ -621,6 +696,7 @@ export function TrendsPage() {
                             {...props}
                             months={data.months}
                             onMonthClick={goBudgetMonth}
+                            monthNotes={monthNotes}
                           />
                         )}
                         height={36}
@@ -636,7 +712,11 @@ export function TrendsPage() {
                       />
                       <Tooltip
                         content={(props) => (
-                          <VsBudgetTooltip {...props} months={data.months} />
+                          <VsBudgetTooltip
+                            {...props}
+                            months={data.months}
+                            monthNotes={monthNotes}
+                          />
                         )}
                       />
                       <Bar
@@ -727,6 +807,7 @@ export function TrendsPage() {
                             {...props}
                             months={data.months}
                             onMonthClick={goBudgetMonth}
+                            monthNotes={monthNotes}
                           />
                         )}
                         height={36}
@@ -741,7 +822,9 @@ export function TrendsPage() {
                         width={56}
                       />
                       <Tooltip
-                        content={<StackSliceTooltip />}
+                        content={(props) => (
+                          <StackSliceTooltip {...props} monthNotes={monthNotes} />
+                        )}
                         shared={false}
                       />
                       {drillMeta.keys.map((key) => {
@@ -814,6 +897,7 @@ export function TrendsPage() {
                             {...props}
                             months={data.months}
                             onMonthClick={goBudgetMonth}
+                            monthNotes={monthNotes}
                           />
                         )}
                         height={36}
@@ -828,7 +912,9 @@ export function TrendsPage() {
                         width={56}
                       />
                       <Tooltip
-                        content={<StackSliceTooltip />}
+                        content={(props) => (
+                          <StackSliceTooltip {...props} monthNotes={monthNotes} />
+                        )}
                         shared={false}
                       />
                       {data.groups.map((g) => (
@@ -926,6 +1012,7 @@ export function TrendsPage() {
                               {...props}
                               months={data.months}
                               onMonthClick={goBudgetMonth}
+                              monthNotes={monthNotes}
                             />
                           )}
                           height={36}
@@ -940,7 +1027,9 @@ export function TrendsPage() {
                           width={56}
                         />
                         <Tooltip
-                          content={<StackSliceTooltip />}
+                          content={(props) => (
+                            <StackSliceTooltip {...props} monthNotes={monthNotes} />
+                          )}
                           shared={false}
                         />
                         {incomeDrillMeta.lineLabels.map((label, i) => (
@@ -1009,6 +1098,7 @@ export function TrendsPage() {
                             {...props}
                             months={data.months}
                             onMonthClick={goBudgetMonth}
+                            monthNotes={monthNotes}
                           />
                         )}
                         height={36}
@@ -1023,7 +1113,9 @@ export function TrendsPage() {
                         width={56}
                       />
                       <Tooltip
-                        content={<StackSliceTooltip />}
+                        content={(props) => (
+                          <StackSliceTooltip {...props} monthNotes={monthNotes} />
+                        )}
                         shared={false}
                       />
                       {data.incomeSources.map((s) => (
@@ -1138,6 +1230,7 @@ export function TrendsPage() {
                           {...props}
                           months={data.months}
                           onMonthClick={goBudgetMonth}
+                          monthNotes={monthNotes}
                         />
                       )}
                       height={36}
@@ -1153,7 +1246,11 @@ export function TrendsPage() {
                     />
                     <Tooltip
                       content={(props) => (
-                        <NetTooltip {...props} months={data.months} />
+                        <NetTooltip
+                          {...props}
+                          months={data.months}
+                          monthNotes={monthNotes}
+                        />
                       )}
                     />
                     <Bar

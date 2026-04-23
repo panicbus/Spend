@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import type { BudgetGroup } from '../../../ipc-contract';
 import { formatCurrency } from '../../services/formatters';
+import { formatMonthLabel } from '../../utils/dates';
 import './SpendingDonut.css';
 
 const CX = 100;
@@ -39,9 +40,57 @@ type DonutSeg = {
 
 type SpendingDonutProps = {
   groups: BudgetGroup[];
+  /** When set, legend rows open Transactions for that budget group’s categories in this month. */
+  monthKey?: string;
+  onLegendGroupClick?: (group: BudgetGroup) => void;
 };
 
-export function SpendingDonut({ groups }: SpendingDonutProps) {
+export function SpendingDonut({
+  groups,
+  monthKey,
+  onLegendGroupClick,
+}: SpendingDonutProps) {
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const [tooltip, setTooltip] = useState<{
+    id: number;
+    name: string;
+    spent: number;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const moveTooltip = useCallback((e: React.MouseEvent, seg: DonutSeg) => {
+    const root = sectionRef.current;
+    if (!root) return;
+    const rect = root.getBoundingClientRect();
+    setTooltip({
+      id: seg.id,
+      name: seg.name,
+      spent: seg.spent,
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const leaveDonutSegment = useCallback(
+    (e: React.MouseEvent<SVGPathElement>, seg: DonutSeg) => {
+      const next = e.relatedTarget as Node | null;
+      const svg = e.currentTarget.ownerSVGElement;
+      if (next && svg?.contains(next)) return;
+      setTooltip((t) => (t?.id === seg.id ? null : t));
+    },
+    []
+  );
+
+  const leaveLegendRow = useCallback(
+    (e: React.MouseEvent, seg: DonutSeg) => {
+      const next = e.relatedTarget as Node | null;
+      if (next && sectionRef.current?.contains(next)) return;
+      setTooltip((t) => (t?.id === seg.id ? null : t));
+    },
+    []
+  );
+
   const { segments, pctSpent, totalBudget } = useMemo(() => {
     const alloc = (groups ?? []).filter((g) => (g.budget_cents ?? 0) > 0);
     const tb = alloc.reduce((s, g) => s + g.budget_cents, 0);
@@ -69,7 +118,32 @@ export function SpendingDonut({ groups }: SpendingDonutProps) {
   }, [groups]);
 
   return (
-    <section className="spending-donut" aria-label="Spending allocation">
+    <section
+      ref={sectionRef}
+      className="spending-donut"
+      aria-label="Spending allocation"
+    >
+      {tooltip ? (
+        <div
+          className="spending-donut__tooltip"
+          role="tooltip"
+          style={{ left: tooltip.x, top: tooltip.y }}
+        >
+          <div className="spending-donut__tooltip-title">{tooltip.name}</div>
+          <div className="spending-donut__tooltip-row">
+            <span className="spending-donut__tooltip-label">Spent</span>
+            <span className="spending-donut__tooltip-value">
+              {formatCurrency(tooltip.spent)}
+            </span>
+          </div>
+          {monthKey ? (
+            <div className="spending-donut__tooltip-muted">
+              {formatMonthLabel(monthKey)}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="spending-donut__chart-wrap">
         <svg
           className="spending-donut__svg"
@@ -86,16 +160,26 @@ export function SpendingDonut({ groups }: SpendingDonutProps) {
             stroke="var(--bar-track)"
             strokeWidth={R_OUT - R_IN}
           />
-          {segments.map((s) => (
-            <path
-              key={s.id}
-              d={s.path}
-              fill={s.color}
-              fillOpacity={s.opacity}
-            />
-          ))}
+          {segments.map((s) => {
+            const inactive = tooltip != null && tooltip.id !== s.id;
+            return (
+              <path
+                key={s.id}
+                d={s.path}
+                fill={s.color}
+                fillOpacity={inactive ? s.opacity * 0.38 : s.opacity}
+                stroke="transparent"
+                strokeWidth={6}
+                vectorEffect="non-scaling-stroke"
+                className="spending-donut__segment"
+                onMouseEnter={(e) => moveTooltip(e, s)}
+                onMouseMove={(e) => moveTooltip(e, s)}
+                onMouseLeave={(e) => leaveDonutSegment(e, s)}
+              />
+            );
+          })}
           <text
-            className="spending-donut__center-pct"
+            className="spending-donut__center-pct spending-donut__center-text"
             x={CX}
             y={CY - 4}
             textAnchor="middle"
@@ -103,7 +187,7 @@ export function SpendingDonut({ groups }: SpendingDonutProps) {
             {pctSpent}%
           </text>
           <text
-            className="spending-donut__center-sub"
+            className="spending-donut__center-sub spending-donut__center-text"
             x={CX}
             y={CY + 14}
             textAnchor="middle"
@@ -121,23 +205,62 @@ export function SpendingDonut({ groups }: SpendingDonutProps) {
               : 'No data yet.'}
           </li>
         )}
-        {segments.map((s) => (
-          <li key={s.id} className="spending-donut__legend-item">
-            <svg
-              className="spending-donut__swatch"
-              viewBox="0 0 10 10"
-              width="10"
-              height="10"
-              aria-hidden
+        {segments.map((s) => {
+          const g = groups.find((x) => x.id === s.id);
+          const canDrill =
+            !!onLegendGroupClick &&
+            !!g &&
+            (g.categories?.length ?? 0) > 0;
+          const row = (
+            <>
+              <svg
+                className="spending-donut__swatch"
+                viewBox="0 0 10 10"
+                width="10"
+                height="10"
+                aria-hidden
+              >
+                <circle
+                  cx="5"
+                  cy="5"
+                  r="5"
+                  fill={s.color}
+                  opacity={s.opacity}
+                />
+              </svg>
+              <span className="spending-donut__legend-name">{s.name}</span>
+              <span className="spending-donut__legend-amt">
+                {formatCurrency(s.spent)}
+              </span>
+            </>
+          );
+          return (
+            <li
+              key={s.id}
+              className="spending-donut__legend-item-wrap"
+              onMouseEnter={(e) => moveTooltip(e, s)}
+              onMouseMove={(e) => moveTooltip(e, s)}
+              onMouseLeave={(e) => leaveLegendRow(e, s)}
             >
-              <circle cx="5" cy="5" r="5" fill={s.color} opacity={s.opacity} />
-            </svg>
-            <span className="spending-donut__legend-name">{s.name}</span>
-            <span className="spending-donut__legend-amt">
-              {formatCurrency(s.spent)}
-            </span>
-          </li>
-        ))}
+              {canDrill && g ? (
+                <button
+                  type="button"
+                  className="spending-donut__legend-item spending-donut__legend-item--clickable"
+                  aria-label={
+                    monthKey
+                      ? `View transactions for ${s.name} in ${monthKey}`
+                      : `View transactions for ${s.name}`
+                  }
+                  onClick={() => onLegendGroupClick(g)}
+                >
+                  {row}
+                </button>
+              ) : (
+                <div className="spending-donut__legend-item">{row}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

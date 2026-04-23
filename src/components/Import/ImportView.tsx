@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GroupWithCategories, IncomeSourceRow } from '../../../ipc-contract';
 import type { ParsedRow } from '../../types/import';
 import {
@@ -67,6 +67,9 @@ export function ImportView() {
   const [groups, setGroups] = useState<GroupWithCategories[]>([]);
   const [incomeSources, setIncomeSources] = useState<IncomeSourceRow[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+  const dragDepthRef = useRef(0);
+  const [dropError, setDropError] = useState<string | null>(null);
   const [creatingMapExternal, setCreatingMapExternal] = useState<string | null>(
     null
   );
@@ -131,25 +134,83 @@ export function ImportView() {
     };
   }, []);
 
-  const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(true);
+  const dataTransferHasFiles = useCallback((dt: DataTransfer) => {
+    if (dt.types.includes('Files')) return true;
+    return Array.from(dt.types).some((t) => t === 'Files');
   }, []);
 
-  const onDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-  }, []);
+  useEffect(() => {
+    if (!dropError) return;
+    const t = window.setTimeout(() => setDropError(null), 3000);
+    const dismiss = () => setDropError(null);
+    window.addEventListener('mousedown', dismiss);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('mousedown', dismiss);
+    };
+  }, [dropError]);
+
+  const onDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!dataTransferHasFiles(e.dataTransfer)) return;
+      dragDepthRef.current += 1;
+      setDragOver(true);
+    },
+    [dataTransferHasFiles]
+  );
+
+  const onDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (dataTransferHasFiles(e.dataTransfer)) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    },
+    [dataTransferHasFiles]
+  );
+
+  const onDragLeave = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!dataTransferHasFiles(e.dataTransfer)) return;
+      const rel = e.relatedTarget as Node | null;
+      if (
+        rel &&
+        dropZoneRef.current &&
+        dropZoneRef.current.contains(rel)
+      ) {
+        return;
+      }
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (dragDepthRef.current === 0) {
+        setDragOver(false);
+      }
+    },
+    [dataTransferHasFiles]
+  );
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      dragDepthRef.current = 0;
       setDragOver(false);
-      const file = e.dataTransfer.files[0];
-      if (!file) return;
+      if (!dataTransferHasFiles(e.dataTransfer)) return;
+      const list = e.dataTransfer.files;
+      if (!list || list.length === 0) return;
+      if (list.length > 1) {
+        setDropError('Please drop one file at a time');
+        return;
+      }
+      const file = list[0];
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        setDropError('Only CSV files are supported');
+        return;
+      }
       try {
         const p = api.getPathForFile(file);
         void parseDroppedFile(p);
@@ -157,7 +218,7 @@ export function ImportView() {
         /* invalid file in some environments */
       }
     },
-    [parseDroppedFile]
+    [dataTransferHasFiles, parseDroppedFile]
   );
 
   return (
@@ -170,20 +231,58 @@ export function ImportView() {
       </header>
 
       {state.kind === 'idle' && (
-        <div className="import-card">
-          <div
-            className={`import-drop${dragOver ? ' import-drop--active' : ''}`}
-            onDragEnter={onDragOver}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-          >
-            <p className="import-drop__text">
-              Export your transactions from Monarch as CSV, then drop it here.
-            </p>
+        <div
+          ref={dropZoneRef}
+          className={
+            dragOver
+              ? 'import-card import-card--drop-zone import-card--drop-zone-active'
+              : 'import-card import-card--drop-zone'
+          }
+          onDragEnter={onDragEnter}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+        >
+          <div className="import-drop">
+            <svg
+              className="import-drop__icon"
+              width="36"
+              height="36"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+            <div className="import-drop__copy">
+              {dragOver ? (
+                <p className="import-drop__text import-drop__text--emph">
+                  Drop to import
+                </p>
+              ) : (
+                <>
+                  <p className="import-drop__text">
+                    Drag a Monarch CSV here
+                  </p>
+                  <span className="import-drop__or">or</span>
+                </>
+              )}
+            </div>
             <Button type="button" variant="dashed" onClick={() => void pickFile()}>
               Choose CSV file
             </Button>
+            {dropError ? (
+              <p className="import-drop__error" role="alert">
+                {dropError}
+              </p>
+            ) : null}
           </div>
         </div>
       )}

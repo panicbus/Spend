@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   canGoToPreviousDataMonth,
   formatMonthLabel,
   shiftMonthKey,
 } from '../../utils/dates';
+import type { BudgetGroup } from '../../../ipc-contract';
+import type { BudgetReturnContext } from '../../utils/budgetReturnContext';
+import { setBudgetReturnContext } from '../../utils/budgetReturnContext';
+import { clearTrendsReturnContext } from '../../utils/trendsReturnContext';
 import { useSyncedMonthKey } from '../../hooks/useSyncedMonthKey';
 import { useBudget } from '../../hooks/useBudget';
 import { SummaryCards } from './SummaryCards';
@@ -15,9 +20,12 @@ import { AddGroupModal } from './AddGroupModal';
 import { AddCategoriesModal } from './AddCategoriesModal';
 import { Button } from '../common/Button';
 import { ReturnToCurrentMonthButton } from '../common/ReturnToCurrentMonthButton';
+import { MonthNoteSection } from './MonthNoteSection';
 import './BudgetDashboard.css';
 
 export function BudgetDashboard() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { monthKey, setMonthKey } = useSyncedMonthKey();
   const { groups, income, totals, loading, error, refetch } =
     useBudget(monthKey);
@@ -39,10 +47,45 @@ export function BudgetDashboard() {
     void refetch();
   };
 
+  useEffect(() => {
+    const restore = (
+      location.state as { budgetRestore?: BudgetReturnContext } | null
+    )?.budgetRestore;
+    if (
+      !restore?.monthKey ||
+      !/^\d{4}-\d{2}$/.test(restore.monthKey)
+    ) {
+      return;
+    }
+    setMonthKey(restore.monthKey);
+    navigate('/', { replace: true, state: null });
+  }, [location.state, navigate, setMonthKey]);
+
+  const onDonutLegendGroupClick = useCallback(
+    (group: BudgetGroup) => {
+      const ids = group.categories.map((c) => c.id);
+      if (ids.length === 0) return;
+      clearTrendsReturnContext();
+      const ctx = { monthKey };
+      setBudgetReturnContext(ctx);
+      const q = new URLSearchParams({
+        rangeFrom: monthKey,
+        rangeTo: monthKey,
+        categories: ids.join(','),
+      });
+      navigate(`/transactions?${q.toString()}`, {
+        state: { budgetReturn: ctx },
+      });
+    },
+    [monthKey, navigate]
+  );
+
   return (
     <div className="budget-dashboard">
       <header className="budget-dashboard__header">
-        <span className="budget-dashboard__header-spacer" aria-hidden />
+        <div className="budget-dashboard__header-note">
+          <MonthNoteSection monthKey={monthKey} />
+        </div>
         <div className="budget-dashboard__month-nav">
           <button
             type="button"
@@ -111,7 +154,11 @@ export function BudgetDashboard() {
             groups={groups}
             totals={totals}
           />
-          <SpendingDonut groups={groups} />
+          <SpendingDonut
+            groups={groups}
+            monthKey={monthKey}
+            onLegendGroupClick={onDonutLegendGroupClick}
+          />
           <CategoryGrid
             groups={groups}
             monthKey={monthKey}

@@ -85,6 +85,11 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS month_notes (
+  month_key TEXT PRIMARY KEY,
+  note TEXT NOT NULL DEFAULT ''
+);
+
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_transactions_month ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category_id);

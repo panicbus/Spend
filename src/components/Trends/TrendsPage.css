@@ -232,8 +232,25 @@
   color: var(--text-tertiary);
 }
 
+.trends-tooltip__note {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--border);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  max-width: 260px;
+}
+
 .trends-page__x-tick {
   cursor: pointer;
+}
+
+.trends-page__x-tick-asterisk {
+  fill: var(--accent-text);
+  font-size: 11px;
+  font-style: normal;
 }
 
 .trends-page__x-tick:hover {

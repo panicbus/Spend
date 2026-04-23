@@ -35,6 +35,26 @@
   max-width: 100%;
 }
 
+.import-card--drop-zone {
+  padding: 0;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.import-card--drop-zone-active {
+  border: 2px dashed var(--accent);
+  background: var(--accent-bg);
+  box-shadow: none;
+}
+
+.import-card--drop-zone-active .import-drop {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
 .import-card--muted {
   opacity: 0.88;
 }
@@ -104,6 +124,37 @@
 .import-drop--active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-bg);
+}
+
+.import-drop__icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.import-drop__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.import-drop__or {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.import-drop__text--emph {
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.import-drop__error {
+  margin: 0;
+  font-size: 14px;
+  color: var(--danger-text);
+  max-width: 360px;
+  line-height: 1.45;
 }
 
 .import-drop__text {
