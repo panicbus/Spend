@@ -5,7 +5,7 @@
   padding: 16px 18px;
   border: 0.5px solid var(--border);
   align-self: start;
-  overflow: hidden;
+  overflow: visible;
   box-sizing: border-box;
   min-width: 0;
   flex: 0 1 calc(50% - 8px);
@@ -127,6 +127,11 @@
   margin-top: 12px;
 }
 
+.category-card__bar-track-shell {
+  position: relative;
+  width: 100%;
+}
+
 .category-card__bar-track {
   width: 100%;
   height: 6px;
@@ -134,6 +139,66 @@
   background: var(--bar-track);
   overflow: hidden;
 }
+
+.budget-month-progress-marker-hit {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  transform: translateX(-50%);
+  /** Invisible widen target so hovering the faint line is easy */
+  width: clamp(28px, 8%, 52px);
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.budget-month-progress-marker {
+  flex-shrink: 0;
+  width: 2px;
+  align-self: stretch;
+  transform: translateX(0);
+  border-radius: 1px;
+  background: rgb(255 255 255 / 0.55);
+  pointer-events: none;
+}
+
+.budget-month-progress-marker__tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  translate: -50% 0;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border-strong);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-elevated);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-primary);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.14s ease,
+    visibility 0.14s ease;
+  z-index: 60;
+}
+
+.budget-month-progress-marker-hit:hover .budget-month-progress-marker__tip {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .budget-month-progress-marker__tip {
+    transition: none;
+  }
+}
+
 
 .category-card__bar-fill {
   height: 100%;
@@ -239,8 +304,13 @@
   font-variant-numeric: tabular-nums;
 }
 
-.category-card__line-bar-track {
+.category-card__line-bar-track-shell {
+  position: relative;
+  width: 100%;
   margin-top: 8px;
+}
+
+.category-card__line-bar-track {
   width: 100%;
   height: 6px;
   border-radius: 9999px;

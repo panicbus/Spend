@@ -15,6 +15,7 @@ import {
   sinkingAmountFieldLabel,
 } from '../../utils/budgetFrequency';
 import { useBudgetMutations } from '../../hooks/useBudgetMutations';
+import { BudgetMonthProgressMarker } from './BudgetMonthProgressMarker';
 import './CategoryCard.css';
 
 const FREQUENCY_ORDER: BudgetFrequency[] = [
@@ -394,11 +395,14 @@ export function CategoryCardLineList({
             )}
 
             {!isEdit && (
-              <div className="category-card__line-bar-track">
-                <div
-                  className="category-card__line-bar-fill"
-                  style={{ width: `${lineW}%`, background: lineFill }}
-                />
+              <div className="category-card__line-bar-track-shell">
+                <div className="category-card__line-bar-track">
+                  <div
+                    className="category-card__line-bar-fill"
+                    style={{ width: `${lineW}%`, background: lineFill }}
+                  />
+                </div>
+                <BudgetMonthProgressMarker monthKey={monthKey} />
               </div>
             )}
 

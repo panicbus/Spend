@@ -1,6 +1,7 @@
 import React from 'react';
 import type { BudgetGroup } from '../../../ipc-contract';
 import { formatCurrency } from '../../services/formatters';
+import { BudgetMonthProgressMarker } from './BudgetMonthProgressMarker';
 import { CategoryCardLineList } from './CategoryCardLineList';
 import './CategoryCard.css';
 
@@ -95,11 +96,14 @@ export function CategoryCard({
       </button>
 
       <div className="category-card__bar-wrap" aria-hidden>
-        <div className="category-card__bar-track">
-          <div
-            className="category-card__bar-fill"
-            style={{ width: `${barW}%`, background: fill }}
-          />
+        <div className="category-card__bar-track-shell">
+          <div className="category-card__bar-track">
+            <div
+              className="category-card__bar-fill"
+              style={{ width: `${barW}%`, background: fill }}
+            />
+          </div>
+          <BudgetMonthProgressMarker monthKey={monthKey} />
         </div>
       </div>
 

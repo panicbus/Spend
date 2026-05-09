@@ -32,6 +32,20 @@ export function currentMonthKey() {
   return `${yy}-${mm}`;
 }
 
+/**
+ * Fraction of the calendar month elapsed (day / days-in-month).
+ * Used for “today” markers on budget bars; only meaningful when viewing the active month.
+ */
+export function fractionThroughCalendarMonth(monthKey: string): number | null {
+  if (monthKey !== currentMonthKey()) return null;
+  const [y, m] = monthKey.split('-').map(Number);
+  if (!y || m < 1 || m > 12) return null;
+  const daysInMonth = new Date(y, m, 0).getDate();
+  if (daysInMonth <= 0) return null;
+  const dom = new Date().getDate();
+  return Math.min(1, Math.max(0, dom / daysInMonth));
+}
+
 export function formatMonthRangeLabel(fromMonthKey: string, toMonthKey: string) {
   const [y1, m1] = fromMonthKey.split('-').map(Number);
   const [y2, m2] = toMonthKey.split('-').map(Number);
