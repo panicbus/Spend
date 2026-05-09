@@ -3,6 +3,7 @@ import type { BudgetGroup, BudgetTotals } from '../../../ipc-contract';
 import { formatCurrency } from '../../services/formatters';
 import { currentMonthKey } from '../../utils/dates';
 import {
+  computePulseAdjustedTotals,
   hotCategoriesAheadOfPace,
   pctThroughMonth,
   roundPct,
@@ -66,24 +67,50 @@ export function MonthlyPulseCheck({
     toneClass = 'monthly-pulse-check--tone-muted';
     headline = `${dayOfMonth} ${dayOfMonth === 1 ? 'day' : 'days'} in — ${formatCurrency(totalSpent)} spent so far`;
   } else {
-    const pace = (totalSpent / totalBudget) / percentThroughMonth;
-    const { label, tone } = verdictFromPace(pace);
-    if (tone === 'good') toneClass = 'monthly-pulse-check--tone-good';
-    else if (tone === 'soft-warn') toneClass = 'monthly-pulse-check--tone-soft-warn';
-    else if (tone === 'warn') toneClass = 'monthly-pulse-check--tone-warn';
-    else toneClass = 'monthly-pulse-check--tone-danger';
+    const pulseAdj = computePulseAdjustedTotals(groups);
+    const { adjustableBudgetCents, adjustableSpentCents, completeSpentCents } =
+      pulseAdj;
 
-    headline = `${label} — you've used ${pctBudgetUsed}% of your budget and the month is ${pctMonth}% over`;
-
-    const projected = Math.round(totalSpent / percentThroughMonth);
-    if (pace > 1) {
-      const overshoot = projected - totalBudget;
-      secondary = `At this rate you'll spend ~${formatCurrency(projected)} by month end — about ${formatCurrency(overshoot)} over budget`;
-    } else if (pace < 1) {
-      const undershoot = totalBudget - projected;
-      secondary = `On track to come in ~${formatCurrency(undershoot)} under budget`;
+    if (adjustableBudgetCents <= 0) {
+      toneClass = 'monthly-pulse-check--tone-muted';
+      headline = `You've used ${pctBudgetUsed}% of your budget — month is ${pctMonth}% through`;
+      secondary =
+        'Every budget line is either full or overspent, so there is nothing left to pace linearly.';
     } else {
-      secondary = 'On pace to finish right at your budget.';
+      const pace =
+        (adjustableSpentCents / adjustableBudgetCents) / percentThroughMonth;
+      const { label, tone } = verdictFromPace(pace);
+      if (tone === 'good') toneClass = 'monthly-pulse-check--tone-good';
+      else if (tone === 'soft-warn') toneClass = 'monthly-pulse-check--tone-soft-warn';
+      else if (tone === 'warn') toneClass = 'monthly-pulse-check--tone-warn';
+      else toneClass = 'monthly-pulse-check--tone-danger';
+
+      headline = `${label} on variable categories — ${pctBudgetUsed}% of total budget used, month ${pctMonth}% through`;
+
+      const projectedVariable = Math.round(
+        adjustableSpentCents / percentThroughMonth
+      );
+      const projectedTotal = completeSpentCents + projectedVariable;
+
+      const paceNote =
+        completeSpentCents > 0
+          ? 'Pacing skips categories already at their planned amount. '
+          : '';
+
+      if (pace > 1) {
+        const overshoot = Math.max(0, projectedTotal - totalBudget);
+        secondary =
+          paceNote +
+          `At this rate for the rest, month-end looks like ~${formatCurrency(projectedTotal)} — about ${formatCurrency(overshoot)} over total budget`;
+      } else if (pace < 1) {
+        const undershoot = Math.max(0, totalBudget - projectedTotal);
+        secondary =
+          paceNote +
+          `On track to finish ~${formatCurrency(undershoot)} under your total budget`;
+      } else {
+        secondary =
+          paceNote + 'On pace to finish right at your total budget.';
+      }
     }
   }
 
