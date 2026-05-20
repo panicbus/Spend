@@ -14,6 +14,7 @@ type CategoryGridProps = {
   expandedId: number | null;
   onToggleGroup: (id: number) => void;
   onBudgetUpdated: () => void;
+  onLineClick?: (categoryId: number, groupId: number) => void;
 };
 
 export function CategoryGrid({
@@ -22,6 +23,7 @@ export function CategoryGrid({
   expandedId,
   onToggleGroup,
   onBudgetUpdated,
+  onLineClick,
 }: CategoryGridProps) {
   const isMobile = useMediaQuery(MOBILE_BREAKPOINT);
   const detailLayout = isMobile ? 'inline' : 'overlay';
@@ -47,6 +49,7 @@ export function CategoryGrid({
             detailLayout={detailLayout}
             onToggle={() => onToggleGroup(g.id)}
             onBudgetUpdated={onBudgetUpdated}
+            onLineClick={onLineClick}
           />
         ))}
       </div>
@@ -56,6 +59,7 @@ export function CategoryGrid({
           monthKey={monthKey}
           onClose={() => onToggleGroup(overlayGroup.id)}
           onBudgetUpdated={onBudgetUpdated}
+          onLineClick={onLineClick}
         />
       )}
     </>

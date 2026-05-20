@@ -58,26 +58,54 @@ export function BudgetDashboard() {
       return;
     }
     setMonthKey(restore.monthKey);
+    if (restore.openGroupId != null) {
+      setExpandedId(restore.openGroupId);
+    }
     navigate('/', { replace: true, state: null });
   }, [location.state, navigate, setMonthKey]);
+
+  const openBudgetMonthTransactions = useCallback(
+    (
+      params: URLSearchParams,
+      opts?: Pick<BudgetReturnContext, 'openGroupId'>
+    ) => {
+      clearTrendsReturnContext();
+      const ctx: BudgetReturnContext = {
+        monthKey,
+        ...(opts?.openGroupId != null ? { openGroupId: opts.openGroupId } : {}),
+      };
+      setBudgetReturnContext(ctx);
+      navigate(`/transactions?${params.toString()}`, {
+        state: { budgetReturn: ctx },
+      });
+    },
+    [monthKey, navigate]
+  );
 
   const onDonutLegendGroupClick = useCallback(
     (group: BudgetGroup) => {
       const ids = group.categories.map((c) => c.id);
       if (ids.length === 0) return;
-      clearTrendsReturnContext();
-      const ctx = { monthKey };
-      setBudgetReturnContext(ctx);
       const q = new URLSearchParams({
         rangeFrom: monthKey,
         rangeTo: monthKey,
         categories: ids.join(','),
       });
-      navigate(`/transactions?${q.toString()}`, {
-        state: { budgetReturn: ctx },
-      });
+      openBudgetMonthTransactions(q);
     },
-    [monthKey, navigate]
+    [monthKey, openBudgetMonthTransactions]
+  );
+
+  const onCategoryLineClick = useCallback(
+    (categoryId: number, groupId: number) => {
+      const q = new URLSearchParams({
+        rangeFrom: monthKey,
+        rangeTo: monthKey,
+        category: String(categoryId),
+      });
+      openBudgetMonthTransactions(q, { openGroupId: groupId });
+    },
+    [monthKey, openBudgetMonthTransactions]
   );
 
   return (
@@ -167,6 +195,7 @@ export function BudgetDashboard() {
               setExpandedId((cur) => (cur === id ? null : id))
             }
             onBudgetUpdated={refetch}
+            onLineClick={onCategoryLineClick}
           />
           <IncomeSection
             income={income}

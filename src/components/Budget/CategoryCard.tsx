@@ -26,6 +26,7 @@ type CategoryCardProps = {
   detailLayout: 'inline' | 'overlay';
   onToggle: () => void;
   onBudgetUpdated: () => void;
+  onLineClick?: (categoryId: number, groupId: number) => void;
 };
 
 export function CategoryCard({
@@ -36,6 +37,7 @@ export function CategoryCard({
   detailLayout,
   onToggle,
   onBudgetUpdated,
+  onLineClick,
 }: CategoryCardProps) {
   const budget = group.budget_cents ?? 0;
   const spent = group.spent_cents ?? 0;
@@ -57,9 +59,10 @@ export function CategoryCard({
     >
       <button
         type="button"
-        className="category-card__header"
+        className="category-card__summary"
         onClick={onToggle}
         aria-expanded={ariaExpanded}
+        aria-label={`${ariaExpanded ? 'Close' : 'Open'} ${group.name} details`}
       >
         <span className="category-card__header-top">
           <span className="category-card__title-row">
@@ -93,31 +96,29 @@ export function CategoryCard({
             of {formatCurrency(budget)}
           </span>
         </span>
+        <span className="category-card__bar-wrap">
+          <span className="category-card__bar-track-shell">
+            <span className="category-card__bar-track">
+              <span
+                className="category-card__bar-fill"
+                style={{ width: `${barW}%`, background: fill }}
+              />
+            </span>
+            <BudgetMonthProgressMarker monthKey={monthKey} />
+          </span>
+        </span>
+        <span className="category-card__footnote">
+          {over ? (
+            <span className="category-card__over">
+              {formatCurrency(-remaining)} over
+            </span>
+          ) : (
+            <span className="category-card__remaining">
+              {formatCurrency(remaining)} remaining
+            </span>
+          )}
+        </span>
       </button>
-
-      <div className="category-card__bar-wrap" aria-hidden>
-        <div className="category-card__bar-track-shell">
-          <div className="category-card__bar-track">
-            <div
-              className="category-card__bar-fill"
-              style={{ width: `${barW}%`, background: fill }}
-            />
-          </div>
-          <BudgetMonthProgressMarker monthKey={monthKey} />
-        </div>
-      </div>
-
-      <div className="category-card__footnote">
-        {over ? (
-          <span className="category-card__over">
-            {formatCurrency(-remaining)} over
-          </span>
-        ) : (
-          <span className="category-card__remaining">
-            {formatCurrency(remaining)} remaining
-          </span>
-        )}
-      </div>
 
       {detailLayout === 'inline' && (
         <div
@@ -131,6 +132,7 @@ export function CategoryCard({
               group={group}
               monthKey={monthKey}
               onBudgetUpdated={onBudgetUpdated}
+              onLineClick={onLineClick}
               variant="in-card"
             />
           </div>

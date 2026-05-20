@@ -9,6 +9,7 @@ type CategoryGroupOverlayProps = {
   monthKey: string;
   onClose: () => void;
   onBudgetUpdated: () => void;
+  onLineClick?: (categoryId: number, groupId: number) => void;
 };
 
 export function CategoryGroupOverlay({
@@ -16,6 +17,7 @@ export function CategoryGroupOverlay({
   monthKey,
   onClose,
   onBudgetUpdated,
+  onLineClick,
 }: CategoryGroupOverlayProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -97,6 +99,7 @@ export function CategoryGroupOverlay({
             group={group}
             monthKey={monthKey}
             onBudgetUpdated={onBudgetUpdated}
+            onLineClick={onLineClick}
             variant="overlay"
           />
         </div>

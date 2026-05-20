@@ -1,8 +1,10 @@
 export const BUDGET_RETURN_STORAGE_KEY = 'spend-app:return-to-budget';
 
-/** Stored when opening Transactions from Budget (donut legend) for “Back to Budget” + month restore. */
+/** Stored when opening Transactions from Budget for “Back to Budget” + month restore. */
 export interface BudgetReturnContext {
   monthKey: string;
+  /** Re-open the category group overlay / expanded card after return. */
+  openGroupId?: number;
 }
 
 export function setBudgetReturnContext(ctx: BudgetReturnContext): void {
@@ -25,7 +27,15 @@ export function readBudgetReturnContext(): BudgetReturnContext | null {
     ) {
       return null;
     }
-    return { monthKey: v.monthKey };
+    const openGroupId =
+      typeof v.openGroupId === 'number' &&
+      Number.isFinite(v.openGroupId) &&
+      v.openGroupId > 0
+        ? v.openGroupId
+        : undefined;
+    return openGroupId != null
+      ? { monthKey: v.monthKey, openGroupId }
+      : { monthKey: v.monthKey };
   } catch {
     return null;
   }

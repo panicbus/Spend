@@ -68,6 +68,8 @@ type CategoryCardLineListProps = {
   group: BudgetGroup;
   monthKey: string;
   onBudgetUpdated: () => void;
+  /** Opens Transactions for this line item in the viewed month. */
+  onLineClick?: (categoryId: number, groupId: number) => void;
   /** Strip top border/margin when used inside desktop overlay */
   variant?: 'in-card' | 'overlay';
 };
@@ -81,6 +83,7 @@ export function CategoryCardLineList({
   group,
   monthKey,
   onBudgetUpdated,
+  onLineClick,
   variant = 'in-card',
 }: CategoryCardLineListProps) {
   const { setBudgetDetails } = useBudgetMutations();
@@ -135,6 +138,17 @@ export function CategoryCardLineList({
       }
     },
     [saveEdit]
+  );
+
+  const onLineKeyDown = useCallback(
+    (e: React.KeyboardEvent, categoryId: number) => {
+      if (!onLineClick) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onLineClick(categoryId, group.id);
+      }
+    },
+    [group.id, onLineClick]
   );
 
   const beginEdit = useCallback((c: BudgetCategoryLine) => {
@@ -245,9 +259,34 @@ export function CategoryCardLineList({
             ? Math.round(annualFromDraftHint / 12)
             : 0;
         const yearLabel = calendarYearLabel(monthKey);
+        const lineDrillable = !!onLineClick && !isEdit;
 
         return (
-          <li key={c.id} className="category-card__line">
+          <li
+            key={c.id}
+            className={
+              lineDrillable
+                ? 'category-card__line category-card__line--clickable'
+                : 'category-card__line'
+            }
+            role={lineDrillable ? 'button' : undefined}
+            tabIndex={lineDrillable ? 0 : undefined}
+            aria-label={
+              lineDrillable
+                ? `View transactions for ${c.name}`
+                : undefined
+            }
+            onClick={
+              lineDrillable
+                ? () => onLineClick(c.id, group.id)
+                : undefined
+            }
+            onKeyDown={
+              lineDrillable
+                ? (e) => onLineKeyDown(e, c.id)
+                : undefined
+            }
+          >
             <div className="category-card__line-head">
               <span className="category-card__line-name">{c.name}</span>
               <span className="category-card__line-meta">
