@@ -42,9 +42,20 @@ import type {
   CategoryMapping,
   CommitImportRow,
   MappingTargetType,
+  ParseCSVOptions,
   ParsedRow,
   SaveCategoryMappingInput,
 } from './src/types/import.js';
+import {
+  DEFAULT_IMPORT_PROFILE_ID,
+  resolveImportMapping,
+  getCSVProfile,
+} from './src/utils/csv-profiles.js';
+import {
+  parseProfileCSV,
+  peekCSV,
+  profileNameForId,
+} from './src/utils/csvProfileParser.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -240,6 +251,7 @@ function flushAndCloseDb() {
 
 const SETTINGS_KEY_DEFAULT_MONTH = 'default_month_on_launch';
 const SETTINGS_KEY_COLOR_MODE = 'color_mode';
+const SETTINGS_KEY_LAST_IMPORT_PROFILE = 'lastImportProfile';
 
 function getPreferencesFromDb(): AppPreferences {
   const row = db
@@ -426,6 +438,7 @@ function targetDisplayName(
 
 function toCategoryMapping(
   row: MappingDbRow,
+  source: string,
   catNames: Map<number, string>,
   incomeNames: Map<number, string>
 ): CategoryMapping {
@@ -433,7 +446,7 @@ function toCategoryMapping(
   if (targetType === 'skip' || row.target_id == null) {
     return {
       id: row.id,
-      source: 'monarch',
+      source,
       externalName: row.external_name,
       targetType: 'skip',
       targetId: null,
@@ -444,7 +457,7 @@ function toCategoryMapping(
     /** Saved mapping still points at a deleted category or income source — treat as unassigned. */
     return {
       id: row.id,
-      source: 'monarch',
+      source,
       externalName: row.external_name,
       targetType: 'skip',
       targetId: null,
@@ -452,7 +465,7 @@ function toCategoryMapping(
   }
   return {
     id: row.id,
-    source: 'monarch',
+    source,
     externalName: row.external_name,
     targetType,
     targetId: row.target_id,
@@ -552,7 +565,7 @@ function parseMonarchCSV(filePath: string): {
 
     const mapRow = mappingByExternal.get(externalCategory);
     const mapping: CategoryMapping | null = mapRow
-      ? toCategoryMapping(mapRow, catNames, incomeNames)
+      ? toCategoryMapping(mapRow, MAPPING_SOURCE, catNames, incomeNames)
       : null;
 
     if (!mapping) {
@@ -2084,7 +2097,7 @@ function registerIpcHandlers() {
       BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
     if (!win) return null;
     const r = await dialog.showOpenDialog(win, {
-      title: 'Choose Monarch CSV export',
+      title: 'Choose CSV file',
       properties: ['openFile'],
       filters: [{ name: 'CSV', extensions: ['csv'] }],
     });
@@ -2092,9 +2105,62 @@ function registerIpcHandlers() {
     return r.filePaths[0];
   });
 
-  ipcMain.handle('parseCSV', (_, filePath: string) => {
-    return parseMonarchCSV(filePath);
+  ipcMain.handle('peekCSV', (_, filePath: string, headerRowIndex?: number) => {
+    return peekCSV(filePath, headerRowIndex ?? 0);
   });
+
+  ipcMain.handle('getLastImportProfile', () => {
+    const row = db
+      .prepare('SELECT value FROM settings WHERE key = ?')
+      .get(SETTINGS_KEY_LAST_IMPORT_PROFILE) as { value: string } | undefined;
+    const v = row?.value?.trim();
+    if (v && getCSVProfile(v)) {
+      return v;
+    }
+    return DEFAULT_IMPORT_PROFILE_ID;
+  });
+
+  ipcMain.handle('setLastImportProfile', (_, profileId: string) => {
+    const id =
+      typeof profileId === 'string' && profileId.trim()
+        ? profileId.trim()
+        : DEFAULT_IMPORT_PROFILE_ID;
+    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
+      SETTINGS_KEY_LAST_IMPORT_PROFILE,
+      id
+    );
+  });
+
+  ipcMain.handle(
+    'parseCSV',
+    (_, filePath: string, options?: ParseCSVOptions) => {
+      const profileId = options?.profileId ?? DEFAULT_IMPORT_PROFILE_ID;
+      if (profileId === DEFAULT_IMPORT_PROFILE_ID) {
+        return parseMonarchCSV(filePath);
+      }
+      const mapping = resolveImportMapping(
+        profileId,
+        options?.genericMapping ?? null
+      );
+      if (!mapping) {
+        throw new Error(
+          'Column mapping is required for generic CSV imports.'
+        );
+      }
+      return parseProfileCSV(filePath, mapping, {
+        mappingSource: profileId,
+        profileName: profileNameForId(profileId),
+        loadMappingNameLookups,
+        loadMappingRows: (source: string) =>
+          db
+            .prepare(
+              `SELECT id, external_name, target_type, target_id
+               FROM category_mappings WHERE source = ?`
+            )
+            .all(source) as MappingDbRow[],
+      });
+    }
+  );
 
   ipcMain.handle('getCategoryMappings', () => {
     const { catNames, incomeNames } = loadMappingNameLookups();
@@ -2105,7 +2171,7 @@ function registerIpcHandlers() {
       )
       .all(MAPPING_SOURCE) as MappingDbRow[];
     return mappingRows.map((row) =>
-      toCategoryMapping(row, catNames, incomeNames)
+      toCategoryMapping(row, MAPPING_SOURCE, catNames, incomeNames)
     );
   });
 
@@ -2113,6 +2179,7 @@ function registerIpcHandlers() {
     'saveCategoryMapping',
     (_, input: SaveCategoryMappingInput) => {
       const external_name = input.externalName.trim();
+      const source = input.source?.trim() || MAPPING_SOURCE;
       db.prepare(
         `INSERT INTO category_mappings (source, external_name, target_type, target_id)
          VALUES (?, ?, ?, ?)
@@ -2120,7 +2187,7 @@ function registerIpcHandlers() {
            target_type = excluded.target_type,
            target_id = excluded.target_id`
       ).run(
-        MAPPING_SOURCE,
+        source,
         external_name,
         input.targetType,
         input.targetId

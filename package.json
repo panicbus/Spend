@@ -1,13 +1,13 @@
 {
   "name": "spend-app",
-  "version": "0.5.4",
+  "version": "0.6.1",
   "private": true,
   "description": "Personal budget and spending desktop app",
   "author": "Spend contributors",
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
-    "build:electron": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && node -e \"try { require('fs').unlinkSync('dist-electron/ipc-contract.js'); } catch (_) { /* optional */ }\"",
+    "build:electron": "tsc -p tsconfig.main.json && node scripts/write-electron-src-package.mjs && tsc -p tsconfig.preload.json && node -e \"try { require('fs').unlinkSync('dist-electron/ipc-contract.js'); } catch (_) { /* optional */ }\"",
     "watch:electron": "concurrently \"tsc -p tsconfig.main.json --watch --preserveWatchOutput\" \"tsc -p tsconfig.preload.json --watch --preserveWatchOutput\"",
     "dev": "npm run build:electron && concurrently -k \"npm run watch:electron\" \"vite\" \"wait-on tcp:127.0.0.1:5173 file:dist-electron/main.js file:dist-electron/preload.js && ELECTRON_IS_DEV=1 electron .\"",
     "dev:electron": "npm run build:electron && wait-on tcp:127.0.0.1:5173 file:dist-electron/main.js file:dist-electron/preload.js && ELECTRON_IS_DEV=1 electron .",
@@ -21,6 +21,7 @@
     "pack:mac:x64": "npm run build && CSC_IDENTITY_AUTO_SELECT=false electron-builder --mac --dir --x64",
     "dist:mac": "npm run build && electron-builder --mac",
     "typecheck": "tsc -p tsconfig.app.json && tsc -p tsconfig.node.json",
+    "test:import": "tsx --test tests/csv-import.test.ts",
     "bump:patch": "node scripts/bump-version.mjs patch",
     "bump:minor": "node scripts/bump-version.mjs minor",
     "bump:major": "node scripts/bump-version.mjs major",
@@ -45,6 +46,7 @@
     "concurrently": "^9.1.0",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
+    "tsx": "^4.22.3",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",
     "wait-on": "^8.0.1"

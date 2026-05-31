@@ -7,6 +7,13 @@ import {
   reviewSelectValue,
 } from '../../hooks/useImport';
 import type { RowOverride } from '../../hooks/useImport';
+import {
+  GENERIC_PROFILE_ID,
+  getCSVProfile,
+  importFormatSelectGroups,
+} from '../../utils/csv-profiles';
+import { ImportColumnMapping } from './ImportColumnMapping';
+import './ImportColumnMapping.css';
 import { api } from '../../services/api';
 import { DATA_CHANGED_EVENT } from '../../utils/dataChanged';
 import { formatCurrency } from '../../services/formatters';
@@ -50,9 +57,14 @@ function amountClass(cents: number): string {
 export function ImportView() {
   const {
     state,
+    profileId,
+    setProfileId,
     reset,
     pickFile,
     parseDroppedFile,
+    updateColumnMappingDraft,
+    confirmColumnMapping,
+    columnMappingReady,
     assignMapping,
     setAssignmentDirect,
     confirmMappings,
@@ -76,6 +88,9 @@ export function ImportView() {
   const [creatingReviewKey, setCreatingReviewKey] = useState<string | null>(
     null
   );
+
+  const formatGroups = useMemo(() => importFormatSelectGroups(), []);
+  const genericProfile = useMemo(() => getCSVProfile(GENERIC_PROFILE_ID), []);
 
   const groupsSorted = useMemo(
     () =>
@@ -221,14 +236,53 @@ export function ImportView() {
     [dataTransferHasFiles, parseDroppedFile]
   );
 
+  const mappingSource =
+    state.kind === 'mapping'
+      ? state.profileId
+      : state.kind === 'reviewing' ||
+          state.kind === 'checking_duplicates' ||
+          state.kind === 'duplicate_warning'
+        ? state.profileId
+        : profileId;
+
   return (
     <div className="import-view">
       <header className="import-view__header">
         <h1 className="import-view__title">Import</h1>
         <p className="import-view__subtitle">
-          Monarch CSV → Spend. (local, private)
+          CSV → Spend. (local, private)
         </p>
       </header>
+
+      {(state.kind === 'idle' || state.kind === 'error' || state.kind === 'done') && (
+        <div className="import-format-select-wrap">
+          <label className="import-format-select__label" htmlFor="import-format">
+            What format is your CSV?
+          </label>
+          <select
+            id="import-format"
+            className="import-select import-format-select"
+            value={profileId}
+            onChange={(e) => setProfileId(e.target.value)}
+          >
+            {formatGroups.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+            {genericProfile ? (
+              <option value={genericProfile.id}>{genericProfile.name}</option>
+            ) : null}
+          </select>
+          <p className="import-format-select__hint">
+            Not sure? Check your bank&apos;s website for CSV export instructions.
+          </p>
+        </div>
+      )}
 
       {state.kind === 'idle' && (
         <div
@@ -269,7 +323,7 @@ export function ImportView() {
               ) : (
                 <>
                   <p className="import-drop__text">
-                    Drag a Monarch CSV here
+                    Drag a CSV here
                   </p>
                   <span className="import-drop__or">or</span>
                 </>
@@ -303,9 +357,26 @@ export function ImportView() {
         </div>
       )}
 
+      {state.kind === 'column_mapping' && (
+        <div className="import-card">
+          <h2 className="import-card__title">Map CSV columns</h2>
+          <p className="import-card__sub">
+            Tell Spend. which columns hold the date, merchant, and amount.
+          </p>
+          <ImportColumnMapping
+            headers={state.headers}
+            draft={state.draft}
+            onChange={updateColumnMappingDraft}
+            onConfirm={() => void confirmColumnMapping()}
+            onCancel={reset}
+            ready={columnMappingReady}
+          />
+        </div>
+      )}
+
       {state.kind === 'mapping' && (
         <div className="import-card">
-          <h2 className="import-card__title">Map Monarch categories to Spend.</h2>
+          <h2 className="import-card__title">Map categories to Spend.</h2>
           <p className="import-card__sub">
             We&apos;ll remember these for next time.
           </p>
@@ -333,6 +404,7 @@ export function ImportView() {
                           externalName: name,
                           targetType: 'category',
                           targetId: categoryId,
+                          source: mappingSource,
                         });
                         await refreshGroups();
                         setAssignmentDirect(name, {
@@ -454,6 +526,7 @@ export function ImportView() {
                               externalName: row.externalCategory,
                               targetType: 'category',
                               targetId: categoryId,
+                              source: mappingSource,
                             });
                             await refreshGroups();
                             overrideRow(row.rowIndex, `cat:${categoryId}`);

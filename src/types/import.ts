@@ -2,11 +2,13 @@
  * Monarch CSV import: domain types shared by renderer, preload contract, and main (via ipc-contract).
  */
 
+import type { GenericColumnMapping } from '../utils/csv-profiles.js';
+
 export type MappingTargetType = 'category' | 'income_source' | 'skip';
 
 export interface CategoryMapping {
   id: number;
-  source: 'monarch';
+  source: string;
   externalName: string;
   targetType: MappingTargetType;
   targetId: number | null;
@@ -37,7 +39,16 @@ export interface SaveCategoryMappingInput {
   externalName: string;
   targetType: MappingTargetType;
   targetId: number | null;
+  /** Mapping source / profile id (defaults to monarch). */
+  source?: string;
 }
+
+export interface ParseCSVOptions {
+  profileId: string;
+  genericMapping?: GenericColumnMapping | null;
+}
+
+export type { GenericColumnMapping } from '../utils/csv-profiles.js';
 
 export interface CommitImportRow {
   importHash: string;

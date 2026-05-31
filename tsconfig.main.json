@@ -15,6 +15,10 @@
     "main.ts",
     "ipc-contract.ts",
     "src/types/import.ts",
-    "src/types/transactions.ts"
+    "src/types/transactions.ts",
+    "src/utils/csv-profiles.ts",
+    "src/utils/parseCsvDate.ts",
+    "src/utils/parseCsvAmount.ts",
+    "src/utils/csvProfileParser.ts"
   ]
 }

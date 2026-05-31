@@ -62,7 +62,13 @@ const api: SpendApi = {
 
   openCSVDialog: () => ipcRenderer.invoke('openCSVDialog'),
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
-  parseCSV: (filePath) => ipcRenderer.invoke('parseCSV', filePath),
+  peekCSV: (filePath, headerRowIndex) =>
+    ipcRenderer.invoke('peekCSV', filePath, headerRowIndex),
+  parseCSV: (filePath, options) =>
+    ipcRenderer.invoke('parseCSV', filePath, options),
+  getLastImportProfile: () => ipcRenderer.invoke('getLastImportProfile'),
+  setLastImportProfile: (profileId) =>
+    ipcRenderer.invoke('setLastImportProfile', profileId),
   getCategoryMappings: () => ipcRenderer.invoke('getCategoryMappings'),
   saveCategoryMapping: (input) =>
     ipcRenderer.invoke('saveCategoryMapping', input),

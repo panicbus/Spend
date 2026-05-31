@@ -1,0 +1,50 @@
+.import-column-map__lead {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.import-column-map__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.import-column-map__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.import-column-map__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.import-format-select {
+  width: 100%;
+  max-width: 420px;
+}
+
+.import-format-select-wrap {
+  margin-bottom: 16px;
+}
+
+.import-format-select__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.import-format-select__hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}

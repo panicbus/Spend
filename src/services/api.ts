@@ -82,7 +82,17 @@ export const api = {
 
   openCSVDialog: () => getBridge().openCSVDialog(),
   getPathForFile: (file: File) => getBridge().getPathForFile(file),
-  parseCSV: (filePath: string) => getBridge().parseCSV(filePath),
+  peekCSV: (
+    filePath: string,
+    headerRowIndex?: number
+  ) => getBridge().peekCSV(filePath, headerRowIndex),
+  parseCSV: (
+    filePath: string,
+    options?: Parameters<SpendApi['parseCSV']>[1]
+  ) => getBridge().parseCSV(filePath, options),
+  getLastImportProfile: () => getBridge().getLastImportProfile(),
+  setLastImportProfile: (profileId: string) =>
+    getBridge().setLastImportProfile(profileId),
   getCategoryMappings: () => getBridge().getCategoryMappings(),
   saveCategoryMapping: (
     input: Parameters<SpendApi['saveCategoryMapping']>[0]

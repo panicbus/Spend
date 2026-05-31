@@ -4,6 +4,8 @@ import type {
   CategoryMapping,
   CommitImportResult,
   CommitImportRow,
+  GenericColumnMapping,
+  ParseCSVOptions,
   ParseCSVResult,
   SaveCategoryMappingInput,
 } from './src/types/import.js';
@@ -18,11 +20,15 @@ export type {
   CategoryMapping,
   CommitImportResult,
   CommitImportRow,
+  GenericColumnMapping,
   MappingTargetType,
+  ParseCSVOptions,
   ParseCSVResult,
   ParsedRow,
   SaveCategoryMappingInput,
 } from './src/types/import.js';
+
+export type { PeekCSVResult } from './src/utils/csvProfileParser.js';
 
 export type {
   IncomeActual,
@@ -357,7 +363,16 @@ export interface SpendApi {
 
   openCSVDialog: () => Promise<string | null>;
   getPathForFile: (file: File) => string;
-  parseCSV: (filePath: string) => Promise<ParseCSVResult>;
+  peekCSV: (
+    filePath: string,
+    headerRowIndex?: number
+  ) => Promise<import('./src/utils/csvProfileParser.js').PeekCSVResult>;
+  parseCSV: (
+    filePath: string,
+    options?: ParseCSVOptions
+  ) => Promise<ParseCSVResult>;
+  getLastImportProfile: () => Promise<string>;
+  setLastImportProfile: (profileId: string) => Promise<void>;
   getCategoryMappings: () => Promise<CategoryMapping[]>;
   saveCategoryMapping: (input: SaveCategoryMappingInput) => Promise<void>;
   commitImport: (rows: CommitImportRow[]) => Promise<CommitImportResult>;

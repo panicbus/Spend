@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
+  AmountMode,
+  DateFormat,
+  GenericColumnMapping,
+} from '../utils/csv-profiles';
+import {
+  DEFAULT_IMPORT_PROFILE_ID,
+  GENERIC_PROFILE_ID,
+} from '../utils/csv-profiles';
+import type {
   CommitImportResult,
   CommitImportRow,
   MappingTargetType,
@@ -14,12 +23,69 @@ export type RowOverride = {
   skip: boolean;
 };
 
+export type ColumnMappingDraft = {
+  dateColumn: string;
+  dateFormat: DateFormat;
+  merchantColumn: string;
+  amountMode: AmountMode;
+  categoryColumn: string;
+  notesColumn: string;
+  accountColumn: string;
+  headerRowIndex: number;
+};
+
+export function defaultColumnMappingDraft(): ColumnMappingDraft {
+  return {
+    dateColumn: '',
+    dateFormat: 'MM/DD/YYYY',
+    merchantColumn: '',
+    amountMode: { type: 'single', column: '', expenseSign: 'negative' },
+    categoryColumn: '',
+    notesColumn: '',
+    accountColumn: '',
+    headerRowIndex: 0,
+  };
+}
+
+export function draftToGenericMapping(
+  draft: ColumnMappingDraft
+): GenericColumnMapping {
+  const mapping: GenericColumnMapping = {
+    dateColumn: draft.dateColumn,
+    dateFormat: draft.dateFormat,
+    merchantColumn: draft.merchantColumn,
+    amountMode: draft.amountMode,
+    headerRowIndex: draft.headerRowIndex,
+  };
+  if (draft.categoryColumn) mapping.categoryColumn = draft.categoryColumn;
+  if (draft.notesColumn) mapping.notesColumn = draft.notesColumn;
+  if (draft.accountColumn) mapping.accountColumn = draft.accountColumn;
+  return mapping;
+}
+
+export function isColumnMappingDraftReady(draft: ColumnMappingDraft): boolean {
+  if (!draft.dateColumn || !draft.merchantColumn) return false;
+  if (draft.amountMode.type === 'single') {
+    return !!draft.amountMode.column;
+  }
+  return !!draft.amountMode.debitColumn && !!draft.amountMode.creditColumn;
+}
+
 export type ImportState =
   | { kind: 'idle' }
   | { kind: 'parsing'; filePath: string }
   | {
+      kind: 'column_mapping';
+      filePath: string;
+      profileId: string;
+      headers: string[];
+      draft: ColumnMappingDraft;
+    }
+  | {
       kind: 'mapping';
       filePath: string;
+      profileId: string;
+      genericMapping?: GenericColumnMapping | null;
       rows: ParsedRow[];
       unknownCategories: string[];
       assignments: Record<
@@ -30,18 +96,21 @@ export type ImportState =
   | {
       kind: 'reviewing';
       filePath: string;
+      profileId: string;
       rows: ParsedRow[];
       rowOverrides: Record<number, RowOverride>;
     }
   | {
       kind: 'checking_duplicates';
       filePath: string;
+      profileId: string;
       rows: ParsedRow[];
       rowOverrides: Record<number, RowOverride>;
     }
   | {
       kind: 'duplicate_warning';
       filePath: string;
+      profileId: string;
       rows: ParsedRow[];
       rowOverrides: Record<number, RowOverride>;
       duplicateCount: number;
@@ -139,45 +208,132 @@ function isMappingReady(
   return unknownCategories.every((name) => assignments[name] !== undefined);
 }
 
+function applyParseResult(
+  filePath: string,
+  profileId: string,
+  result: { rows: ParsedRow[]; unknownCategories: string[] },
+  genericMapping?: GenericColumnMapping | null
+): ImportState {
+  if (result.unknownCategories.length > 0) {
+    return {
+      kind: 'mapping',
+      filePath,
+      profileId,
+      genericMapping,
+      rows: result.rows,
+      unknownCategories: result.unknownCategories,
+      assignments: {},
+    };
+  }
+  return {
+    kind: 'reviewing',
+    filePath,
+    profileId,
+    rows: result.rows,
+    rowOverrides: {},
+  };
+}
+
 export function useImport() {
   const [state, setState] = useState<ImportState>({ kind: 'idle' });
+  const [profileId, setProfileIdState] = useState(DEFAULT_IMPORT_PROFILE_ID);
   const stateRef = useRef(state);
-  /** Bumped on reset so in-flight parse / duplicate-check / commit ignores stale results. */
   const importSessionRef = useRef(0);
+
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const last = await api.getLastImportProfile();
+        if (!cancelled && last) {
+          setProfileIdState(last);
+        }
+      } catch {
+        /** default monarch */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const setProfileId = useCallback((id: string) => {
+    setProfileIdState(id);
+    void api.setLastImportProfile(id);
+  }, []);
 
   const reset = useCallback(() => {
     importSessionRef.current += 1;
     setState({ kind: 'idle' });
   }, []);
 
+  const parseWithProfile = useCallback(
+    async (
+      filePath: string,
+      activeProfileId: string,
+      genericMapping?: GenericColumnMapping | null
+    ) => {
+      const sessionAtParse = importSessionRef.current;
+      try {
+        setState({ kind: 'parsing', filePath });
+        const result = await api.parseCSV(filePath, {
+          profileId: activeProfileId,
+          genericMapping: genericMapping ?? undefined,
+        });
+        if (importSessionRef.current !== sessionAtParse) return;
+        setState(
+          applyParseResult(filePath, activeProfileId, result, genericMapping)
+        );
+      } catch (e) {
+        if (importSessionRef.current !== sessionAtParse) return;
+        setState({
+          kind: 'error',
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    },
+    []
+  );
+
+  const beginFileImport = useCallback(
+    async (filePath: string, activeProfileId: string) => {
+      const sessionAtParse = importSessionRef.current;
+      try {
+        if (activeProfileId === GENERIC_PROFILE_ID) {
+          setState({ kind: 'parsing', filePath });
+          const peek = await api.peekCSV(filePath, 0);
+          if (importSessionRef.current !== sessionAtParse) return;
+          setState({
+            kind: 'column_mapping',
+            filePath,
+            profileId: activeProfileId,
+            headers: peek.headers,
+            draft: defaultColumnMappingDraft(),
+          });
+          return;
+        }
+        await parseWithProfile(filePath, activeProfileId);
+      } catch (e) {
+        if (importSessionRef.current !== sessionAtParse) return;
+        setState({
+          kind: 'error',
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    },
+    [parseWithProfile]
+  );
+
   const pickFile = useCallback(async () => {
-    let sessionAtParse = importSessionRef.current;
+    const sessionAtParse = importSessionRef.current;
     try {
       const filePath = await api.openCSVDialog();
       if (!filePath) return;
-      sessionAtParse = importSessionRef.current;
-      setState({ kind: 'parsing', filePath });
-      const result = await api.parseCSV(filePath);
-      if (importSessionRef.current !== sessionAtParse) return;
-      if (result.unknownCategories.length > 0) {
-        setState({
-          kind: 'mapping',
-          filePath,
-          rows: result.rows,
-          unknownCategories: result.unknownCategories,
-          assignments: {},
-        });
-      } else {
-        setState({
-          kind: 'reviewing',
-          filePath,
-          rows: result.rows,
-          rowOverrides: {},
-        });
-      }
+      await beginFileImport(filePath, profileId);
     } catch (e) {
       if (importSessionRef.current !== sessionAtParse) return;
       setState({
@@ -185,38 +341,53 @@ export function useImport() {
         message: e instanceof Error ? e.message : String(e),
       });
     }
-  }, []);
+  }, [beginFileImport, profileId]);
 
-  const parseDroppedFile = useCallback(async (filePath: string) => {
-    const sessionAtParse = importSessionRef.current;
-    try {
-      setState({ kind: 'parsing', filePath });
-      const result = await api.parseCSV(filePath);
-      if (importSessionRef.current !== sessionAtParse) return;
-      if (result.unknownCategories.length > 0) {
+  const parseDroppedFile = useCallback(
+    async (filePath: string) => {
+      const sessionAtParse = importSessionRef.current;
+      try {
+        await beginFileImport(filePath, profileId);
+      } catch (e) {
+        if (importSessionRef.current !== sessionAtParse) return;
         setState({
-          kind: 'mapping',
-          filePath,
-          rows: result.rows,
-          unknownCategories: result.unknownCategories,
-          assignments: {},
-        });
-      } else {
-        setState({
-          kind: 'reviewing',
-          filePath,
-          rows: result.rows,
-          rowOverrides: {},
+          kind: 'error',
+          message: e instanceof Error ? e.message : String(e),
         });
       }
+    },
+    [beginFileImport, profileId]
+  );
+
+  const updateColumnMappingDraft = useCallback(
+    (patch: Partial<ColumnMappingDraft>) => {
+      setState((s) => {
+        if (s.kind !== 'column_mapping') return s;
+        return { ...s, draft: { ...s.draft, ...patch } };
+      });
+    },
+    []
+  );
+
+  const confirmColumnMapping = useCallback(async () => {
+    const s = stateRef.current;
+    if (s.kind !== 'column_mapping') return;
+    if (!isColumnMappingDraftReady(s.draft)) return;
+    const sessionAt = importSessionRef.current;
+    try {
+      await parseWithProfile(
+        s.filePath,
+        s.profileId,
+        draftToGenericMapping(s.draft)
+      );
     } catch (e) {
-      if (importSessionRef.current !== sessionAtParse) return;
+      if (importSessionRef.current !== sessionAt) return;
       setState({
         kind: 'error',
         message: e instanceof Error ? e.message : String(e),
       });
     }
-  }, []);
+  }, [parseWithProfile]);
 
   const assignMapping = useCallback(
     (externalName: string, selectValue: string) => {
@@ -260,7 +431,13 @@ export function useImport() {
     if (s.kind !== 'mapping') return;
     if (!isMappingReady(s.unknownCategories, s.assignments)) return;
 
-    const { filePath, unknownCategories, assignments } = s;
+    const {
+      filePath,
+      profileId: activeProfileId,
+      genericMapping,
+      unknownCategories,
+      assignments,
+    } = s;
     const sessionAt = importSessionRef.current;
     setState({ kind: 'parsing', filePath });
     try {
@@ -272,23 +449,30 @@ export function useImport() {
             externalName,
             targetType: a.targetType,
             targetId: a.targetId,
+            source: activeProfileId,
           });
         })
       );
       if (importSessionRef.current !== sessionAt) return;
-      const result = await api.parseCSV(filePath);
+      const result = await api.parseCSV(filePath, {
+        profileId: activeProfileId,
+        ...(activeProfileId === GENERIC_PROFILE_ID && genericMapping
+          ? { genericMapping }
+          : {}),
+      });
       if (importSessionRef.current !== sessionAt) return;
       if (result.unknownCategories.length > 0) {
         setState({
           kind: 'error',
           message:
-            'Some Monarch categories are still unmapped after save. Please try again.',
+            'Some categories are still unmapped after save. Please try again.',
         });
         return;
       }
       setState({
         kind: 'reviewing',
         filePath,
+        profileId: activeProfileId,
         rows: result.rows,
         rowOverrides: {},
       });
@@ -379,7 +563,7 @@ export function useImport() {
   const requestImport = useCallback(async () => {
     const s = stateRef.current;
     if (s.kind !== 'reviewing') return;
-    const { rows, rowOverrides, filePath } = s;
+    const { rows, rowOverrides, filePath, profileId: activeProfileId } = s;
     const payload = rows.map((r) =>
       toCommitRow(r, rowOverrides[r.rowIndex])
     );
@@ -395,6 +579,7 @@ export function useImport() {
     setState({
       kind: 'checking_duplicates',
       filePath,
+      profileId: activeProfileId,
       rows,
       rowOverrides,
     });
@@ -410,6 +595,7 @@ export function useImport() {
       setState({
         kind: 'duplicate_warning',
         filePath,
+        profileId: activeProfileId,
         rows,
         rowOverrides,
         duplicateCount,
@@ -441,6 +627,7 @@ export function useImport() {
       return {
         kind: 'reviewing',
         filePath: s.filePath,
+        profileId: s.profileId,
         rows: s.rows,
         rowOverrides: s.rowOverrides,
       };
@@ -451,11 +638,19 @@ export function useImport() {
     state.kind === 'mapping' &&
     isMappingReady(state.unknownCategories, state.assignments);
 
+  const columnMappingReady =
+    state.kind === 'column_mapping' && isColumnMappingDraftReady(state.draft);
+
   return {
     state,
+    profileId,
+    setProfileId,
     reset,
     pickFile,
     parseDroppedFile,
+    updateColumnMappingDraft,
+    confirmColumnMapping,
+    columnMappingReady,
     assignMapping,
     setAssignmentDirect,
     confirmMappings,
