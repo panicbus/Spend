@@ -135,7 +135,8 @@ export function MonthlyPulseCheck({
               <span className="monthly-pulse-check__hot-meta">
                 {formatCurrency(row.spentCents)} / {formatCurrency(row.budgetCents)}
                 {' · '}
-                {row.pctUsed}% used, month {row.pctMonth}% over · ahead of pace
+                {row.pctUsed}% used, month {row.pctMonth}% through ·{' '}
+                {row.statusLabel}
               </span>
             </li>
           ))}

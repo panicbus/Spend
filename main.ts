@@ -1,4 +1,11 @@
-import { app, BrowserWindow, ipcMain, dialog, nativeImage } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  nativeImage,
+  shell,
+} from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -2410,6 +2417,26 @@ function createWindow() {
   win.webContents.on('preload-error', (_event, preloadPath, err) => {
     console.error('[Spend] preload-error', preloadPath, err);
   });
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http:') || url.startsWith('https:') || url.startsWith('mailto:')) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  if (!useViteDevServer) {
+    win.webContents.on('will-navigate', (event, url) => {
+      if (
+        url.startsWith('http:') ||
+        url.startsWith('https:') ||
+        url.startsWith('mailto:')
+      ) {
+        event.preventDefault();
+        void shell.openExternal(url);
+      }
+    });
+  }
 
   if (useViteDevServer) {
     win.loadURL('http://127.0.0.1:5173');

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import spendLogoUrl from '../../../spend-icon-1024.png';
+/** Inlined so the icon loads in packaged Electron (file://) builds. */
+import spendLogoUrl from '../../assets/spend-icon.png?inline';
 import './AboutModal.css';
 
 const appVersion = import.meta.env.VITE_APP_VERSION ?? '';
@@ -47,7 +48,7 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
         <img
           className="about-modal__logo"
           src={spendLogoUrl}
-          alt=""
+          alt="Spend app icon"
           width={72}
           height={72}
         />
@@ -63,12 +64,37 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
           <p className="about-modal__version">v{appVersion}</p>
         ) : null}
 
-        <p className="about-modal__description">
-          A personal budget tracker that lives on your Mac. Import from your bank
-          or favorite money app, track spending by category, see trends over time,
-          and stay on pace — all without an account, a subscription, or your data
-          ever leaving your machine.
-        </p>
+        <div className="about-modal__description">
+          <p>
+            A simple budget tracker that stays out of your way. Import your bank
+            data, see where your money's going, and keep your spending in
+            check—all from your Mac.
+          </p>
+          <p>
+            No accounts, no subscriptions, no data leaving your machine. Your
+            money, your eyes only.
+          </p>
+          <p>
+            Report a bug, send feedback,{' '}
+            <a
+              className="about-modal__link"
+              href="mailto:cedarlanedev@gmail.com?subject=Spend.%20feedback"
+            >
+              email me
+            </a>
+            .
+          </p>
+          <p>
+            <a
+              className="about-modal__link"
+              href="https://ko-fi.com/nicocrisafulli"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              buy me a coffee.
+            </a>
+          </p>
+        </div>
 
         <hr className="about-modal__divider" />
 

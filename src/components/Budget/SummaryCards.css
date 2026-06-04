@@ -40,6 +40,7 @@
   text-transform: uppercase;
   color: var(--text-tertiary);
   margin-bottom: 8px;
+  line-height: 1.4;
 }
 
 .summary-card__value {
@@ -82,4 +83,32 @@
 
 .summary-card__meta--over {
   color: var(--danger-text);
+}
+
+.summary-card__meta-mood {
+  font-size: 20px;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.summary-card__mood-bottom {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.summary-card__mood-bottom--accent {
+  color: var(--accent-text);
+}
+
+.summary-card__mood-bottom--over {
+  color: var(--danger-text);
+}
+
+.summary-card--complete .summary-card__label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  font-weight: 500;
 }

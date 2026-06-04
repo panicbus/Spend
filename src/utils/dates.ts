@@ -32,6 +32,11 @@ export function currentMonthKey() {
   return `${yy}-${mm}`;
 }
 
+/** True when viewing a calendar month that has already ended. */
+export function isPastMonthKey(monthKey: string): boolean {
+  return monthKey < currentMonthKey();
+}
+
 /**
  * Fraction of the calendar month elapsed (day / days-in-month).
  * Used for “today” markers on budget bars; only meaningful when viewing the active month.

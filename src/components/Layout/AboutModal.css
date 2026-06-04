@@ -11,7 +11,7 @@
 
 .about-modal__panel {
   position: relative;
-  width: min(400px, 100%);
+  width: min(480px, 100%);
   max-height: min(90vh, 640px);
   overflow-y: auto;
   padding: 36px 32px 28px;
@@ -88,6 +88,26 @@
   font-size: 14px;
   line-height: 1.55;
   color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.about-modal__description p {
+  margin: 0;
+}
+
+.about-modal__description p + p {
+  margin-top: 12px;
+}
+
+.about-modal__link {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease;
+}
+
+.about-modal__link:hover {
+  color: var(--accent);
 }
 
 .about-modal__divider {

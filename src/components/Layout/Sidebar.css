@@ -99,7 +99,6 @@ button.sidebar__link {
 
 .sidebar__link--info {
   margin-top: 4px;
-  justify-content: center;
   color: var(--sidebar-text-muted);
   opacity: 0.85;
 }

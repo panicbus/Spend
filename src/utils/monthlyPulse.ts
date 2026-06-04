@@ -70,6 +70,22 @@ export function roundPct(ratio: number): number {
   return Math.min(100, Math.max(0, Math.round(ratio * 100)));
 }
 
+/** Budget used % for a single category (uncapped when overspent). */
+export function categoryBudgetUsedPct(
+  spentCents: number,
+  budgetCents: number
+): number {
+  if (budgetCents <= 0) return 0;
+  return Math.max(0, Math.round((spentCents / budgetCents) * 100));
+}
+
+export function hotCategoryStatusLabel(
+  spentCents: number,
+  budgetCents: number
+): 'over budget' | 'ahead of pace' {
+  return spentCents >= budgetCents ? 'over budget' : 'ahead of pace';
+}
+
 export type HotCategoryRow = {
   categoryId: number;
   name: string;
@@ -79,6 +95,7 @@ export type HotCategoryRow = {
   pctUsed: number;
   pctMonth: number;
   pace: number;
+  statusLabel: 'over budget' | 'ahead of pace';
 };
 
 /** Top categories by spending pace vs time through month (monthly budget per line). */
@@ -100,7 +117,7 @@ export function hotCategoriesAheadOfPace(
 
       if (isPaceCompleteBudgetLine(spentCents, budgetCents)) continue;
 
-      const pctUsed = roundPct(spentCents / budgetCents);
+      const pctUsed = categoryBudgetUsedPct(spentCents, budgetCents);
       const pace = (spentCents / budgetCents) / percentThroughMonth;
       if (pace > 1) {
         rows.push({
@@ -112,6 +129,7 @@ export function hotCategoriesAheadOfPace(
           pctUsed,
           pctMonth,
           pace,
+          statusLabel: hotCategoryStatusLabel(spentCents, budgetCents),
         });
       }
     }
