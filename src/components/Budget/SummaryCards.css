@@ -28,6 +28,11 @@
   border-color: var(--accent-border-soft);
 }
 
+.summary-card--over {
+  background: var(--danger-bg);
+  border-color: var(--danger-border-soft);
+}
+
 .summary-card__label {
   font-size: 12px;
   font-weight: 600;
@@ -44,8 +49,20 @@
   color: var(--text-primary);
 }
 
+.summary-card__label--accent {
+  color: var(--accent-text);
+}
+
+.summary-card__label--over {
+  color: var(--danger-text);
+}
+
 .summary-card__value--accent {
   color: var(--accent-text);
+}
+
+.summary-card__value--over {
+  color: var(--danger-text);
 }
 
 .summary-card__meta {
@@ -57,4 +74,12 @@
 .summary-card__meta--income-ahead {
   color: var(--accent-text);
   font-weight: 600;
+}
+
+.summary-card__meta--accent {
+  color: var(--accent-text);
+}
+
+.summary-card__meta--over {
+  color: var(--danger-text);
 }

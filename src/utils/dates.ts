@@ -46,6 +46,21 @@ export function fractionThroughCalendarMonth(monthKey: string): number | null {
   return Math.min(1, Math.max(0, dom / daysInMonth));
 }
 
+/** Calendar days left in `monthKey` (0 for past months; full month for future). */
+export function daysRemainingInMonth(monthKey: string): number {
+  const [y, m] = monthKey.split('-').map(Number);
+  if (!y || m < 1 || m > 12) return 0;
+  const daysInMonth = new Date(y, m, 0).getDate();
+  if (daysInMonth <= 0) return 0;
+
+  const current = currentMonthKey();
+  if (monthKey < current) return 0;
+  if (monthKey > current) return daysInMonth;
+
+  const dayOfMonth = new Date().getDate();
+  return Math.max(0, daysInMonth - dayOfMonth);
+}
+
 export function formatMonthRangeLabel(fromMonthKey: string, toMonthKey: string) {
   const [y1, m1] = fromMonthKey.split('-').map(Number);
   const [y2, m2] = toMonthKey.split('-').map(Number);

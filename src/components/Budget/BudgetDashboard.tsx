@@ -176,7 +176,7 @@ export function BudgetDashboard() {
 
       {!loading && !error && hasGroups && (
         <>
-          <SummaryCards totals={totals} />
+          <SummaryCards monthKey={monthKey} totals={totals} />
           <MonthlyPulseCheck
             monthKey={monthKey}
             groups={groups}
