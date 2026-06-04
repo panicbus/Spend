@@ -1,0 +1,112 @@
+.about-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: var(--overlay-scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.about-modal__panel {
+  position: relative;
+  width: min(400px, 100%);
+  max-height: min(90vh, 640px);
+  overflow-y: auto;
+  padding: 36px 32px 28px;
+  text-align: center;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 16px;
+  border: 0.5px solid var(--border);
+  box-shadow: var(--shadow-elevated);
+}
+
+.about-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--text-tertiary);
+  padding: 4px 10px;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.about-modal__close:hover {
+  background: var(--bg-card-alt);
+  color: var(--text-primary);
+}
+
+.about-modal__logo {
+  display: block;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+}
+
+.about-modal__title {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+  font-weight: 500;
+  font-size: 32px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.about-modal__title-text {
+  color: var(--text-primary);
+}
+
+.about-modal__title-dot {
+  color: var(--accent);
+}
+
+.about-modal__tagline {
+  margin: 8px 0 0;
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.about-modal__version {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+
+.about-modal__description {
+  margin: 20px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.about-modal__divider {
+  margin: 24px 0 20px;
+  border: none;
+  border-top: 0.5px solid var(--border);
+}
+
+.about-modal__credits {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-tertiary);
+}
+
+.about-modal__credits p {
+  margin: 0;
+}
+
+.about-modal__location {
+  font-style: italic;
+}

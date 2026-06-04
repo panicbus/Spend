@@ -1,6 +1,6 @@
 {
   "name": "spend-app",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "private": true,
   "description": "Personal budget and spending desktop app",
   "author": "Spend contributors",

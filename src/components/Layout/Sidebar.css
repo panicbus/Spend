@@ -79,6 +79,14 @@
   transition: background 0.15s ease, color 0.15s ease;
 }
 
+button.sidebar__link {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
 .sidebar__link:hover {
   background: var(--sidebar-hover-bg);
   color: var(--sidebar-text);
@@ -87,6 +95,17 @@
 .sidebar__link--active {
   background: var(--sidebar-active-bg);
   color: var(--sidebar-text-strong);
+}
+
+.sidebar__link--info {
+  margin-top: 4px;
+  justify-content: center;
+  color: var(--sidebar-text-muted);
+  opacity: 0.85;
+}
+
+.sidebar__link--info:hover {
+  opacity: 1;
 }
 
 .sidebar__icon {

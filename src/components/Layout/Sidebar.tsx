@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useColorMode } from '../../theme/ColorModeContext';
+import { AboutModal } from './AboutModal';
 import './Sidebar.css';
 
 function IconBudget() {
@@ -56,6 +57,21 @@ function IconImport() {
 }
 
 /** Heroicons outline "cog-6-tooth" (MIT) — stroke matches Transactions / Trends. */
+/** Heroicons outline "information-circle" (MIT). */
+function IconInfo() {
+  return (
+    <svg className="sidebar__icon" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
+      />
+    </svg>
+  );
+}
+
 function IconSettings() {
   return (
     <svg className="sidebar__icon" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -124,6 +140,8 @@ function SidebarThemeToggle() {
 }
 
 export function Sidebar() {
+  const [aboutOpen, setAboutOpen] = useState(false);
+
   return (
     <aside className="sidebar">
       <div className="sidebar__drag">
@@ -190,7 +208,17 @@ export function Sidebar() {
           <IconSettings />
           <span>Settings</span>
         </NavLink>
+        <button
+          type="button"
+          className="sidebar__link sidebar__link--info"
+          onClick={() => setAboutOpen(true)}
+          aria-label="About Spend"
+        >
+          <IconInfo />
+        </button>
       </nav>
+
+      <AboutModal isOpen={aboutOpen} onClose={() => setAboutOpen(false)} />
 
       <div className="sidebar__spacer" />
       <SidebarThemeToggle />
