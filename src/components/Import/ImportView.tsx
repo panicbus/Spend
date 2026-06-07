@@ -13,7 +13,6 @@ import {
   importFormatSelectGroups,
 } from '../../utils/csv-profiles';
 import { ImportColumnMapping } from './ImportColumnMapping';
-import './ImportColumnMapping.css';
 import { api } from '../../services/api';
 import { DATA_CHANGED_EVENT } from '../../utils/dataChanged';
 import { formatCurrency } from '../../services/formatters';

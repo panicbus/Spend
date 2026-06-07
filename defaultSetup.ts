@@ -1,4 +1,3 @@
-/** Default taxonomy for "Start with defaults" in first-run wizard. */
 export type DefaultGroupSpec = {
   name: string;
   color: string;

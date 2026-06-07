@@ -26,7 +26,6 @@ import type { TrendsReturnContext } from '../../utils/trendsReturnContext';
 import { clearBudgetReturnContext } from '../../utils/budgetReturnContext';
 import { setTrendsReturnContext } from '../../utils/trendsReturnContext';
 import { Button } from '../common/Button';
-import '../common/Button.css';
 import './TrendsPage.css';
 
 const RANGE_OPTIONS: { value: TrendRange; label: string }[] = [

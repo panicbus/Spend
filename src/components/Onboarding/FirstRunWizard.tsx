@@ -1,18 +1,22 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import type { BudgetGroup, BudgetPayload } from '../../../ipc-contract';
+import React, { useCallback, useMemo, useState } from 'react';
+import type { BudgetPayload } from '../../../ipc-contract';
 import type { CommitImportResult } from '../../types/import';
 import spendLogoUrl from '../../assets/spend-icon.png?inline';
 import {
   DEFAULT_CATEGORY_GROUPS,
   DEFAULT_INCOME_SOURCES,
-} from '../../utils/defaultSetup';
+} from '../../../defaultSetup';
 import { api } from '../../services/api';
 import { currentMonthKey } from '../../utils/dates';
 import { dispatchDataChanged } from '../../utils/dataChanged';
 import { Button } from '../common/Button';
-import '../common/Button.css';
 import { ImportView } from '../Import/ImportView';
-import { CATEGORY_COLOR_PRESETS } from '../../services/formatters';
+import {
+  budgetEditDraftFromCents,
+  CATEGORY_COLOR_PRESETS,
+  formatCurrency,
+  formatInputDollars,
+} from '../../services/formatters';
 import './FirstRunWizard.css';
 
 const TOTAL_STEPS = 5;
@@ -29,17 +33,6 @@ type WizardSummary = {
 type FirstRunWizardProps = {
   onComplete: () => void;
 };
-
-function parseDollars(raw: string): number {
-  const n = Number.parseFloat(raw.replace(/[^0-9.-]/g, ''));
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return Math.round(n * 100);
-}
-
-function formatDollarsInput(cents: number): string {
-  if (cents <= 0) return '';
-  return (cents / 100).toFixed(2);
-}
 
 export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   const [step, setStep] = useState(1);
@@ -111,8 +104,8 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
         const key = `cat:${c.id}`;
         const sug = suggestions.categories.find((s) => s.id === c.id);
         if (sug && sug.suggestedCents > 0) {
-          inputs[key] = formatDollarsInput(sug.suggestedCents);
-          labels[key] = `${sug.label}: ~${(sug.suggestedCents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}`;
+          inputs[key] = budgetEditDraftFromCents(sug.suggestedCents);
+          labels[key] = `${sug.label}: ~${formatCurrency(sug.suggestedCents)}`;
         } else {
           inputs[key] = '';
         }
@@ -122,8 +115,8 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
       const key = `inc:${row.id}`;
       const sug = suggestions.income.find((s) => s.id === row.id);
       if (sug && sug.suggestedCents > 0) {
-        inputs[key] = formatDollarsInput(sug.suggestedCents);
-        labels[key] = `${sug.label}: ~${(sug.suggestedCents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}`;
+        inputs[key] = budgetEditDraftFromCents(sug.suggestedCents);
+        labels[key] = `${sug.label}: ~${formatCurrency(sug.suggestedCents)}`;
       } else {
         inputs[key] = '';
       }
@@ -147,7 +140,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   const saveBudgets = async () => {
     let count = 0;
     for (const [key, raw] of Object.entries(budgetInputs)) {
-      const cents = parseDollars(raw);
+      const cents = formatInputDollars(raw);
       if (cents <= 0) continue;
       if (key.startsWith('cat:')) {
         const id = Number(key.slice(4));
@@ -219,7 +212,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   };
 
   const hasBudgetEntry = useMemo(
-    () => Object.values(budgetInputs).some((raw) => parseDollars(raw) > 0),
+    () => Object.values(budgetInputs).some((raw) => formatInputDollars(raw) > 0),
     [budgetInputs]
   );
 
@@ -356,7 +349,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               How much do you plan to spend in each category this month?
             </p>
             <div className="first-run-wizard__budget-list">
-              {budgetData?.groups.map((g: BudgetGroup) => (
+              {budgetData?.groups.map((g) => (
                 <div key={g.id} className="first-run-wizard__budget-group">
                   <button
                     type="button"

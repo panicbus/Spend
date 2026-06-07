@@ -20,7 +20,6 @@ import { api } from '../../services/api';
 import { formatCurrency } from '../../services/formatters';
 import { Button } from '../common/Button';
 import { ReturnToCurrentMonthButton } from '../common/ReturnToCurrentMonthButton';
-import '../common/Button.css';
 import type { GroupWithCategories } from '../../../ipc-contract';
 import type { BudgetReturnContext } from '../../utils/budgetReturnContext';
 import {

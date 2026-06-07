@@ -6,7 +6,6 @@ import {
   checklistItemsComplete,
 } from '../../hooks/useOnboarding';
 import { Button } from '../common/Button';
-import '../common/Button.css';
 import './GettingStartedChecklist.css';
 
 type GettingStartedChecklistProps = {

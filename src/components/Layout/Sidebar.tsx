@@ -56,7 +56,6 @@ function IconImport() {
   );
 }
 
-/** Heroicons outline "cog-6-tooth" (MIT) — stroke matches Transactions / Trends. */
 /** Heroicons outline "information-circle" (MIT). */
 function IconInfo() {
   return (
