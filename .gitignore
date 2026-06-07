@@ -17,3 +17,4 @@ release
 
 # Vite / env
 *.local
+.env.build

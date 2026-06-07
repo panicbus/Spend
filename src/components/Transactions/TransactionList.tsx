@@ -16,6 +16,7 @@ import {
   formatMonthRangeLabel,
   shiftMonthKey,
 } from '../../utils/dates';
+import { api } from '../../services/api';
 import { formatCurrency } from '../../services/formatters';
 import { Button } from '../common/Button';
 import { ReturnToCurrentMonthButton } from '../common/ReturnToCurrentMonthButton';
@@ -95,6 +96,10 @@ function TransactionNoteBadge({ note }: { note: string }) {
 }
 
 export function TransactionList() {
+  useEffect(() => {
+    void api.setPreferences({ viewedTransactions: true });
+  }, []);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();

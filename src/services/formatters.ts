@@ -26,6 +26,13 @@ export function dollarsFromCentsInput(cents: number) {
   });
 }
 
+/** Budget/income edit fields: empty when unset so typing does not fight a leading "0". */
+export function budgetEditDraftFromCents(cents: number) {
+  const n = Number(cents) || 0;
+  if (n <= 0) return '';
+  return dollarsFromCentsInput(n);
+}
+
 export const CATEGORY_COLOR_PRESETS: ReadonlyArray<{
   label: string;
   value: string;

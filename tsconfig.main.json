@@ -19,6 +19,7 @@
     "src/utils/csv-profiles.ts",
     "src/utils/parseCsvDate.ts",
     "src/utils/parseCsvAmount.ts",
-    "src/utils/csvProfileParser.ts"
+    "src/utils/csvProfileParser.ts",
+    "defaultSetup.ts"
   ]
 }

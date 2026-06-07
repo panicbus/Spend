@@ -1,0 +1,139 @@
+.getting-started {
+  width: 100%;
+  margin-top: 20px;
+  margin-bottom: 4px;
+  padding: 16px 18px 14px;
+  border-radius: 14px;
+  border: 0.5px solid var(--border);
+  border-left: 4px solid var(--accent);
+  background: var(--accent-bg);
+  position: relative;
+}
+
+.getting-started--celebrate {
+  border-left-color: var(--accent);
+  text-align: center;
+  padding: 28px 24px 24px;
+}
+
+.getting-started__title {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.getting-started__sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.getting-started__progress {
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.getting-started__bar {
+  margin-top: 6px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bar-track);
+  overflow: hidden;
+}
+
+.getting-started__bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+.getting-started__list {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.getting-started__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.getting-started__item--done {
+  color: var(--text-tertiary);
+}
+
+.getting-started__check {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--accent-border-soft);
+  background: transparent;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.getting-started__check--done {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.getting-started__link {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  flex-shrink: 0;
+}
+
+.getting-started__link:hover {
+  color: var(--accent);
+}
+
+.getting-started__hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.getting-started__celebrate-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.getting-started__celebrate-title {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.getting-started__celebrate-body {
+  margin: 10px 0 20px;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}

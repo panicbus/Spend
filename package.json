@@ -1,6 +1,6 @@
 {
   "name": "spend-app",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "private": true,
   "description": "Personal budget and spending desktop app",
   "author": "Spend contributors",
@@ -19,7 +19,7 @@
     "pack:mac:arm64": "npm run build && CSC_IDENTITY_AUTO_SELECT=false electron-builder --mac --dir --arm64",
     "pack:mac:arm64:verbose": "npm run build && DEBUG=electron-builder* CSC_IDENTITY_AUTO_SELECT=false electron-builder --mac --dir --arm64",
     "pack:mac:x64": "npm run build && CSC_IDENTITY_AUTO_SELECT=false electron-builder --mac --dir --x64",
-    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac": "npm run build && bash scripts/dist-mac-signed.sh",
     "typecheck": "tsc -p tsconfig.app.json && tsc -p tsconfig.node.json",
     "test:import": "tsx --test tests/csv-import.test.ts",
     "bump:patch": "node scripts/bump-version.mjs patch",
@@ -52,11 +52,12 @@
     "wait-on": "^8.0.1"
   },
   "build": {
-    "appId": "com.panicbus.spend",
+    "afterPack": "scripts/electron-after-pack.cjs",
+    "appId": "com.nicocrisafulli.spend",
     "productName": "Spend",
     "directories": {
       "output": "release",
-      "buildResources": "build"
+      "buildResources": "buildResources"
     },
     "files": [
       "dist/**/*",
@@ -66,17 +67,26 @@
     ],
     "asar": true,
     "asarUnpack": [
-      "**/*.node"
+      "**/*.node",
+      "**/node_modules/better-sqlite3/**"
     ],
     "compression": "store",
+    "dmg": {
+      "sign": false
+    },
     "mac": {
       "icon": "build/icon.icns",
       "category": "public.app-category.finance",
-      "identity": null,
       "target": [
         "dmg",
         "zip"
-      ]
+      ],
+      "identity": "NICHOLAS FREEDOM CRISAFULLI (KB8N3Q3ZAF)",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "buildResources/entitlements.mac.plist",
+      "entitlementsInherit": "buildResources/entitlements.mac.plist",
+      "notarize": true
     }
   }
 }

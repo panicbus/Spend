@@ -35,7 +35,7 @@ export function SummaryCards({ monthKey, totals }: SummaryCardsProps) {
   const daysRemaining = daysRemainingInMonth(monthKey);
   const daysRemainingLabel = `with ${daysRemaining} ${
     daysRemaining === 1 ? 'day' : 'days'
-  } still to go`;
+  } remaining`;
 
   const moodAmount = overBudget ? overBy : underBy;
   const moodEmoji = budgetMoodEmoji(

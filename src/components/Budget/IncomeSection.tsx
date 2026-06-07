@@ -3,7 +3,7 @@ import type { BudgetIncomeRow } from '../../../ipc-contract';
 import {
   formatCurrency,
   formatInputDollars,
-  dollarsFromCentsInput,
+  budgetEditDraftFromCents,
 } from '../../services/formatters';
 import { useIncomeMutations } from '../../hooks/useIncomeMutations';
 import { Button } from '../common/Button';
@@ -116,7 +116,12 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
                   <input
                     className="income-section__input"
                     value={draft}
+                    placeholder="0"
                     onChange={(e) => setDraft(e.target.value)}
+                    onFocus={(e) => {
+                      if (draft === '0') setDraft('');
+                      else if (draft) e.currentTarget.select();
+                    }}
                     onBlur={() => void commitBudget(row.id)}
                     onKeyDown={(e) => onBudgetKeyDown(e, row.id)}
                     autoFocus
@@ -128,7 +133,7 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
                     className="income-section__editable"
                     onClick={() => {
                       setEditingId(row.id);
-                      setDraft(dollarsFromCentsInput(row.budget_cents ?? 0));
+                      setDraft(budgetEditDraftFromCents(row.budget_cents ?? 0));
                     }}
                   >
                     {formatCurrency(row.budget_cents ?? 0)}

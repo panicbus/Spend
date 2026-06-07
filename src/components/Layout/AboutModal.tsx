@@ -91,7 +91,7 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              buy me a coffee.
+              Buy me a coffee!
             </a>
           </p>
         </div>

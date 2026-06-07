@@ -15,13 +15,21 @@
   color: var(--text-on-accent);
 }
 
-.btn--primary:hover {
+.btn--primary:hover:not(:disabled) {
   filter: brightness(1.05);
 }
 
-.btn--primary:disabled {
-  opacity: 0.5;
+.btn--primary:disabled,
+.btn--primary:disabled:hover,
+.btn--primary:disabled:focus,
+.btn--primary:disabled:focus-visible {
+  background: var(--bar-track);
+  color: var(--text-tertiary);
+  opacity: 1;
+  filter: none;
   cursor: not-allowed;
+  outline: none;
+  box-shadow: none;
 }
 
 .btn--ghost {

@@ -1,21 +1,27 @@
 import { useCallback } from 'react';
 import type { SetBudgetDetailsInput } from '../../ipc-contract';
 import { api } from '../services/api';
+import { dispatchDataChanged } from '../utils/dataChanged';
 
 export function useBudgetMutations() {
   const setBudgetAmount = useCallback(
-    (categoryId: number, monthKey: string, amountCents: number) =>
-      api.setBudgetAmount(categoryId, monthKey, amountCents),
+    async (categoryId: number, monthKey: string, amountCents: number) => {
+      await api.setBudgetAmount(categoryId, monthKey, amountCents);
+      dispatchDataChanged();
+    },
     []
   );
 
   const setBudgetDetails = useCallback(
-    (
+    async (
       categoryId: number,
       monthKey: string,
       details: SetBudgetDetailsInput,
       applyToFullYear?: boolean
-    ) => api.setBudgetDetails(categoryId, monthKey, details, applyToFullYear),
+    ) => {
+      await api.setBudgetDetails(categoryId, monthKey, details, applyToFullYear);
+      dispatchDataChanged();
+    },
     []
   );
 

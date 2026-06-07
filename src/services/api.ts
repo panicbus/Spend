@@ -117,4 +117,9 @@ export const api = {
     monthKey: Parameters<SpendApi['setMonthNote']>[0],
     note: Parameters<SpendApi['setMonthNote']>[1]
   ) => getBridge().setMonthNote(monthKey, note),
+
+  getSetupStatus: (monthKey: string) => getBridge().getSetupStatus(monthKey),
+  seedDefaultSetup: () => getBridge().seedDefaultSetup(),
+  getBudgetSuggestions: (monthKey: string) =>
+    getBridge().getBudgetSuggestions(monthKey),
 };

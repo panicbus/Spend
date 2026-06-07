@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   canGoToPreviousDataMonth,
@@ -16,11 +16,11 @@ import { MonthlyPulseCheck } from './MonthlyPulseCheck';
 import { SpendingDonut } from './SpendingDonut';
 import { CategoryGrid } from './CategoryGrid';
 import { IncomeSection } from './IncomeSection';
-import { AddGroupModal } from './AddGroupModal';
-import { AddCategoriesModal } from './AddCategoriesModal';
-import { Button } from '../common/Button';
 import { ReturnToCurrentMonthButton } from '../common/ReturnToCurrentMonthButton';
 import { MonthNoteSection } from './MonthNoteSection';
+import { GettingStartedChecklist } from '../Onboarding/GettingStartedChecklist';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import { DATA_CHANGED_EVENT } from '../../utils/dataChanged';
 import './BudgetDashboard.css';
 
 export function BudgetDashboard() {
@@ -30,22 +30,26 @@ export function BudgetDashboard() {
   const { groups, income, totals, loading, error, refetch } =
     useBudget(monthKey);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [addGroupOpen, setAddGroupOpen] = useState(false);
-  const [addCatGroupId, setAddCatGroupId] = useState<number | null>(null);
+  const categoryGridRef = useRef<HTMLDivElement>(null);
+
+  const {
+    status: setupStatus,
+    refresh: refreshSetup,
+    dismissChecklist,
+  } = useOnboarding(monthKey);
 
   const hasGroups = groups.length > 0;
 
-  const openAddFlow = () => setAddGroupOpen(true);
+  const showChecklist =
+    setupStatus != null &&
+    setupStatus.firstRunComplete &&
+    !setupStatus.checklistDismissed;
 
-  const onGroupCreated = (id: number) => {
-    setAddCatGroupId(id);
-    void refetch();
-  };
-
-  const afterCategoriesModal = () => {
-    setAddCatGroupId(null);
-    void refetch();
-  };
+  useEffect(() => {
+    const onData = () => void refreshSetup();
+    window.addEventListener(DATA_CHANGED_EVENT, onData);
+    return () => window.removeEventListener(DATA_CHANGED_EVENT, onData);
+  }, [refreshSetup]);
 
   useEffect(() => {
     const restore = (
@@ -159,44 +163,46 @@ export function BudgetDashboard() {
         </div>
       )}
 
-      {!loading && !error && !hasGroups && (
-        <div className="budget-dashboard__empty">
-          <h2 className="budget-dashboard__empty-title">
-            Let&apos;s set up your budget
-          </h2>
-          <p className="budget-dashboard__empty-text">
-            Start by adding a category group (like Housing or Food). You can
-            add line items next and set amounts for this month.
-          </p>
-          <Button variant="primary" onClick={openAddFlow}>
-            Add your first category group
-          </Button>
-        </div>
+      {!loading && !error && showChecklist && setupStatus && (
+        <GettingStartedChecklist
+          status={setupStatus}
+          onDismiss={() => void dismissChecklist()}
+          onScrollToCategories={() => {
+            categoryGridRef.current?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            });
+          }}
+        />
       )}
 
       {!loading && !error && hasGroups && (
         <>
           <SummaryCards monthKey={monthKey} totals={totals} />
-          <MonthlyPulseCheck
-            monthKey={monthKey}
-            groups={groups}
-            totals={totals}
-          />
+          {!showChecklist && (
+            <MonthlyPulseCheck
+              monthKey={monthKey}
+              groups={groups}
+              totals={totals}
+            />
+          )}
           <SpendingDonut
             groups={groups}
             monthKey={monthKey}
             onLegendGroupClick={onDonutLegendGroupClick}
           />
-          <CategoryGrid
-            groups={groups}
-            monthKey={monthKey}
-            expandedId={expandedId}
-            onToggleGroup={(id) =>
-              setExpandedId((cur) => (cur === id ? null : id))
-            }
-            onBudgetUpdated={refetch}
-            onLineClick={onCategoryLineClick}
-          />
+          <div ref={categoryGridRef}>
+            <CategoryGrid
+              groups={groups}
+              monthKey={monthKey}
+              expandedId={expandedId}
+              onToggleGroup={(id) =>
+                setExpandedId((cur) => (cur === id ? null : id))
+              }
+              onBudgetUpdated={refetch}
+              onLineClick={onCategoryLineClick}
+            />
+          </div>
           <IncomeSection
             income={income}
             monthKey={monthKey}
@@ -205,17 +211,6 @@ export function BudgetDashboard() {
         </>
       )}
 
-      <AddGroupModal
-        isOpen={addGroupOpen}
-        onClose={() => setAddGroupOpen(false)}
-        onCreated={onGroupCreated}
-      />
-
-      <AddCategoriesModal
-        isOpen={addCatGroupId != null}
-        groupId={addCatGroupId}
-        onClose={afterCategoriesModal}
-      />
     </div>
   );
 }

@@ -155,6 +155,41 @@ export interface AppPreferences {
   defaultMonthOnLaunch: DefaultMonthOnLaunch;
   /** UI theme; persisted in settings. Default light when unset. */
   colorMode: ColorMode;
+  /** First-run wizard completed or dismissed. */
+  firstRunComplete?: boolean;
+  /** Getting-started checklist manually dismissed or auto-hidden. */
+  checklistDismissed?: boolean;
+  /** User has opened the Transactions page at least once. */
+  viewedTransactions?: boolean;
+  /** User finished or dismissed the first-run wizard (not auto-skipped on upgrade). */
+  wizardSeen?: boolean;
+}
+
+export interface SetupStatus {
+  firstRunComplete: boolean;
+  checklistDismissed: boolean;
+  viewedTransactions: boolean;
+  groupCount: number;
+  categoryCount: number;
+  transactionCount: number;
+  categoriesWithBudgetCount: number;
+}
+
+export interface SeedDefaultSetupResult {
+  groupCount: number;
+  categoryCount: number;
+  incomeSourceCount: number;
+  created: boolean;
+}
+
+export interface BudgetSuggestionLine {
+  id: number;
+  suggestedCents: number;
+  label: string;
+}
+export interface BudgetSuggestions {
+  categories: BudgetSuggestionLine[];
+  income: BudgetSuggestionLine[];
 }
 
 export interface UpdateGroupPayload {
@@ -307,6 +342,9 @@ export interface SpendApi {
   deleteGroup: (id: number) => Promise<void>;
   getPreferences: () => Promise<AppPreferences>;
   setPreferences: (partial: Partial<AppPreferences>) => Promise<void>;
+  getSetupStatus: (monthKey: string) => Promise<SetupStatus>;
+  seedDefaultSetup: () => Promise<SeedDefaultSetupResult>;
+  getBudgetSuggestions: (monthKey: string) => Promise<BudgetSuggestions>;
   updateGroup: (payload: UpdateGroupPayload) => Promise<void>;
   reorderGroup: (payload: ReorderEntityPayload) => Promise<void>;
   moveGroupCategoriesDeleteGroup: (

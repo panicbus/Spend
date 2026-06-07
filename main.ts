@@ -38,7 +38,14 @@ import type {
   UpdateCategoryPayload,
   UpdateGroupPayload,
   UpdateIncomeSourcePayload,
+  BudgetSuggestions,
+  SeedDefaultSetupResult,
+  SetupStatus,
 } from './ipc-contract.js';
+import {
+  DEFAULT_CATEGORY_GROUPS,
+  DEFAULT_INCOME_SOURCES,
+} from './defaultSetup.js';
 import type {
   IncomeActual,
   Transaction,
@@ -259,8 +266,57 @@ function flushAndCloseDb() {
 const SETTINGS_KEY_DEFAULT_MONTH = 'default_month_on_launch';
 const SETTINGS_KEY_COLOR_MODE = 'color_mode';
 const SETTINGS_KEY_LAST_IMPORT_PROFILE = 'lastImportProfile';
+const SETTINGS_KEY_FIRST_RUN = 'first_run_complete';
+const SETTINGS_KEY_CHECKLIST_DISMISSED = 'checklist_dismissed';
+const SETTINGS_KEY_VIEWED_TRANSACTIONS = 'viewed_transactions';
+const SETTINGS_KEY_WIZARD_SEEN = 'onboarding_wizard_seen';
+
+function getSettingBool(key: string): boolean {
+  const row = db
+    .prepare('SELECT value FROM settings WHERE key = ?')
+    .get(key) as { value: string } | undefined;
+  return row?.value === 'true';
+}
+
+function setSettingBool(key: string, value: boolean) {
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
+    key,
+    value ? 'true' : 'false'
+  );
+}
+
+/**
+ * Skip wizard/checklist for installs that already had data before onboarding shipped.
+ * New users who go through the wizard set `wizardSeen`; only users without that flag
+ * and pre-existing groups + transactions are treated as returning upgrades.
+ */
+function migrateExistingUserOnboarding() {
+  const groupCount = (
+    db.prepare('SELECT COUNT(*) AS c FROM category_groups').get() as {
+      c: number;
+    }
+  ).c;
+  const txCount = (
+    db.prepare('SELECT COUNT(*) AS c FROM transactions').get() as { c: number }
+  ).c;
+  const hadDataBeforeOnboarding = groupCount > 0 && txCount > 0;
+  const wizardSeen = getSettingBool(SETTINGS_KEY_WIZARD_SEEN);
+
+  if (!hadDataBeforeOnboarding || wizardSeen) return;
+
+  if (!getSettingBool(SETTINGS_KEY_FIRST_RUN)) {
+    setSettingBool(SETTINGS_KEY_FIRST_RUN, true);
+  }
+  if (!getSettingBool(SETTINGS_KEY_CHECKLIST_DISMISSED)) {
+    setSettingBool(SETTINGS_KEY_CHECKLIST_DISMISSED, true);
+  }
+  if (!getSettingBool(SETTINGS_KEY_VIEWED_TRANSACTIONS)) {
+    setSettingBool(SETTINGS_KEY_VIEWED_TRANSACTIONS, true);
+  }
+}
 
 function getPreferencesFromDb(): AppPreferences {
+  migrateExistingUserOnboarding();
   const row = db
     .prepare('SELECT value FROM settings WHERE key = ?')
     .get(SETTINGS_KEY_DEFAULT_MONTH) as { value: string } | undefined;
@@ -271,7 +327,14 @@ function getPreferencesFromDb(): AppPreferences {
     .prepare('SELECT value FROM settings WHERE key = ?')
     .get(SETTINGS_KEY_COLOR_MODE) as { value: string } | undefined;
   const colorMode = colorRow?.value === 'dark' ? 'dark' : 'light';
-  return { defaultMonthOnLaunch, colorMode };
+  return {
+    defaultMonthOnLaunch,
+    colorMode,
+    firstRunComplete: getSettingBool(SETTINGS_KEY_FIRST_RUN),
+    checklistDismissed: getSettingBool(SETTINGS_KEY_CHECKLIST_DISMISSED),
+    viewedTransactions: getSettingBool(SETTINGS_KEY_VIEWED_TRANSACTIONS),
+    wizardSeen: getSettingBool(SETTINGS_KEY_WIZARD_SEEN),
+  };
 }
 
 function setPreferencesInDb(partial: Partial<AppPreferences>) {
@@ -287,6 +350,176 @@ function setPreferencesInDb(partial: Partial<AppPreferences>) {
       partial.colorMode
     );
   }
+  if (partial.firstRunComplete != null) {
+    setSettingBool(SETTINGS_KEY_FIRST_RUN, partial.firstRunComplete);
+  }
+  if (partial.checklistDismissed != null) {
+    setSettingBool(SETTINGS_KEY_CHECKLIST_DISMISSED, partial.checklistDismissed);
+  }
+  if (partial.viewedTransactions != null) {
+    setSettingBool(SETTINGS_KEY_VIEWED_TRANSACTIONS, partial.viewedTransactions);
+  }
+  if (partial.wizardSeen != null) {
+    setSettingBool(SETTINGS_KEY_WIZARD_SEEN, partial.wizardSeen);
+  }
+}
+
+function getSetupStatusFromDb(monthKey: string): SetupStatus {
+  migrateExistingUserOnboarding();
+  const groupCount = (
+    db.prepare('SELECT COUNT(*) AS c FROM category_groups').get() as {
+      c: number;
+    }
+  ).c;
+  const categoryCount = (
+    db.prepare('SELECT COUNT(*) AS c FROM categories').get() as { c: number }
+  ).c;
+  const txCount = (
+    db.prepare('SELECT COUNT(*) AS c FROM transactions').get() as { c: number }
+  ).c;
+  const incomeActualCount = (
+    db.prepare('SELECT COUNT(*) AS c FROM income_actuals').get() as {
+      c: number;
+    }
+  ).c;
+  const categoriesWithBudgetCount = (
+    db
+      .prepare(
+        `SELECT COUNT(DISTINCT category_id) AS c FROM budgets
+         WHERE month_key = ? AND amount_cents > 0`
+      )
+      .get(monthKey) as { c: number }
+  ).c;
+  return {
+    firstRunComplete: getSettingBool(SETTINGS_KEY_FIRST_RUN),
+    checklistDismissed: getSettingBool(SETTINGS_KEY_CHECKLIST_DISMISSED),
+    viewedTransactions: getSettingBool(SETTINGS_KEY_VIEWED_TRANSACTIONS),
+    groupCount,
+    categoryCount,
+    transactionCount: txCount + incomeActualCount,
+    categoriesWithBudgetCount,
+  };
+}
+
+function seedDefaultSetupInDb(): SeedDefaultSetupResult {
+  const existingGroups = (
+    db.prepare('SELECT COUNT(*) AS c FROM category_groups').get() as {
+      c: number;
+    }
+  ).c;
+  if (existingGroups > 0) {
+    const categoryCount = (
+      db.prepare('SELECT COUNT(*) AS c FROM categories').get() as { c: number }
+    ).c;
+    const incomeSourceCount = (
+      db.prepare('SELECT COUNT(*) AS c FROM income_sources').get() as {
+        c: number;
+      }
+    ).c;
+    return {
+      groupCount: existingGroups,
+      categoryCount,
+      incomeSourceCount,
+      created: false,
+    };
+  }
+
+  const insertGroup = db.prepare(
+    `INSERT INTO category_groups (name, color, sort_order) VALUES (?, ?, ?)`
+  );
+  const insertCategory = db.prepare(
+    `INSERT INTO categories (group_id, name, sort_order) VALUES (?, ?, ?)`
+  );
+  const insertIncome = db.prepare(
+    `INSERT INTO income_sources (name, sort_order) VALUES (?, ?)`
+  );
+
+  let categoryCount = 0;
+  const run = db.transaction(() => {
+    DEFAULT_CATEGORY_GROUPS.forEach((g, gi) => {
+      const gr = insertGroup.run(g.name, g.color, gi + 1);
+      const groupId = Number(gr.lastInsertRowid);
+      g.categories.forEach((cat, ci) => {
+        insertCategory.run(groupId, cat, ci + 1);
+        categoryCount += 1;
+      });
+    });
+    DEFAULT_INCOME_SOURCES.forEach((name, i) => {
+      insertIncome.run(name, i + 1);
+    });
+  });
+  run();
+
+  return {
+    groupCount: DEFAULT_CATEGORY_GROUPS.length,
+    categoryCount,
+    incomeSourceCount: DEFAULT_INCOME_SOURCES.length,
+    created: true,
+  };
+}
+
+function suggestionLabel(monthCount: number): string {
+  if (monthCount <= 1) return 'Based on last month';
+  return `Based on ${monthCount}-month average`;
+}
+
+function getBudgetSuggestionsFromDb(monthKey: string): BudgetSuggestions {
+  const catRows = db
+    .prepare(
+      `SELECT category_id AS id, month_key, SUM(ABS(amount_cents)) AS total
+       FROM transactions
+       WHERE category_id IS NOT NULL AND amount_cents < 0
+       GROUP BY category_id, month_key
+       ORDER BY month_key DESC`
+    )
+    .all() as { id: number; month_key: string; total: number }[];
+
+  const byCategory = new Map<number, number[]>();
+  for (const row of catRows) {
+    const list = byCategory.get(row.id) ?? [];
+    list.push(row.total);
+    byCategory.set(row.id, list);
+  }
+
+  const categories = [...byCategory.entries()].map(([id, totals]) => {
+    const avg = Math.round(
+      totals.reduce((a, b) => a + b, 0) / totals.length
+    );
+    return {
+      id,
+      suggestedCents: avg,
+      label: suggestionLabel(totals.length),
+    };
+  });
+
+  const incomeRows = db
+    .prepare(
+      `SELECT source_id AS id, month_key, SUM(amount_cents) AS total
+       FROM income_actuals
+       GROUP BY source_id, month_key
+       ORDER BY month_key DESC`
+    )
+    .all() as { id: number; month_key: string; total: number }[];
+
+  const byIncome = new Map<number, number[]>();
+  for (const row of incomeRows) {
+    const list = byIncome.get(row.id) ?? [];
+    list.push(row.total);
+    byIncome.set(row.id, list);
+  }
+
+  const income = [...byIncome.entries()].map(([id, totals]) => {
+    const avg = Math.round(
+      totals.reduce((a, b) => a + b, 0) / totals.length
+    );
+    return {
+      id,
+      suggestedCents: avg,
+      label: suggestionLabel(totals.length),
+    };
+  });
+
+  return { categories, income };
 }
 
 function validateSpendBackupFile(filePath: string) {
@@ -1635,6 +1868,16 @@ function registerIpcHandlers() {
     (_, partial: Partial<AppPreferences>) => {
       setPreferencesInDb(partial);
     }
+  );
+
+  ipcMain.handle('getSetupStatus', (_, monthKey: string) =>
+    getSetupStatusFromDb(monthKey)
+  );
+
+  ipcMain.handle('seedDefaultSetup', () => seedDefaultSetupInDb());
+
+  ipcMain.handle('getBudgetSuggestions', (_, monthKey: string) =>
+    getBudgetSuggestionsFromDb(monthKey)
   );
 
   ipcMain.handle('updateGroup', (_, payload: UpdateGroupPayload) => {

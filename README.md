@@ -41,7 +41,23 @@ Native SQLite is compiled for Electron during `npm install`. If that step fails 
 
 ## Packaging (macOS)
 
-The repo includes **electron-builder** scripts for Mac (for example `npm run dist:mac`). You may need Xcode command line tools and, for signed builds, your own signing setup.
+The repo includes **electron-builder** scripts for Mac:
+
+| Command | Purpose |
+|--------|---------|
+| `npm run pack:mac:arm64` | Unsigned `.app` in `release/mac-arm64/` (local testing) |
+| `npm run dist:mac` | Signed, notarized `.dmg` + `.zip` for distribution |
+
+**Signed release (`dist:mac`):** Requires a **Developer ID Application** cert in your login keychain, Xcode command line tools, and Apple notarization credentials. Copy `.env.build.example` to `.env.build` (gitignored) and set `APPLE_ID` and `APPLE_APP_SPECIFIC_PASSWORD`. The build signs with hardened runtime, submits to Apple’s notary service (often 2–15 minutes), then staples the ticket.
+
+If codesign fails with **resource fork, Finder information, or similar detritus not allowed**, `npm run dist:mac` builds into `/var/tmp/spend-app-release` first (iCloud-synced `Documents` paths often break signing), then copies artifacts to `./release/`. The `afterPack` hook also strips extended attributes. Re-run after a failed attempt.
+
+Verify after a release build:
+
+```bash
+codesign --verify --deep --strict release/mac-arm64/Spend.app
+spctl --assess --type execute release/mac-arm64/Spend.app
+```
 
 ---
 

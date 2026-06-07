@@ -7,6 +7,7 @@ import type {
 import {
   formatCurrency,
   formatInputDollars,
+  budgetEditDraftFromCents,
   dollarsFromCentsInput,
 } from '../../services/formatters';
 import {
@@ -157,10 +158,10 @@ export function CategoryCardLineList({
     setEditFreq(freq);
     setApplyToFullYear(freq !== 'monthly');
     if (freq === 'monthly') {
-      setEditDraft(dollarsFromCentsInput(c.budget_cents ?? 0));
+      setEditDraft(budgetEditDraftFromCents(c.budget_cents ?? 0));
     } else {
       setEditDraft(
-        dollarsFromCentsInput(
+        budgetEditDraftFromCents(
           perOccurrenceCentsFromAnnualCents(
             c.annual_amount_cents ?? 0,
             freq
@@ -181,10 +182,10 @@ export function CategoryCardLineList({
             editFreq
           );
           setEditDraft(
-            dollarsFromCentsInput(Math.round(annualBridge / 12))
+            budgetEditDraftFromCents(Math.round(annualBridge / 12))
           );
         } else {
-          setEditDraft(dollarsFromCentsInput(c.budget_cents ?? 0));
+          setEditDraft(budgetEditDraftFromCents(c.budget_cents ?? 0));
         }
         return;
       }
@@ -195,7 +196,7 @@ export function CategoryCardLineList({
           formatInputDollars(editDraft) || (c.budget_cents ?? 0);
         const impliedAnnual = monthlyCents * 12;
         setEditDraft(
-          dollarsFromCentsInput(
+          budgetEditDraftFromCents(
             perOccurrenceCentsFromAnnualCents(impliedAnnual, newFreq)
           )
         );
@@ -208,7 +209,7 @@ export function CategoryCardLineList({
       );
       setEditFreq(newFreq);
       setEditDraft(
-        dollarsFromCentsInput(
+        budgetEditDraftFromCents(
           perOccurrenceCentsFromAnnualCents(bridgedAnnual, newFreq)
         )
       );
@@ -375,7 +376,12 @@ export function CategoryCardLineList({
                   <input
                     className="category-card__input category-card__input--budget"
                     value={editDraft}
+                    placeholder="0"
                     onChange={(e) => setEditDraft(e.target.value)}
+                    onFocus={(e) => {
+                      if (editDraft === '0') setEditDraft('');
+                      else if (editDraft) e.currentTarget.select();
+                    }}
                     onKeyDown={(e) => onAmountKeyDown(e, c.id)}
                     autoFocus
                     aria-label={`${sinkingAmountFieldLabel(editFreq)} for ${c.name}`}

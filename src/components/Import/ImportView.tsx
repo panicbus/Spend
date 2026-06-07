@@ -54,7 +54,13 @@ function amountClass(cents: number): string {
   return 'import-review__amt';
 }
 
-export function ImportView() {
+type ImportViewProps = {
+  /** Hide page header; for first-run wizard embed. */
+  embedded?: boolean;
+  onImportDone?: (result: CommitImportResult) => void;
+};
+
+export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
   const {
     state,
     profileId,
@@ -236,6 +242,12 @@ export function ImportView() {
     [dataTransferHasFiles, parseDroppedFile]
   );
 
+  useEffect(() => {
+    if (state.kind === 'done' && onImportDone) {
+      onImportDone(state.result);
+    }
+  }, [state, onImportDone]);
+
   const mappingSource =
     state.kind === 'mapping'
       ? state.profileId
@@ -246,13 +258,15 @@ export function ImportView() {
         : profileId;
 
   return (
-    <div className="import-view">
-      <header className="import-view__header">
-        <h1 className="import-view__title">Import</h1>
-        <p className="import-view__subtitle">
-          CSV → Spend. (local, private)
-        </p>
-      </header>
+    <div className={embedded ? 'import-view import-view--embedded' : 'import-view'}>
+      {!embedded && (
+        <header className="import-view__header">
+          <h1 className="import-view__title">Import</h1>
+          <p className="import-view__subtitle">
+            CSV → Spend. (local, private)
+          </p>
+        </header>
+      )}
 
       {(state.kind === 'idle' || state.kind === 'error' || state.kind === 'done') && (
         <div className="import-format-select-wrap">
