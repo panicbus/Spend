@@ -55,6 +55,71 @@ function incomeFill(
   return INCOME_FILL[i % INCOME_FILL.length];
 }
 
+/**
+ * Shift a hex color's lightness by `delta` percentage points (HSL).
+ * Used to give stacked segments that share one group color distinct,
+ * intentional-looking shades.
+ */
+function shiftHexLightness(hex: string, delta: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const num = parseInt(m[1], 16);
+  const r = ((num >> 16) & 0xff) / 255;
+  const g = ((num >> 8) & 0xff) / 255;
+  const b = (num & 0xff) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  let l = (max + min) / 2;
+  const d = max - min;
+  if (d !== 0) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+
+  l = Math.min(0.85, Math.max(0.15, l + delta / 100));
+
+  const hueToRgb = (p: number, q: number, t: number): number => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+
+  let r2: number;
+  let g2: number;
+  let b2: number;
+  if (s === 0) {
+    r2 = g2 = b2 = l;
+  } else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r2 = hueToRgb(p, q, h + 1 / 3);
+    g2 = hueToRgb(p, q, h);
+    b2 = hueToRgb(p, q, h - 1 / 3);
+  }
+
+  const toHex = (v: number) =>
+    Math.round(v * 255)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${toHex(r2)}${toHex(g2)}${toHex(b2)}`;
+}
+
+/** Evenly spread shades of a base color across `count` stacked segments. */
+function categoryShade(base: string, index: number, count: number): string {
+  if (count <= 1) return base;
+  const range = Math.min(28, (count - 1) * 9);
+  const delta = -range / 2 + (range / (count - 1)) * index;
+  return shiftHexLightness(base, delta);
+}
+
 type VsRow = {
   monthKey: string;
   label: string;
@@ -826,10 +891,16 @@ export function TrendsPage() {
                         )}
                         shared={false}
                       />
-                      {drillMeta.keys.map((key) => {
+                      {drillMeta.keys.map((key, keyIdx) => {
                         const id = Number(key.slice(2));
                         const meta = drillMeta.catById.get(id);
-                        const fill = meta?.color ?? 'var(--text-tertiary)';
+                        const fill = meta
+                          ? categoryShade(
+                              meta.color,
+                              keyIdx,
+                              drillMeta.keys.length
+                            )
+                          : 'var(--text-tertiary)';
                         const name = meta?.name ?? key;
                         return (
                           <Bar
@@ -857,7 +928,7 @@ export function TrendsPage() {
                   </ResponsiveContainer>
                 </div>
                 <div className="trends-chart-card__legend-below">
-                  {drillMeta.keys.map((key) => {
+                  {drillMeta.keys.map((key, keyIdx) => {
                     const id = Number(key.slice(2));
                     const meta = drillMeta.catById.get(id);
                     if (!meta) return null;
@@ -865,7 +936,13 @@ export function TrendsPage() {
                       <span key={key} className="trends-legend-item">
                         <span
                           className="trends-legend-swatch"
-                          style={{ background: meta.color }}
+                          style={{
+                            background: categoryShade(
+                              meta.color,
+                              keyIdx,
+                              drillMeta.keys.length
+                            ),
+                          }}
                           aria-hidden
                         />
                         {meta.name}

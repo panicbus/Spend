@@ -13,13 +13,13 @@ import {
   importFormatSelectGroups,
 } from '../../utils/csv-profiles';
 import { ImportColumnMapping } from './ImportColumnMapping';
+import { ImportCategoryMappingPanel } from './ImportCategoryMappingPanel';
 import { api } from '../../services/api';
 import { DATA_CHANGED_EVENT } from '../../utils/dataChanged';
 import { formatCurrency } from '../../services/formatters';
 import { Button } from '../common/Button';
 import { ImportCreateCategoryForm } from './ImportCreateCategoryForm';
 import { MappingTargetSelect } from '../common/MappingTargetSelect';
-import { mappingAssignmentToSelectValue } from '../../utils/mappingSelectValue';
 import { formatImportFileDateRange } from '../../utils/importDateRange';
 import { currentMonthKey, formatMonthLabel } from '../../utils/dates';
 import type { CommitImportResult } from '../../types/import';
@@ -70,10 +70,7 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
     updateColumnMappingDraft,
     confirmColumnMapping,
     columnMappingReady,
-    assignMapping,
-    setAssignmentDirect,
-    confirmMappings,
-    mappingsReady,
+    confirmMappingsFrom,
     overrideRow,
     setRowSkip,
     requestImport,
@@ -87,9 +84,6 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const dragDepthRef = useRef(0);
   const [dropError, setDropError] = useState<string | null>(null);
-  const [creatingMapExternal, setCreatingMapExternal] = useState<string | null>(
-    null
-  );
   const [creatingReviewKey, setCreatingReviewKey] = useState<string | null>(
     null
   );
@@ -388,84 +382,13 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
       )}
 
       {state.kind === 'mapping' && (
-        <div className="import-card">
-          <h2 className="import-card__title">Map categories to Spend.</h2>
-          <p className="import-card__sub">
-            We&apos;ll remember these for next time.
-          </p>
-          <ul className="import-map-list">
-            {state.unknownCategories.map((name) => {
-              const count = state.rows.filter(
-                (r) => r.externalCategory === name
-              ).length;
-              const label = name || '(Uncategorized)';
-              const isCreating = creatingMapExternal === name;
-              return (
-                <li key={name || '__empty__'} className="import-map-item">
-                  <div className="import-map-item__left">
-                    <span className="import-map-item__name">{label}</span>
-                    <span className="import-map-item__badge">
-                      {count} transactions
-                    </span>
-                  </div>
-                  {isCreating ? (
-                    <ImportCreateCategoryForm
-                      groupsSorted={groupsSorted}
-                      onCancel={() => setCreatingMapExternal(null)}
-                      onSubmitSuccess={async (categoryId) => {
-                        await api.saveCategoryMapping({
-                          externalName: name,
-                          targetType: 'category',
-                          targetId: categoryId,
-                          source: mappingSource,
-                        });
-                        await refreshGroups();
-                        setAssignmentDirect(name, {
-                          targetType: 'category',
-                          targetId: categoryId,
-                        });
-                        setCreatingMapExternal(null);
-                      }}
-                    />
-                  ) : (
-                    <MappingTargetSelect
-                      className="import-select import-map-item__select"
-                      value={mappingAssignmentToSelectValue(state.assignments[name])}
-                      onChange={(v) => {
-                        if (v === '__create_category__') {
-                          setCreatingMapExternal(name);
-                          return;
-                        }
-                        assignMapping(name, v);
-                      }}
-                      groups={groupsSorted}
-                      incomeSources={incomeSources}
-                      withCreateCategory
-                    />
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          <div className="import-actions import-actions--spread">
-            <Button
-              type="button"
-              variant="ghost"
-              className="import-btn-cancel"
-              onClick={reset}
-            >
-              Cancel import
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              disabled={!mappingsReady}
-              onClick={() => void confirmMappings()}
-            >
-              Continue
-            </Button>
-          </div>
-        </div>
+        <ImportCategoryMappingPanel
+          unknownCategories={state.unknownCategories}
+          rows={state.rows}
+          mappingSource={mappingSource}
+          onCancel={reset}
+          onConfirm={(assignments) => void confirmMappingsFrom(assignments)}
+        />
       )}
 
       {(state.kind === 'reviewing' ||

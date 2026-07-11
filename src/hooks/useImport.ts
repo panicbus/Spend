@@ -16,6 +16,7 @@ import type {
 } from '../types/import';
 import { api } from '../services/api';
 import { currentMonthKey } from '../utils/dates';
+import { isCategoryMappingReady } from '../utils/mappingSelectValue';
 
 export type RowOverride = {
   targetType: MappingTargetType;
@@ -196,16 +197,6 @@ function toCommitRow(row: ParsedRow, ov: RowOverride | undefined): CommitImportR
     targetId: e.targetId,
     skip,
   };
-}
-
-function isMappingReady(
-  unknownCategories: string[],
-  assignments: Record<
-    string,
-    { targetType: MappingTargetType; targetId: number | null }
-  >
-): boolean {
-  return unknownCategories.every((name) => assignments[name] !== undefined);
 }
 
 function applyParseResult(
@@ -426,64 +417,77 @@ export function useImport() {
     []
   );
 
+  const confirmMappingsFrom = useCallback(
+    async (
+      assignments: Record<
+        string,
+        { targetType: MappingTargetType; targetId: number | null }
+      >
+    ) => {
+      const s = stateRef.current;
+      if (s.kind !== 'mapping') return;
+      if (!isCategoryMappingReady(s.unknownCategories, assignments)) return;
+
+      const {
+        filePath,
+        profileId: activeProfileId,
+        genericMapping,
+        unknownCategories,
+      } = s;
+      const sessionAt = importSessionRef.current;
+      setState({ kind: 'parsing', filePath });
+      try {
+        await Promise.all(
+          unknownCategories.map((externalName) => {
+            const a = assignments[externalName];
+            if (!a) throw new Error('Missing mapping for a category.');
+            return api.saveCategoryMapping({
+              externalName,
+              targetType: a.targetType,
+              targetId: a.targetId,
+              source: activeProfileId,
+            });
+          })
+        );
+        if (importSessionRef.current !== sessionAt) return;
+        const result = await api.parseCSV(filePath, {
+          profileId: activeProfileId,
+          ...(activeProfileId === GENERIC_PROFILE_ID && genericMapping
+            ? { genericMapping }
+            : {}),
+        });
+        if (importSessionRef.current !== sessionAt) return;
+        if (result.unknownCategories.length > 0) {
+          setState({
+            kind: 'error',
+            message:
+              'Some categories are still unmapped after save. Please try again.',
+          });
+          return;
+        }
+        setState({
+          kind: 'reviewing',
+          filePath,
+          profileId: activeProfileId,
+          rows: result.rows,
+          rowOverrides: {},
+        });
+      } catch (e) {
+        if (importSessionRef.current !== sessionAt) return;
+        setState({
+          kind: 'error',
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    },
+    []
+  );
+
   const confirmMappings = useCallback(async () => {
     const s = stateRef.current;
     if (s.kind !== 'mapping') return;
-    if (!isMappingReady(s.unknownCategories, s.assignments)) return;
-
-    const {
-      filePath,
-      profileId: activeProfileId,
-      genericMapping,
-      unknownCategories,
-      assignments,
-    } = s;
-    const sessionAt = importSessionRef.current;
-    setState({ kind: 'parsing', filePath });
-    try {
-      await Promise.all(
-        unknownCategories.map((externalName) => {
-          const a = assignments[externalName];
-          if (!a) throw new Error('Missing mapping for a category.');
-          return api.saveCategoryMapping({
-            externalName,
-            targetType: a.targetType,
-            targetId: a.targetId,
-            source: activeProfileId,
-          });
-        })
-      );
-      if (importSessionRef.current !== sessionAt) return;
-      const result = await api.parseCSV(filePath, {
-        profileId: activeProfileId,
-        ...(activeProfileId === GENERIC_PROFILE_ID && genericMapping
-          ? { genericMapping }
-          : {}),
-      });
-      if (importSessionRef.current !== sessionAt) return;
-      if (result.unknownCategories.length > 0) {
-        setState({
-          kind: 'error',
-          message:
-            'Some categories are still unmapped after save. Please try again.',
-        });
-        return;
-      }
-      setState({
-        kind: 'reviewing',
-        filePath,
-        profileId: activeProfileId,
-        rows: result.rows,
-        rowOverrides: {},
-      });
-    } catch (e) {
-      if (importSessionRef.current !== sessionAt) return;
-      setState({
-        kind: 'error',
-        message: e instanceof Error ? e.message : String(e),
-      });
-    }
-  }, []);
+    await confirmMappingsFrom(s.assignments);
+  }, [confirmMappingsFrom]);
 
   const overrideRow = useCallback((rowIndex: number, selectValue: string) => {
     if (selectValue === '__create_category__') return;
@@ -636,7 +640,7 @@ export function useImport() {
 
   const mappingsReady =
     state.kind === 'mapping' &&
-    isMappingReady(state.unknownCategories, state.assignments);
+    isCategoryMappingReady(state.unknownCategories, state.assignments);
 
   const columnMappingReady =
     state.kind === 'column_mapping' && isColumnMappingDraftReady(state.draft);
@@ -654,6 +658,7 @@ export function useImport() {
     assignMapping,
     setAssignmentDirect,
     confirmMappings,
+    confirmMappingsFrom,
     mappingsReady,
     overrideRow,
     setRowSkip,

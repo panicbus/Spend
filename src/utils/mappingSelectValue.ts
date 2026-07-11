@@ -31,3 +31,13 @@ export function parseMappingSelectValue(v: string): {
   }
   return { targetType: 'skip', targetId: null };
 }
+
+export function isCategoryMappingReady(
+  unknownCategories: string[],
+  assignments: Record<
+    string,
+    { targetType: MappingTargetType; targetId: number | null } | undefined
+  >
+): boolean {
+  return unknownCategories.every((name) => assignments[name] !== undefined);
+}

@@ -9,7 +9,6 @@ import {
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import crypto from 'crypto';
 import { parse } from 'csv-parse/sync';
 import Database from 'better-sqlite3';
 import type {
@@ -70,8 +69,56 @@ import {
   peekCSV,
   profileNameForId,
 } from './src/utils/csvProfileParser.js';
+import { computeImportHash } from './importHash.js';
+import {
+  loadMappingNameLookups,
+  toCategoryMapping,
+  type MappingDbRow,
+} from './importMapping.js';
+import { runCommitImport } from './importCommit.js';
+import {
+  commitMappedMonarchRows,
+  isMonarchSyncEnabled,
+  syncFromMonarch,
+} from './monarch-sync.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** Load .env.build into process.env (only keys not already set). */
+function loadBuildEnv() {
+  const candidates = [
+    path.join(__dirname, '..', '.env.build'),
+    path.join(process.cwd(), '.env.build'),
+  ];
+  for (const envPath of candidates) {
+    if (!fs.existsSync(envPath)) continue;
+    try {
+      const content = fs.readFileSync(envPath, 'utf8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eq = trimmed.indexOf('=');
+        if (eq <= 0) continue;
+        const key = trimmed.slice(0, eq).trim();
+        let val = trimmed.slice(eq + 1).trim();
+        if (
+          (val.startsWith('"') && val.endsWith('"')) ||
+          (val.startsWith("'") && val.endsWith("'"))
+        ) {
+          val = val.slice(1, -1);
+        }
+        if (process.env[key] === undefined) {
+          process.env[key] = val;
+        }
+      }
+    } catch (e) {
+      console.warn('[Spend] could not read .env.build:', e);
+    }
+    break;
+  }
+}
+
+loadBuildEnv();
 
 /** Append one line to /tmp (or TMPDIR) for debugging dock-bounce exits; open `spend-electron-boot.log`. */
 function appendBootLog(message: string) {
@@ -621,17 +668,6 @@ function copyMonthTemplateIfNeeded(monthKey: string) {
   ).run(monthKey, prevKey);
 }
 
-function computeImportHash(
-  date: string,
-  merchant: string,
-  amountCents: number,
-  originalStatement: string
-): string {
-  const payload =
-    date + '|' + merchant + '|' + String(amountCents) + '|' + originalStatement;
-  return crypto.createHash('sha256').update(payload, 'utf8').digest('hex');
-}
-
 function assertMonarchHeader(header: string[]) {
   if (header.length < MONARCH_HEADERS.length) {
     throw new Error(
@@ -655,86 +691,6 @@ function parseAmountToCents(amountStr: string, rowLabel: string): number {
     throw new Error(`Invalid amount on ${rowLabel}: "${amountStr}"`);
   }
   return Math.round(n * 100);
-}
-
-type MappingDbRow = {
-  id: number;
-  external_name: string;
-  target_type: string;
-  target_id: number | null;
-};
-
-function targetDisplayName(
-  targetType: MappingTargetType,
-  targetId: number | null,
-  catNames: Map<number, string>,
-  incomeNames: Map<number, string>
-): string | undefined {
-  if (targetType === 'skip' || targetId == null) return undefined;
-  if (targetType === 'category') return catNames.get(targetId);
-  if (targetType === 'income_source') return incomeNames.get(targetId);
-  return undefined;
-}
-
-function toCategoryMapping(
-  row: MappingDbRow,
-  source: string,
-  catNames: Map<number, string>,
-  incomeNames: Map<number, string>
-): CategoryMapping {
-  const targetType = row.target_type as MappingTargetType;
-  if (targetType === 'skip' || row.target_id == null) {
-    return {
-      id: row.id,
-      source,
-      externalName: row.external_name,
-      targetType: 'skip',
-      targetId: null,
-    };
-  }
-  const tn = targetDisplayName(targetType, row.target_id, catNames, incomeNames);
-  if (!tn) {
-    /** Saved mapping still points at a deleted category or income source — treat as unassigned. */
-    return {
-      id: row.id,
-      source,
-      externalName: row.external_name,
-      targetType: 'skip',
-      targetId: null,
-    };
-  }
-  return {
-    id: row.id,
-    source,
-    externalName: row.external_name,
-    targetType,
-    targetId: row.target_id,
-    targetName: tn,
-  };
-}
-
-function loadMappingNameLookups(): {
-  catNames: Map<number, string>;
-  incomeNames: Map<number, string>;
-} {
-  const catRows = db
-    .prepare(
-      `SELECT c.id, c.name AS cat_name, g.name AS group_name
-       FROM categories c JOIN category_groups g ON c.group_id = g.id`
-    )
-    .all() as { id: number; cat_name: string; group_name: string }[];
-  const catNames = new Map<number, string>();
-  for (const r of catRows) {
-    catNames.set(r.id, `${r.cat_name} · ${r.group_name}`);
-  }
-  const incRows = db
-    .prepare('SELECT id, name FROM income_sources')
-    .all() as { id: number; name: string }[];
-  const incomeNames = new Map<number, string>();
-  for (const r of incRows) {
-    incomeNames.set(r.id, r.name);
-  }
-  return { catNames, incomeNames };
 }
 
 function parseMonarchCSV(filePath: string): {
@@ -764,7 +720,7 @@ function parseMonarchCSV(filePath: string): {
     throw new Error('This CSV has no transaction rows.');
   }
 
-  const { catNames, incomeNames } = loadMappingNameLookups();
+  const { catNames, incomeNames } = loadMappingNameLookups(db);
 
   const mappingRows = db
     .prepare(
@@ -2400,7 +2356,7 @@ function registerIpcHandlers() {
       return parseProfileCSV(filePath, mapping, {
         mappingSource: profileId,
         profileName: profileNameForId(profileId),
-        loadMappingNameLookups,
+        loadMappingNameLookups: () => loadMappingNameLookups(db),
         loadMappingRows: (source: string) =>
           db
             .prepare(
@@ -2413,7 +2369,7 @@ function registerIpcHandlers() {
   );
 
   ipcMain.handle('getCategoryMappings', () => {
-    const { catNames, incomeNames } = loadMappingNameLookups();
+    const { catNames, incomeNames } = loadMappingNameLookups(db);
     const mappingRows = db
       .prepare(
         `SELECT id, external_name, target_type, target_id
@@ -2500,120 +2456,30 @@ function registerIpcHandlers() {
     );
   });
 
-  ipcMain.handle('commitImport', (_, rows: CommitImportRow[]) => {
-    let imported = 0;
-    let skipped = 0;
-    let duplicates = 0;
-    let staleTargets = 0;
-    let addedExpenseCents = 0;
-    let addedIncomeCents = 0;
-    const expenseCatIds = new Set<number>();
-    const incomeSrcIds = new Set<number>();
-    const expenseByMonth: Record<string, number> = {};
+  ipcMain.handle('commitImport', (_, rows: CommitImportRow[]) =>
+    runCommitImport(db, Array.isArray(rows) ? rows : [])
+  );
 
-    const dupTx = db.prepare(
-      'SELECT 1 AS ok FROM transactions WHERE import_hash = ? LIMIT 1'
-    );
-    const dupInc = db.prepare(
-      'SELECT 1 AS ok FROM income_actuals WHERE import_hash = ? LIMIT 1'
-    );
-    const catExists = db.prepare(
-      'SELECT 1 AS ok FROM categories WHERE id = ? LIMIT 1'
-    );
-    const incomeSrcExists = db.prepare(
-      'SELECT 1 AS ok FROM income_sources WHERE id = ? LIMIT 1'
-    );
+  ipcMain.handle('isMonarchSyncEnabled', () => isMonarchSyncEnabled());
 
-    const insertTx = db.prepare(
-      `INSERT INTO transactions (
-         category_id, date, description, merchant, account, original_statement, notes,
-         amount_cents, source, import_hash
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'csv', ?)`
-    );
-    const insertInc = db.prepare(
-      `INSERT INTO income_actuals (source_id, date, description, amount_cents, import_hash)
-       VALUES (?, ?, ?, ?, ?)`
-    );
+  ipcMain.handle('syncFromMonarch', async () => {
+    if (!isMonarchSyncEnabled()) {
+      return {
+        status: 'error',
+        message: 'Monarch sync is not configured.',
+      } as const;
+    }
+    return syncFromMonarch({ db });
+  });
 
-    const runBatch = db.transaction((batch: CommitImportRow[]) => {
-      for (const row of batch) {
-        if (row.skip) {
-          skipped++;
-          continue;
-        }
-        if (dupTx.get(row.importHash) || dupInc.get(row.importHash)) {
-          duplicates++;
-          continue;
-        }
-        if (row.targetType === 'category' && row.targetId != null) {
-          if (
-            !Number.isFinite(row.targetId) ||
-            !catExists.get(row.targetId)
-          ) {
-            staleTargets++;
-            skipped++;
-            continue;
-          }
-          const stored = -row.amountCents;
-          insertTx.run(
-            row.targetId,
-            row.date,
-            row.merchant,
-            row.merchant,
-            row.account ?? '',
-            row.originalStatement,
-            row.notes,
-            stored,
-            row.importHash
-          );
-          imported++;
-          addedExpenseCents += stored;
-          expenseCatIds.add(row.targetId);
-          const mk = row.date.length >= 7 ? row.date.slice(0, 7) : '';
-          if (mk) {
-            expenseByMonth[mk] = (expenseByMonth[mk] ?? 0) + stored;
-          }
-        } else if (
-          row.targetType === 'income_source' &&
-          row.targetId != null
-        ) {
-          if (
-            !Number.isFinite(row.targetId) ||
-            !incomeSrcExists.get(row.targetId)
-          ) {
-            staleTargets++;
-            skipped++;
-            continue;
-          }
-          const stored = Math.abs(row.amountCents);
-          insertInc.run(
-            row.targetId,
-            row.date,
-            row.merchant,
-            stored,
-            row.importHash
-          );
-          imported++;
-          addedIncomeCents += stored;
-          incomeSrcIds.add(row.targetId);
-        } else {
-          skipped++;
-        }
-      }
-    });
-
-    runBatch(rows);
-    return {
-      imported,
-      skipped,
-      duplicates,
-      staleTargets,
-      addedExpenseCents,
-      addedIncomeCents,
-      addedExpenseCategoryCount: expenseCatIds.size,
-      addedIncomeSourceCount: incomeSrcIds.size,
-      addedExpenseCentsByMonth: expenseByMonth,
-    };
+  ipcMain.handle('commitMappedMonarchRows', (_, rows: ParsedRow[]) => {
+    if (!isMonarchSyncEnabled()) {
+      throw new Error('Monarch sync is not configured.');
+    }
+    return commitMappedMonarchRows(
+      { db },
+      Array.isArray(rows) ? rows : []
+    );
   });
 }
 

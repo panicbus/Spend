@@ -1,6 +1,6 @@
 {
   "name": "spend-app",
-  "version": "0.8.1",
+  "version": "0.9.1",
   "private": true,
   "description": "Personal budget and spending desktop app",
   "author": "Spend contributors",
@@ -78,8 +78,18 @@
       "icon": "build/icon.icns",
       "category": "public.app-category.finance",
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
       ],
       "identity": "NICHOLAS FREEDOM CRISAFULLI (KB8N3Q3ZAF)",
       "hardenedRuntime": true,

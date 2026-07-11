@@ -82,6 +82,11 @@ const api: SpendApi = {
   getMonthSpendingTotal: (monthKey) =>
     ipcRenderer.invoke('getMonthSpendingTotal', monthKey),
 
+  isMonarchSyncEnabled: () => ipcRenderer.invoke('isMonarchSyncEnabled'),
+  syncFromMonarch: () => ipcRenderer.invoke('syncFromMonarch'),
+  commitMappedMonarchRows: (rows) =>
+    ipcRenderer.invoke('commitMappedMonarchRows', rows),
+
   getTrends: (range) => ipcRenderer.invoke('getTrends', range),
 
   getMerchantInsights: (merchantName) =>

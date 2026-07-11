@@ -105,6 +105,12 @@ export const api = {
     monthKey: Parameters<SpendApi['getMonthSpendingTotal']>[0]
   ) => getBridge().getMonthSpendingTotal(monthKey),
 
+  isMonarchSyncEnabled: () => getBridge().isMonarchSyncEnabled(),
+  syncFromMonarch: () => getBridge().syncFromMonarch(),
+  commitMappedMonarchRows: (
+    rows: Parameters<SpendApi['commitMappedMonarchRows']>[0]
+  ) => getBridge().commitMappedMonarchRows(rows),
+
   getTrends: (range: Parameters<SpendApi['getTrends']>[0]) =>
     getBridge().getTrends(range),
 

@@ -93,7 +93,7 @@
   flex-basis: 100%;
   padding-left: 14px;
   font-size: 11px;
-  color: var(--text-tertiary);
+  color: color-mix(in srgb, var(--text-secondary) 45%, var(--text-primary));
 }
 
 @media (min-width: 520px) {

@@ -14,6 +14,10 @@
   "include": [
     "main.ts",
     "ipc-contract.ts",
+    "importHash.ts",
+    "importMapping.ts",
+    "importCommit.ts",
+    "monarch-sync.ts",
     "src/types/import.ts",
     "src/types/transactions.ts",
     "src/utils/csv-profiles.ts",

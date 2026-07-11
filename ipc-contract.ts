@@ -7,6 +7,7 @@ import type {
   GenericColumnMapping,
   ParseCSVOptions,
   ParseCSVResult,
+  ParsedRow,
   SaveCategoryMappingInput,
 } from './src/types/import.js';
 import type {
@@ -331,6 +332,16 @@ export interface TrendData {
   hasTrendsData: boolean;
 }
 
+export type MonarchSyncResult =
+  | { status: 'no-new'; lastSyncDate: string }
+  | {
+      status: 'needs-mapping';
+      rows: ParsedRow[];
+      unmappedCategories: string[];
+    }
+  | { status: 'imported'; transactionCount: number; lastSyncDate: string }
+  | { status: 'error'; message: string };
+
 export interface SpendApi {
   getGroups: () => Promise<GroupWithCategories[]>;
   createGroup: (payload: CreateGroupPayload) => Promise<{ id: number }>;
@@ -418,6 +429,12 @@ export interface SpendApi {
   checkDuplicates: (hashes: string[]) => Promise<number>;
   /** Sum of transaction amount_cents for the month (matches budget “spent” basis). */
   getMonthSpendingTotal: (monthKey: string) => Promise<number>;
+
+  isMonarchSyncEnabled: () => Promise<boolean>;
+  syncFromMonarch: () => Promise<MonarchSyncResult>;
+  commitMappedMonarchRows: (
+    rows: ParsedRow[]
+  ) => Promise<{ transactionCount: number }>;
 
   getTrends: (range: TrendRange) => Promise<TrendData>;
 
