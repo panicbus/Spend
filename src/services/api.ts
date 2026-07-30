@@ -99,8 +99,11 @@ export const api = {
   ) => getBridge().saveCategoryMapping(input),
   commitImport: (rows: Parameters<SpendApi['commitImport']>[0]) =>
     getBridge().commitImport(rows),
-  checkDuplicates: (hashes: Parameters<SpendApi['checkDuplicates']>[0]) =>
-    getBridge().checkDuplicates(hashes),
+  analyzeDuplicates: (rows: Parameters<SpendApi['analyzeDuplicates']>[0]) =>
+    getBridge().analyzeDuplicates(rows),
+  findDuplicateRows: () => getBridge().findDuplicateRows(),
+  deleteLedgerRows: (input: Parameters<SpendApi['deleteLedgerRows']>[0]) =>
+    getBridge().deleteLedgerRows(input),
   getMonthSpendingTotal: (
     monthKey: Parameters<SpendApi['getMonthSpendingTotal']>[0]
   ) => getBridge().getMonthSpendingTotal(monthKey),

@@ -11,6 +11,9 @@ import {
 import type {
   CommitImportResult,
   CommitImportRow,
+  DedupeRow,
+  DuplicateAnalysis,
+  DuplicateMatch,
   MappingTargetType,
   ParsedRow,
 } from '../types/import';
@@ -100,6 +103,8 @@ export type ImportState =
       profileId: string;
       rows: ParsedRow[];
       rowOverrides: Record<number, RowOverride>;
+      /** Set once the user has run a duplicate check, so the table can flag rows. */
+      analysis?: DuplicateAnalysis;
     }
   | {
       kind: 'checking_duplicates';
@@ -107,6 +112,7 @@ export type ImportState =
       profileId: string;
       rows: ParsedRow[];
       rowOverrides: Record<number, RowOverride>;
+      analysis?: DuplicateAnalysis;
     }
   | {
       kind: 'duplicate_warning';
@@ -114,9 +120,8 @@ export type ImportState =
       profileId: string;
       rows: ParsedRow[];
       rowOverrides: Record<number, RowOverride>;
-      duplicateCount: number;
+      analysis: DuplicateAnalysis;
       importCandidateCount: number;
-      newCount: number;
     }
   | { kind: 'committing' }
   | {
@@ -197,6 +202,39 @@ function toCommitRow(row: ParsedRow, ov: RowOverride | undefined): CommitImportR
     targetId: e.targetId,
     skip,
   };
+}
+
+/**
+ * Rows the dedupe should look at, indexed by their position in the commit
+ * payload so verdicts line up with what main inserts. Skipped rows are left out
+ * — they never land, so they cannot be a duplicate of anything.
+ */
+function dedupeCandidates(payload: CommitImportRow[]): DedupeRow[] {
+  const out: DedupeRow[] = [];
+  payload.forEach((r, i) => {
+    if (r.skip) return;
+    out.push({
+      rowIndex: i,
+      date: r.date,
+      merchant: r.merchant,
+      // Income is stored positive whatever sign the file used.
+      amountCents:
+        r.targetType === 'income_source'
+          ? Math.abs(r.amountCents)
+          : r.amountCents,
+      originalStatement: r.originalStatement,
+      account: r.account ?? '',
+      importHash: r.importHash,
+    });
+  });
+  return out;
+}
+
+/** Verdicts keyed by row position, for badging the review table. */
+export function duplicateMatchByRow(
+  analysis: DuplicateAnalysis | undefined
+): Map<number, DuplicateMatch> {
+  return new Map((analysis?.matches ?? []).map((m) => [m.rowIndex, m]));
 }
 
 function applyParseResult(
@@ -571,8 +609,8 @@ export function useImport() {
     const payload = rows.map((r) =>
       toCommitRow(r, rowOverrides[r.rowIndex])
     );
-    const hashes = payload.filter((r) => !r.skip).map((r) => r.importHash);
-    const importCandidateCount = hashes.length;
+    const candidates = dedupeCandidates(payload);
+    const importCandidateCount = candidates.length;
 
     if (importCandidateCount === 0) {
       await finishCommit(payload);
@@ -588,23 +626,20 @@ export function useImport() {
       rowOverrides,
     });
     try {
-      const duplicateCount = await api.checkDuplicates(hashes);
+      const analysis = await api.analyzeDuplicates(candidates);
       if (importSessionRef.current !== sessionAt) return;
-      if (duplicateCount === 0) {
+      if (analysis.duplicateCount === 0 && analysis.possibleCount === 0) {
         await finishCommit(payload);
         return;
       }
-      const newCount = importCandidateCount - duplicateCount;
-      if (importSessionRef.current !== sessionAt) return;
       setState({
         kind: 'duplicate_warning',
         filePath,
         profileId: activeProfileId,
         rows,
         rowOverrides,
-        duplicateCount,
+        analysis,
         importCandidateCount,
-        newCount,
       });
     } catch (e) {
       if (importSessionRef.current !== sessionAt) return;
@@ -615,15 +650,29 @@ export function useImport() {
     }
   }, [finishCommit]);
 
-  const confirmImportDespiteDuplicates = useCallback(async () => {
-    const s = stateRef.current;
-    if (s.kind !== 'duplicate_warning') return;
-    const { rows, rowOverrides } = s;
-    const payload = rows.map((r) =>
-      toCommitRow(r, rowOverrides[r.rowIndex])
-    );
-    await finishCommit(payload);
-  }, [finishCommit]);
+  /**
+   * Commit from the duplicate panel. Certain duplicates are dropped by the main
+   * process either way; `skipPossible` also holds back the near-matches.
+   */
+  const confirmImportDespiteDuplicates = useCallback(
+    async (skipPossible = false) => {
+      const s = stateRef.current;
+      if (s.kind !== 'duplicate_warning') return;
+      const { rows, rowOverrides, analysis } = s;
+      const payload = rows.map((r) =>
+        toCommitRow(r, rowOverrides[r.rowIndex])
+      );
+      if (skipPossible) {
+        for (const m of analysis.matches) {
+          if (m.verdict === 'possible' && payload[m.rowIndex]) {
+            payload[m.rowIndex] = { ...payload[m.rowIndex], skip: true };
+          }
+        }
+      }
+      await finishCommit(payload);
+    },
+    [finishCommit]
+  );
 
   const cancelDuplicateWarning = useCallback(() => {
     setState((s) => {
@@ -634,6 +683,7 @@ export function useImport() {
         profileId: s.profileId,
         rows: s.rows,
         rowOverrides: s.rowOverrides,
+        analysis: s.analysis,
       };
     });
   }, []);

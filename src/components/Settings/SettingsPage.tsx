@@ -25,6 +25,7 @@ import { useColorMode } from '../../theme/ColorModeContext';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
 import { MappingTargetSelect } from '../common/MappingTargetSelect';
+import { SettingsDuplicatesSection } from './SettingsDuplicatesSection';
 import './SettingsPage.css';
 
 const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '';
@@ -183,6 +184,7 @@ export function SettingsPage() {
       <SettingsCategoriesSection />
       <SettingsIncomeSection />
       <SettingsMappingsSection />
+      <SettingsDuplicatesSection />
       <SettingsDataSection />
       <SettingsPreferencesSection />
     </div>

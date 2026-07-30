@@ -419,3 +419,142 @@
   flex: 1 1 100%;
   margin-top: 6px;
 }
+
+/* Duplicate cleanup */
+
+.settings-dupe__summary {
+  margin: 16px 0 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.settings-dupe__bulk {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.settings-dupe__link {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.settings-dupe__link:hover {
+  text-decoration: underline;
+}
+
+.settings-dupe__list {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  max-height: 420px;
+  overflow-y: auto;
+  border: 0.5px solid var(--border);
+  border-radius: 10px;
+}
+
+.settings-dupe__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 0.5px solid var(--border);
+}
+
+.settings-dupe__item:last-child {
+  border-bottom: none;
+}
+
+.settings-dupe__item--maybe {
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+
+.settings-dupe__check {
+  display: flex;
+  align-items: center;
+}
+
+.settings-dupe__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settings-dupe__line {
+  display: grid;
+  grid-template-columns: 58px 84px minmax(0, 1.4fr) minmax(0, 1fr) 76px;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.settings-dupe__line--keep {
+  color: var(--text-tertiary);
+}
+
+.settings-dupe__role {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--danger-text);
+}
+
+.settings-dupe__line--keep .settings-dupe__role {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.settings-dupe__merchant,
+.settings-dupe__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-dupe__label {
+  color: var(--text-secondary);
+}
+
+.settings-dupe__line--keep .settings-dupe__label {
+  color: var(--text-tertiary);
+}
+
+.settings-dupe__amt {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-dupe__tag {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.settings-dupe__tag--maybe {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.settings-dupe__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.settings-dupe__total {
+  font-size: 13px;
+  color: var(--text-secondary);
+}

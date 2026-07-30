@@ -57,6 +57,7 @@ import type {
   MappingTargetType,
   ParseCSVOptions,
   ParsedRow,
+  DeleteLedgerRowsInput,
   SaveCategoryMappingInput,
 } from './src/types/import.js';
 import {
@@ -70,6 +71,11 @@ import {
   profileNameForId,
 } from './src/utils/csvProfileParser.js';
 import { computeImportHash } from './importHash.js';
+import {
+  analyzeImportCandidates,
+  findDuplicatePairs,
+  type DedupeRow,
+} from './dedupe.js';
 import {
   loadMappingNameLookups,
   toCategoryMapping,
@@ -2401,35 +2407,27 @@ function registerIpcHandlers() {
     }
   );
 
-  function countExistingImportHashes(hashes: string[]): number {
-    if (hashes.length === 0) return 0;
-    const unique = [...new Set(hashes.filter((h) => h != null && h !== ''))];
-    const existing = new Set<string>();
-    const chunkSize = 400;
-    for (let i = 0; i < unique.length; i += chunkSize) {
-      const chunk = unique.slice(i, i + chunkSize);
-      const ph = chunk.map(() => '?').join(',');
-      const found = db
-        .prepare(
-          `SELECT import_hash FROM transactions WHERE import_hash IN (${ph})
-           UNION
-           SELECT import_hash FROM income_actuals WHERE import_hash IN (${ph})`
-        )
-        .all(...chunk, ...chunk) as { import_hash: string }[];
-      for (const r of found) {
-        if (r.import_hash) existing.add(r.import_hash);
-      }
-    }
-    let n = 0;
-    for (const h of hashes) {
-      if (h && existing.has(h)) n++;
-    }
-    return n;
-  }
-
-  ipcMain.handle('checkDuplicates', (_, hashes: string[]) =>
-    countExistingImportHashes(Array.isArray(hashes) ? hashes : [])
+  ipcMain.handle('analyzeDuplicates', (_, rows: DedupeRow[]) =>
+    analyzeImportCandidates(db, Array.isArray(rows) ? rows : [])
   );
+
+  ipcMain.handle('findDuplicateRows', () => findDuplicatePairs(db));
+
+  ipcMain.handle('deleteLedgerRows', (_, input: DeleteLedgerRowsInput) => {
+    const txIds = (input?.transactionIds ?? []).filter((id) =>
+      Number.isInteger(id)
+    );
+    const incIds = (input?.incomeIds ?? []).filter((id) => Number.isInteger(id));
+    const delTx = db.prepare('DELETE FROM transactions WHERE id = ?');
+    const delInc = db.prepare('DELETE FROM income_actuals WHERE id = ?');
+    const run = db.transaction(() => {
+      let deleted = 0;
+      for (const id of txIds) deleted += delTx.run(id).changes;
+      for (const id of incIds) deleted += delInc.run(id).changes;
+      return deleted;
+    });
+    return { deleted: run() };
+  });
 
   ipcMain.handle('getMonthSpendingTotal', (_, monthKey: string) => {
     const row = db

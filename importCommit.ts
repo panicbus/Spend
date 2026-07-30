@@ -1,5 +1,10 @@
 import type Database from 'better-sqlite3';
 import type { CommitImportResult, CommitImportRow } from './src/types/import.js';
+import type { DedupeRow } from './dedupe.js';
+import {
+  analyzeImportCandidates,
+  importSpaceAmount,
+} from './dedupe.js';
 
 export function runCommitImport(
   db: Database.Database,
@@ -8,6 +13,7 @@ export function runCommitImport(
   let imported = 0;
   let skipped = 0;
   let duplicates = 0;
+  let possibleDuplicates = 0;
   let staleTargets = 0;
   let addedExpenseCents = 0;
   let addedIncomeCents = 0;
@@ -15,12 +21,6 @@ export function runCommitImport(
   const incomeSrcIds = new Set<number>();
   const expenseByMonth: Record<string, number> = {};
 
-  const dupTx = db.prepare(
-    'SELECT 1 AS ok FROM transactions WHERE import_hash = ? LIMIT 1'
-  );
-  const dupInc = db.prepare(
-    'SELECT 1 AS ok FROM income_actuals WHERE import_hash = ? LIMIT 1'
-  );
   const catExists = db.prepare(
     'SELECT 1 AS ok FROM categories WHERE id = ? LIMIT 1'
   );
@@ -39,16 +39,42 @@ export function runCommitImport(
      VALUES (?, ?, ?, ?, ?)`
   );
 
+  /**
+   * Dedupe is decided up front, over the whole batch, so a row can also be
+   * matched against earlier rows in the same file. Rows the user chose to skip
+   * stay out of it — they are not going in, so they cannot shadow anything.
+   */
+  const candidates: DedupeRow[] = [];
+  rows.forEach((row, i) => {
+    if (row.skip) return;
+    candidates.push({
+      rowIndex: i,
+      date: row.date,
+      merchant: row.merchant,
+      amountCents: importSpaceAmount(row.amountCents, row.targetType),
+      originalStatement: row.originalStatement,
+      account: row.account ?? '',
+      importHash: row.importHash,
+    });
+  });
+  const analysis = analyzeImportCandidates(db, candidates);
+  const verdictByRow = new Map(
+    analysis.matches.map((m) => [m.rowIndex, m.verdict])
+  );
+
   const runBatch = db.transaction((batch: CommitImportRow[]) => {
-    for (const row of batch) {
+    for (let i = 0; i < batch.length; i++) {
+      const row = batch[i];
       if (row.skip) {
         skipped++;
         continue;
       }
-      if (dupTx.get(row.importHash) || dupInc.get(row.importHash)) {
+      const verdict = verdictByRow.get(i);
+      if (verdict === 'duplicate') {
         duplicates++;
         continue;
       }
+      const possible = verdict === 'possible';
       if (row.targetType === 'category' && row.targetId != null) {
         if (!Number.isFinite(row.targetId) || !catExists.get(row.targetId)) {
           staleTargets++;
@@ -68,6 +94,7 @@ export function runCommitImport(
           row.importHash
         );
         imported++;
+        if (possible) possibleDuplicates++;
         addedExpenseCents += stored;
         expenseCatIds.add(row.targetId);
         const mk = row.date.length >= 7 ? row.date.slice(0, 7) : '';
@@ -89,6 +116,7 @@ export function runCommitImport(
           row.importHash
         );
         imported++;
+        if (possible) possibleDuplicates++;
         addedIncomeCents += stored;
         incomeSrcIds.add(row.targetId);
       } else {
@@ -102,6 +130,7 @@ export function runCommitImport(
     imported,
     skipped,
     duplicates,
+    possibleDuplicates,
     staleTargets,
     addedExpenseCents,
     addedIncomeCents,

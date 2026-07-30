@@ -204,6 +204,9 @@ api.parseCSV(filePath) → ParseCSVResult
 api.getCategoryMappings() → CategoryMapping[]
 api.saveCategoryMapping({ externalName, targetType, targetId }) → void
 api.commitImport(CommitImportRow[]) → CommitImportResult
+api.analyzeDuplicates(DedupeRow[]) → DuplicateAnalysis  // dedupe.ts: certain vs possible duplicates
+api.findDuplicateRows() → DuplicatePair[]              // ledger sweep for the Settings cleanup
+api.deleteLedgerRows({ transactionIds, incomeIds }) → { deleted }
 ```
 
 ## Versioning (semver)

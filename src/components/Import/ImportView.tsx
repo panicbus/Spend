@@ -3,6 +3,7 @@ import type { GroupWithCategories, IncomeSourceRow } from '../../../ipc-contract
 import type { ParsedRow } from '../../types/import';
 import {
   useImport,
+  duplicateMatchByRow,
   effectiveRowTarget,
   reviewSelectValue,
 } from '../../hooks/useImport';
@@ -22,7 +23,7 @@ import { ImportCreateCategoryForm } from './ImportCreateCategoryForm';
 import { MappingTargetSelect } from '../common/MappingTargetSelect';
 import { formatImportFileDateRange } from '../../utils/importDateRange';
 import { currentMonthKey, formatMonthLabel } from '../../utils/dates';
-import type { CommitImportResult } from '../../types/import';
+import type { CommitImportResult, DuplicateMatch } from '../../types/import';
 import './ImportView.css';
 
 function categoryColumnLabel(
@@ -45,6 +46,33 @@ function categoryColumnLabel(
     }
   }
   return row.mapping?.targetName ?? '—';
+}
+
+function duplicateBadge(match: DuplicateMatch | undefined): {
+  label: string;
+  title: string;
+  className: string;
+} | null {
+  if (!match) return null;
+  const where =
+    match.existing.id == null
+      ? 'another row in this file'
+      : `${match.existing.merchant || 'a transaction'} on ${match.existing.date}`;
+  if (match.verdict === 'duplicate') {
+    return {
+      label: 'Duplicate',
+      title: `Already imported — matches ${where}. This row will not be imported.`,
+      className: 'import-review__flag import-review__flag--dup',
+    };
+  }
+  return {
+    label: 'Possible dupe',
+    title:
+      match.reason === 'near_day'
+        ? `Same amount as ${where}, a few days apart. Imports unless you skip it.`
+        : `Looks like ${where}. Imports unless you skip it.`,
+    className: 'import-review__flag import-review__flag--maybe',
+  };
 }
 
 function amountClass(cents: number): string {
@@ -97,6 +125,17 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
         a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
       ),
     [groups]
+  );
+
+  const dupeAnalysis =
+    state.kind === 'reviewing' ||
+    state.kind === 'checking_duplicates' ||
+    state.kind === 'duplicate_warning'
+      ? state.analysis
+      : undefined;
+  const dupeMatches = useMemo(
+    () => duplicateMatchByRow(dupeAnalysis),
+    [dupeAnalysis]
   );
 
   const refreshGroups = useCallback(async () => {
@@ -432,6 +471,7 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
                 const reviewLocked =
                   state.kind === 'checking_duplicates' ||
                   state.kind === 'duplicate_warning';
+                const badge = duplicateBadge(dupeMatches.get(idx));
                 return (
                   <div
                     key={`${row.importHash}-${idx}`}
@@ -443,6 +483,11 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
                       title={row.merchant}
                     >
                       {row.merchant}
+                      {badge && (
+                        <span className={badge.className} title={badge.title}>
+                          {badge.label}
+                        </span>
+                      )}
                     </span>
                     <span className="import-review__cell import-review__cell--cat">
                       <span className="import-review__cat-label">
@@ -531,30 +576,52 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
             {state.kind === 'duplicate_warning' && (
               <div className="import-duplicate-panel">
                 <p className="import-duplicate-panel__lead">
-                  {state.newCount === 0
-                    ? `${state.duplicateCount} of ${state.importCandidateCount} rows already exist in your database — nothing new to import.`
-                    : `${state.duplicateCount} of ${state.importCandidateCount} rows already exist in your database.`}
+                  {state.analysis.duplicateCount > 0
+                    ? `${state.analysis.duplicateCount} of ${state.importCandidateCount} rows already exist in your database${
+                        state.analysis.newCount === 0
+                          ? ' — nothing new to import.'
+                          : '.'
+                      }`
+                    : `${state.analysis.possibleCount} of ${state.importCandidateCount} rows look like they may already exist.`}
                 </p>
-                {state.newCount > 0 ? (
+                {state.analysis.possibleCount > 0 ? (
                   <p className="import-duplicate-panel__sub">
-                    Only {state.newCount} new transaction
-                    {state.newCount === 1 ? '' : 's'} will be imported.
+                    {state.analysis.possibleCount} possible duplicate
+                    {state.analysis.possibleCount === 1 ? '' : 's'} — same
+                    amount within a few days of an existing transaction. They
+                    are marked in the review table.
+                  </p>
+                ) : null}
+                {state.analysis.newCount > 0 ? (
+                  <p className="import-duplicate-panel__sub">
+                    {state.analysis.newCount} transaction
+                    {state.analysis.newCount === 1 ? '' : 's'} will be imported.
                   </p>
                 ) : null}
                 <div
                   className={
-                    state.newCount === 0
+                    state.analysis.newCount === 0
                       ? 'import-duplicate-panel__btns import-duplicate-panel__btns--end'
                       : 'import-duplicate-panel__btns import-duplicate-panel__btns--split'
                   }
                 >
-                  {state.newCount > 0 ? (
+                  {state.analysis.newCount > 0 ? (
                     <Button
                       type="button"
                       variant="primary"
                       onClick={() => void confirmImportDespiteDuplicates()}
                     >
-                      Import {state.newCount} new
+                      Import {state.analysis.newCount} new
+                    </Button>
+                  ) : null}
+                  {state.analysis.newCount > 0 &&
+                  state.analysis.possibleCount > 0 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => void confirmImportDespiteDuplicates(true)}
+                    >
+                      Skip the {state.analysis.possibleCount} possible too
                     </Button>
                   ) : null}
                   <div className="import-duplicate-panel__btns-right">
@@ -651,6 +718,13 @@ function ImportDoneBody({
         {result.duplicates === 1 ? '' : 's'}
         {staleNote}.
       </p>
+      {result.possibleDuplicates > 0 ? (
+        <p className="import-done__text import-done__text--note">
+          {result.possibleDuplicates} imported row
+          {result.possibleDuplicates === 1 ? '' : 's'} looked like a possible
+          duplicate — worth a look in Transactions.
+        </p>
+      ) : null}
       <div className="import-done__details">
         {result.addedExpenseCents > 0 ? (
           <p className="import-done__detail">

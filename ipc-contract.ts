@@ -4,6 +4,10 @@ import type {
   CategoryMapping,
   CommitImportResult,
   CommitImportRow,
+  DedupeRow,
+  DeleteLedgerRowsInput,
+  DuplicateAnalysis,
+  DuplicatePair,
   GenericColumnMapping,
   ParseCSVOptions,
   ParseCSVResult,
@@ -21,6 +25,13 @@ export type {
   CategoryMapping,
   CommitImportResult,
   CommitImportRow,
+  DedupeRow,
+  DeleteLedgerRowsInput,
+  DuplicateAnalysis,
+  DuplicateMatch,
+  DuplicatePair,
+  DuplicateReason,
+  DuplicateRow,
   GenericColumnMapping,
   MappingTargetType,
   ParseCSVOptions,
@@ -425,8 +436,14 @@ export interface SpendApi {
   getCategoryMappings: () => Promise<CategoryMapping[]>;
   saveCategoryMapping: (input: SaveCategoryMappingInput) => Promise<void>;
   commitImport: (rows: CommitImportRow[]) => Promise<CommitImportResult>;
-  /** How many of the given import hashes already exist in transactions or income_actuals (row-wise). */
-  checkDuplicates: (hashes: string[]) => Promise<number>;
+  /** Match rows about to be imported against existing transactions and each other. */
+  analyzeDuplicates: (rows: DedupeRow[]) => Promise<DuplicateAnalysis>;
+  /** Sweep the stored ledger for duplicate pairs (older row kept, newer offered for removal). */
+  findDuplicateRows: () => Promise<DuplicatePair[]>;
+  /** Delete ledger rows by id; used by the duplicate cleanup in Settings. */
+  deleteLedgerRows: (
+    input: DeleteLedgerRowsInput
+  ) => Promise<{ deleted: number }>;
   /** Sum of transaction amount_cents for the month (matches budget “spent” basis). */
   getMonthSpendingTotal: (monthKey: string) => Promise<number>;
 

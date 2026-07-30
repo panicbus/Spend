@@ -63,10 +63,77 @@ export interface CommitImportRow {
   skip: boolean;
 }
 
+/** A row about to be imported, as handed to the dedupe matcher. */
+export interface DedupeRow {
+  rowIndex: number;
+  date: string;
+  merchant: string;
+  amountCents: number;
+  originalStatement: string;
+  account?: string | null;
+  importHash: string;
+}
+
+export type DuplicateReason = 'hash' | 'same_day' | 'near_day' | 'same_file';
+
+export interface DuplicateMatch {
+  rowIndex: number;
+  /** `duplicate` is skipped on commit; `possible` imports unless the user skips it. */
+  verdict: 'duplicate' | 'possible';
+  reason: DuplicateReason;
+  /** What it matched: an existing transaction, or (id null) an earlier row in the same file. */
+  existing: {
+    id: number | null;
+    date: string;
+    merchant: string;
+    amountCents: number;
+    account: string;
+  };
+}
+
+export interface DuplicateAnalysis {
+  matches: DuplicateMatch[];
+  duplicateCount: number;
+  possibleCount: number;
+  /** Candidate rows minus certain duplicates. */
+  newCount: number;
+}
+
+/** A stored ledger row, as shown in the duplicate cleanup list. */
+export interface DuplicateRow {
+  id: number;
+  kind: 'transaction' | 'income';
+  date: string;
+  merchant: string;
+  /** Display space: expenses negative, income positive. */
+  amountCents: number;
+  /** Category name, or income source name. */
+  label: string;
+  account: string;
+  source: 'csv' | 'manual';
+  createdAt: string;
+}
+
+/** Two stored rows that look like the same charge: keep the older, remove the newer. */
+export interface DuplicatePair {
+  keep: DuplicateRow;
+  remove: DuplicateRow;
+  verdict: 'duplicate' | 'possible';
+  reason: DuplicateReason;
+}
+
+export interface DeleteLedgerRowsInput {
+  transactionIds: number[];
+  incomeIds: number[];
+}
+
 export interface CommitImportResult {
   imported: number;
   skipped: number;
+  /** Rows the dedupe matched to an existing transaction and did not insert. */
   duplicates: number;
+  /** Rows imported despite looking like a near-match (date drift, same-file echo). */
+  possibleDuplicates: number;
   /** Rows not imported because category_id or source_id no longer exists (stale mapping). */
   staleTargets: number;
   /** Expense cents inserted this commit (category targets only). */

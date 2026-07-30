@@ -45,6 +45,27 @@ Schema source of truth: `database/schema.sql`.
 
 Indexes support queries by month, category, and import hash.
 
+### Import dedupe (`dedupe.ts`)
+
+`import_hash` (date + merchant + amount + statement) only catches byte-identical
+re-exports. Banks and Monarch rewrite merchant and statement text between
+exports of the same charge, so matching also runs on normalized fields:
+
+- **duplicate** — same day, same amount, compatible account, and a merchant or
+  statement that is equal to (or a token-prefix of) the existing one. Never
+  inserted; `runCommitImport` is the authority, so a stale renderer cannot force
+  one through.
+- **possible** — same amount within `NEAR_DAY_WINDOW` days (pending vs posted),
+  or a near-match against an earlier row in the same file. Imported, badged in
+  the review table, with a one-click “skip these too” in the duplicate panel.
+
+Matching is 1:1 — an existing row absorbs at most one incoming row — so two real
+same-day charges of the same amount both survive when the file contains both.
+
+The same rules run over stored rows via `findDuplicatePairs`, backing the
+duplicate cleanup in Settings: rows are walked oldest-first, the longest-standing
+copy is kept, and later copies are offered for removal.
+
 ---
 
 ## IPC surface (`SpendApi`)
@@ -74,7 +95,8 @@ The full method list and types live in **`ipc-contract.ts`**. Summary:
 - `openCSVDialog`, `parseCSV` (Monarch-style CSV → parsed rows + unknown category names)
 - `getCategoryMappings`, `saveCategoryMapping`, `deleteCategoryMapping`
 - `createCategoryForImport` — atomic create category (and optionally new group) from the import flow
-- `commitImport`, `checkDuplicates`
+- `commitImport`, `analyzeDuplicates` (see “Import dedupe” above)
+- `findDuplicateRows`, `deleteLedgerRows` — duplicate cleanup in Settings
 - `getMonthSpendingTotal(monthKey)` — spending total aligned with budget “spent” basis
 
 **Analytics & notes**
@@ -92,6 +114,7 @@ The full method list and types live in **`ipc-contract.ts`**. Summary:
 | `/` | `BudgetDashboard` | Month nav, summary cards, pulse checks, **spending donut** (allocation by budget group), **category grid**, income section, **month notes**, add-group / add-categories modals. Donut: tooltip on ring, legend label hover syncs slice highlight, click-through to transactions for that group/month with “Back to Budget”. |
 | `/transactions` | `TransactionList` | Merged expense + income table; month or range; category filters; search; accordion row detail (notes, import date, recategorize, delete); note badge + tooltip; **merchant insights** when eligible; deep links via query params (`rangeFrom`/`rangeTo`, `category`, `categories`, `incomeSource`, `incomeLine`); “Back to Trends” / “Back to Budget”. |
 | `/trends` | `TrendsPage` | Range presets, charts/tables, drill-down to transactions (clears budget return context when used), links to budget month where relevant, month notes where loaded. |
+| `/settings` (Duplicates) | `SettingsDuplicatesSection` | Scan the ledger for duplicate pairs, review certain vs possible matches, remove selected rows. |
 | `/import` | `ImportView` | CSV pick, parse, review rows, map unknowns, create category/group from import, duplicate checks, commit with detailed result counts. |
 | `/settings` | `SettingsPage` | Categories & groups, income sources, import mappings, data export/import/reset, preferences (appearance, default month on launch). |
 
