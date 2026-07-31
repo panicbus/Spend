@@ -5,6 +5,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Rectangle,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -41,14 +42,29 @@ const RANGE_OPTIONS: { value: TrendRange; label: string }[] = [
 const MAX_BAR_SIZE = 72;
 
 /**
- * A one- or two-month range leaves a band chart with almost nothing to plot, and
- * Recharts centres what little there is. Cap the plot instead so the bars sit
- * left and the empty space collects on the right.
+ * Recharts spreads a lone band across the whole plot, centring it. Padding the
+ * series with empty slots keeps real months to the left with the blank space on
+ * the right — and unlike capping the plot's width, it leaves the chart geometry
+ * alone, so switching ranges stays a plain data swap with nothing to re-measure.
  */
-function plotClass(monthCount: number): string {
-  if (monthCount <= 1) return 'trends-chart-card__plot trends-chart-card__plot--one';
-  if (monthCount === 2) return 'trends-chart-card__plot trends-chart-card__plot--two';
-  return 'trends-chart-card__plot';
+const MIN_PLOT_SLOTS = 4;
+const PAD_SLOT_PREFIX = '__pad:';
+
+function isPadSlot(monthKey: unknown): boolean {
+  return typeof monthKey === 'string' && monthKey.startsWith(PAD_SLOT_PREFIX);
+}
+
+function padPlotRows<T extends object>(rows: T[]): T[] {
+  if (rows.length === 0 || rows.length >= 3) return rows;
+  const padded = [...rows];
+  for (let i = rows.length; i < MIN_PLOT_SLOTS; i++) {
+    // Carries no value keys, so every bar renders nothing for these slots.
+    padded.push({
+      monthKey: `${PAD_SLOT_PREFIX}${i}`,
+      label: '',
+    } as unknown as T);
+  }
+  return padded;
 }
 
 const INCOME_FILL: string[] = [
@@ -265,6 +281,19 @@ function truncateTrendNote(note: string): string {
   return note.length > 100 ? `${note.slice(0, 100)}…` : note;
 }
 
+/**
+ * Recharts highlights whichever band the pointer is over, padding slots included —
+ * a grey block hanging in the empty space beside a short range. Draw the default
+ * rectangle over real months and nothing over the padding.
+ */
+function TrendsCursor(props: {
+  payload?: Array<{ payload?: { monthKey?: string } }>;
+}) {
+  const { payload, ...rest } = props;
+  if (isPadSlot(payload?.[0]?.payload?.monthKey)) return null;
+  return <Rectangle {...(rest as React.ComponentProps<typeof Rectangle>)} />;
+}
+
 function TrendsTooltipNote({ note }: { note?: string }) {
   if (!note) return null;
   return (
@@ -287,7 +316,7 @@ function VsBudgetTooltip({
 }: TrendsTooltipProps) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload as VsRow | undefined;
-  if (!row) return null;
+  if (!row || isPadSlot(row.monthKey)) return null;
   const idx = months.findIndex((m) => m.monthKey === row.monthKey);
   const prev = idx > 0 ? months[idx - 1] : null;
   const prevActual = prev?.totalSpendingCents ?? 0;
@@ -331,6 +360,7 @@ function StackSliceTooltip({
 }) {
   if (!active || !payload?.length) return null;
   const p = payload[0];
+  if (isPadSlot(p.payload?.monthKey)) return null;
   const name = p.name != null ? String(p.name) : String(p.dataKey ?? '');
   const cents = Number(p.value) || 0;
   const row = p.payload;
@@ -374,7 +404,7 @@ function NetTooltip({
 }) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
-  if (!row) return null;
+  if (!row || isPadSlot(row.monthKey)) return null;
   const idx = months.findIndex((m) => m.monthKey === row.monthKey);
   const prev = idx > 0 ? months[idx - 1] : null;
   const prevNet = prev?.netCents ?? 0;
@@ -415,6 +445,7 @@ function ClickableMonthTick({
   monthNotes,
 }: XTickProps) {
   const mk = payload?.value ?? '';
+  if (isPadSlot(mk)) return null;
   const m = months.find((row) => row.monthKey === mk);
   const text = m?.label ?? mk;
   const hasNote = Boolean(monthNotes?.[mk]);
@@ -458,6 +489,14 @@ export function TrendsPage() {
     null
   );
   const categorySectionRef = useRef<React.ElementRef<'section'> | null>(null);
+  /**
+   * Recharts picks its animation per bar index: a bar that existed in the previous
+   * render morphs into place, one that did not grows up from zero. So a range with
+   * fewer months than the last only ever morphs — no grow-in at all. Remounting
+   * the bars on every data swap clears that previous-render state, so they all
+   * grow in, the same way in both directions and on first paint.
+   */
+  const animationTokenRef = useRef(0);
   const incomeSectionRef = useRef<React.ElementRef<'section'> | null>(null);
   const pendingScrollToTrendsSectionRef = useRef<'category' | 'income' | null>(
     null
@@ -598,14 +637,17 @@ export function TrendsPage() {
     [navigate]
   );
 
+  const animationToken = useMemo(() => (animationTokenRef.current += 1), [data]);
+
   const vsRows = useMemo(
-    () => (data ? buildVsRows(data.months) : []),
+    () => (data ? padPlotRows(buildVsRows(data.months)) : []),
     [data]
   );
   const groupStackRows = useMemo(
-    () => (data ? buildGroupStackRows(data.months, data.groups) : []),
+    () => (data ? padPlotRows(buildGroupStackRows(data.months, data.groups)) : []),
     [data]
   );
+
   const drillMeta = useMemo(() => {
     if (!data || drillGroupId == null) return null;
     const g = data.groups.find((x) => x.id === drillGroupId);
@@ -623,11 +665,14 @@ export function TrendsPage() {
         }
       }
     }
-    return { groupName: g.name, rows, keys, catById };
+    return { groupName: g.name, rows: padPlotRows(rows), keys, catById };
   }, [data, drillGroupId]);
 
   const incomeStackRows = useMemo(
-    () => (data ? buildIncomeStackRows(data.months, data.incomeSources) : []),
+    () =>
+      data
+        ? padPlotRows(buildIncomeStackRows(data.months, data.incomeSources))
+        : [],
     [data]
   );
 
@@ -639,7 +684,7 @@ export function TrendsPage() {
       data.months,
       drillIncomeSourceId
     );
-    return { sourceName: src.name, rows, lineLabels };
+    return { sourceName: src.name, rows: padPlotRows(rows), lineLabels };
   }, [data, drillIncomeSourceId]);
 
   const netRows = useMemo(
@@ -663,7 +708,10 @@ export function TrendsPage() {
   // One month of activity is the point of the "Last month" range, not a gap in
   // the data, so the import nudge stays out of its way.
   const showSparseCallout =
-    !!data && data.hasTrendsData && data.monthsWithActivity < 2 && range !== '1m';
+    !!data &&
+    data.hasTrendsData &&
+    data.monthsWithActivity < 2 &&
+    data.range !== '1m';
 
   return (
     <div className="trends-page">
@@ -756,7 +804,7 @@ export function TrendsPage() {
                     Actual (green under budget, red over)
                   </span>
                 </div>
-                <div className={plotClass(data.months.length)}>
+                <div className="trends-chart-card__plot">
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart
                       maxBarSize={MAX_BAR_SIZE}
@@ -793,6 +841,7 @@ export function TrendsPage() {
                         width={56}
                       />
                       <Tooltip
+                        cursor={<TrendsCursor />}
                         content={(props) => (
                           <VsBudgetTooltip
                             {...props}
@@ -802,6 +851,7 @@ export function TrendsPage() {
                         )}
                       />
                       <Bar
+                        key={`${animationToken}-budget`}
                         dataKey="budgetCents"
                         name="Budget"
                         fill="var(--text-tertiary)"
@@ -810,6 +860,7 @@ export function TrendsPage() {
                         animationDuration={400}
                       />
                       <Bar
+                        key={`${animationToken}-actual`}
                         dataKey="actualCents"
                         name="Actual"
                         radius={[4, 4, 0, 0]}
@@ -869,7 +920,7 @@ export function TrendsPage() {
               <div className="trends-chart-card__skeleton" aria-hidden />
             ) : drillMeta ? (
               <>
-                <div className={plotClass(data.months.length)}>
+                <div className="trends-chart-card__plot">
                   <ResponsiveContainer width="100%" height={320}>
                     <BarChart
                       maxBarSize={MAX_BAR_SIZE}
@@ -905,6 +956,7 @@ export function TrendsPage() {
                         width={56}
                       />
                       <Tooltip
+                        cursor={<TrendsCursor />}
                         content={(props) => (
                           <StackSliceTooltip {...props} monthNotes={monthNotes} />
                         )}
@@ -923,7 +975,7 @@ export function TrendsPage() {
                         const name = meta?.name ?? key;
                         return (
                           <Bar
-                            key={key}
+                            key={`${animationToken}-${key}`}
                             dataKey={key}
                             name={name}
                             stackId="a"
@@ -972,7 +1024,7 @@ export function TrendsPage() {
               </>
             ) : (
               <>
-                <div className={plotClass(data.months.length)}>
+                <div className="trends-chart-card__plot">
                   <ResponsiveContainer width="100%" height={320}>
                     <BarChart
                       maxBarSize={MAX_BAR_SIZE}
@@ -1008,6 +1060,7 @@ export function TrendsPage() {
                         width={56}
                       />
                       <Tooltip
+                        cursor={<TrendsCursor />}
                         content={(props) => (
                           <StackSliceTooltip {...props} monthNotes={monthNotes} />
                         )}
@@ -1015,7 +1068,7 @@ export function TrendsPage() {
                       />
                       {data.groups.map((g) => (
                         <Bar
-                          key={g.id}
+                          key={`${animationToken}-${g.id}`}
                           dataKey={`g_${g.id}`}
                           name={g.name}
                           stackId="a"
@@ -1088,7 +1141,7 @@ export function TrendsPage() {
                 </p>
               ) : (
                 <>
-                  <div className={plotClass(data.months.length)}>
+                  <div className="trends-chart-card__plot">
                     <ResponsiveContainer width="100%" height={320}>
                       <BarChart
                         maxBarSize={MAX_BAR_SIZE}
@@ -1124,6 +1177,7 @@ export function TrendsPage() {
                           width={56}
                         />
                         <Tooltip
+                          cursor={<TrendsCursor />}
                           content={(props) => (
                             <StackSliceTooltip {...props} monthNotes={monthNotes} />
                           )}
@@ -1131,7 +1185,7 @@ export function TrendsPage() {
                         />
                         {incomeDrillMeta.lineLabels.map((label, i) => (
                           <Bar
-                            key={`il_${i}_${label}`}
+                            key={`${animationToken}-il_${i}_${label}`}
                             dataKey={`il_${i}`}
                             name={label}
                             stackId="incDrill"
@@ -1175,7 +1229,7 @@ export function TrendsPage() {
               )
             ) : (
               <>
-                <div className={plotClass(data.months.length)}>
+                <div className="trends-chart-card__plot">
                   <ResponsiveContainer width="100%" height={320}>
                     <BarChart
                       maxBarSize={MAX_BAR_SIZE}
@@ -1211,6 +1265,7 @@ export function TrendsPage() {
                         width={56}
                       />
                       <Tooltip
+                        cursor={<TrendsCursor />}
                         content={(props) => (
                           <StackSliceTooltip {...props} monthNotes={monthNotes} />
                         )}
@@ -1218,7 +1273,7 @@ export function TrendsPage() {
                       />
                       {data.incomeSources.map((s) => (
                         <Bar
-                          key={s.id}
+                          key={`${animationToken}-${s.id}`}
                           dataKey={`i_${s.id}`}
                           name={s.name}
                           stackId="inc"
@@ -1303,7 +1358,7 @@ export function TrendsPage() {
             {loading || !data ? (
               <div className="trends-chart-card__skeleton" aria-hidden />
             ) : (
-              <div className={plotClass(data.months.length)}>
+              <div className="trends-chart-card__plot">
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart
                     maxBarSize={MAX_BAR_SIZE}
@@ -1344,6 +1399,7 @@ export function TrendsPage() {
                       width={56}
                     />
                     <Tooltip
+                      cursor={<TrendsCursor />}
                       content={(props) => (
                         <NetTooltip
                           {...props}
@@ -1353,6 +1409,7 @@ export function TrendsPage() {
                       )}
                     />
                     <Bar
+                      key={`${animationToken}-net`}
                       dataKey="netCents"
                       name="Net"
                       radius={[4, 4, 0, 0]}
