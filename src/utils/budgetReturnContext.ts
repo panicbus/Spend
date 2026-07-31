@@ -5,6 +5,8 @@ export interface BudgetReturnContext {
   monthKey: string;
   /** Re-open the category group overlay / expanded card after return. */
   openGroupId?: number;
+  /** Scroll offset of the route container when Transactions was opened. */
+  scrollY?: number;
 }
 
 export function setBudgetReturnContext(ctx: BudgetReturnContext): void {
@@ -33,9 +35,15 @@ export function readBudgetReturnContext(): BudgetReturnContext | null {
       v.openGroupId > 0
         ? v.openGroupId
         : undefined;
-    return openGroupId != null
-      ? { monthKey: v.monthKey, openGroupId }
-      : { monthKey: v.monthKey };
+    const scrollY =
+      typeof v.scrollY === 'number' && Number.isFinite(v.scrollY) && v.scrollY > 0
+        ? v.scrollY
+        : undefined;
+    return {
+      monthKey: v.monthKey,
+      ...(openGroupId != null ? { openGroupId } : {}),
+      ...(scrollY != null ? { scrollY } : {}),
+    };
   } catch {
     return null;
   }

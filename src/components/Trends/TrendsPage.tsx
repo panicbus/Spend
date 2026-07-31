@@ -29,12 +29,27 @@ import { Button } from '../common/Button';
 import './TrendsPage.css';
 
 const RANGE_OPTIONS: { value: TrendRange; label: string }[] = [
+  { value: '1m', label: 'Last month' },
   { value: '3m', label: 'Last 3 months' },
   { value: '6m', label: 'Last 6 months' },
   { value: '12m', label: 'Last 12 months' },
   { value: 'ytd', label: 'Year to date' },
   { value: 'all', label: 'All time' },
 ];
+
+/** Keeps bars readable when a range holds only one or two months. */
+const MAX_BAR_SIZE = 72;
+
+/**
+ * A one- or two-month range leaves a band chart with almost nothing to plot, and
+ * Recharts centres what little there is. Cap the plot instead so the bars sit
+ * left and the empty space collects on the right.
+ */
+function plotClass(monthCount: number): string {
+  if (monthCount <= 1) return 'trends-chart-card__plot trends-chart-card__plot--one';
+  if (monthCount === 2) return 'trends-chart-card__plot trends-chart-card__plot--two';
+  return 'trends-chart-card__plot';
+}
 
 const INCOME_FILL: string[] = [
   '#1d6b8c',
@@ -645,8 +660,10 @@ export function TrendsPage() {
   }, [data]);
 
   const showCharts = data?.hasTrendsData;
+  // One month of activity is the point of the "Last month" range, not a gap in
+  // the data, so the import nudge stays out of its way.
   const showSparseCallout =
-    !!data && data.hasTrendsData && data.monthsWithActivity < 2;
+    !!data && data.hasTrendsData && data.monthsWithActivity < 2 && range !== '1m';
 
   return (
     <div className="trends-page">
@@ -739,9 +756,10 @@ export function TrendsPage() {
                     Actual (green under budget, red over)
                   </span>
                 </div>
-                <div className="trends-chart-card__plot">
+                <div className={plotClass(data.months.length)}>
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart
+                      maxBarSize={MAX_BAR_SIZE}
                       data={vsRows}
                       margin={{ top: 8, right: 12, left: 4, bottom: 4 }}
                       barGap={4}
@@ -851,9 +869,10 @@ export function TrendsPage() {
               <div className="trends-chart-card__skeleton" aria-hidden />
             ) : drillMeta ? (
               <>
-                <div className="trends-chart-card__plot">
+                <div className={plotClass(data.months.length)}>
                   <ResponsiveContainer width="100%" height={320}>
                     <BarChart
+                      maxBarSize={MAX_BAR_SIZE}
                       data={drillMeta.rows}
                       margin={{ top: 8, right: 12, left: 4, bottom: 4 }}
                     >
@@ -953,9 +972,10 @@ export function TrendsPage() {
               </>
             ) : (
               <>
-                <div className="trends-chart-card__plot">
+                <div className={plotClass(data.months.length)}>
                   <ResponsiveContainer width="100%" height={320}>
                     <BarChart
+                      maxBarSize={MAX_BAR_SIZE}
                       data={groupStackRows}
                       margin={{ top: 8, right: 12, left: 4, bottom: 4 }}
                     >
@@ -1068,9 +1088,10 @@ export function TrendsPage() {
                 </p>
               ) : (
                 <>
-                  <div className="trends-chart-card__plot">
+                  <div className={plotClass(data.months.length)}>
                     <ResponsiveContainer width="100%" height={320}>
                       <BarChart
+                        maxBarSize={MAX_BAR_SIZE}
                         data={incomeDrillMeta.rows}
                         margin={{ top: 8, right: 12, left: 4, bottom: 4 }}
                       >
@@ -1154,9 +1175,10 @@ export function TrendsPage() {
               )
             ) : (
               <>
-                <div className="trends-chart-card__plot">
+                <div className={plotClass(data.months.length)}>
                   <ResponsiveContainer width="100%" height={320}>
                     <BarChart
+                      maxBarSize={MAX_BAR_SIZE}
                       data={incomeStackRows}
                       margin={{ top: 8, right: 12, left: 4, bottom: 4 }}
                     >
@@ -1281,9 +1303,10 @@ export function TrendsPage() {
             {loading || !data ? (
               <div className="trends-chart-card__skeleton" aria-hidden />
             ) : (
-              <div className="trends-chart-card__plot">
+              <div className={plotClass(data.months.length)}>
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart
+                    maxBarSize={MAX_BAR_SIZE}
                     data={netRows}
                     margin={{ top: 8, right: 12, left: 4, bottom: 4 }}
                   >

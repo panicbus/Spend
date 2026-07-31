@@ -249,7 +249,7 @@ export interface IncomeSourceDeletePreview {
 export type ResetDatabaseMode = 'transactions' | 'full';
 
 /** Preset windows for the Trends analytics page. */
-export type TrendRange = '3m' | '6m' | '12m' | 'ytd' | 'all';
+export type TrendRange = '1m' | '3m' | '6m' | '12m' | 'ytd' | 'all';
 
 export interface TrendGroupSlice {
   groupId: number;

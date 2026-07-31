@@ -9,6 +9,7 @@ import type { BudgetGroup } from '../../../ipc-contract';
 import type { BudgetReturnContext } from '../../utils/budgetReturnContext';
 import { setBudgetReturnContext } from '../../utils/budgetReturnContext';
 import { clearTrendsReturnContext } from '../../utils/trendsReturnContext';
+import { readMainScrollY, restoreMainScrollY } from '../../utils/mainScroll';
 import { useSyncedMonthKey } from '../../hooks/useSyncedMonthKey';
 import { useBudget } from '../../hooks/useBudget';
 import { SummaryCards } from './SummaryCards';
@@ -31,6 +32,8 @@ export function BudgetDashboard() {
     useBudget(monthKey);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const categoryGridRef = useRef<HTMLDivElement>(null);
+  /** Scroll offset to reapply once the returned-to budget page has content. */
+  const pendingScrollRef = useRef<number | null>(null);
 
   const {
     status: setupStatus,
@@ -65,8 +68,20 @@ export function BudgetDashboard() {
     if (restore.openGroupId != null) {
       setExpandedId(restore.openGroupId);
     }
+    // Handed to the effect below: clearing router state re-runs this one, which
+    // would tear down a restore started here before the page has filled in.
+    if (restore.scrollY != null) {
+      pendingScrollRef.current = restore.scrollY;
+    }
     navigate('/', { replace: true, state: null });
   }, [location.state, navigate, setMonthKey]);
+
+  useEffect(() => {
+    const y = pendingScrollRef.current;
+    pendingScrollRef.current = null;
+    if (y == null) return;
+    return restoreMainScrollY(y);
+  }, []);
 
   const openBudgetMonthTransactions = useCallback(
     (
@@ -74,9 +89,11 @@ export function BudgetDashboard() {
       opts?: Pick<BudgetReturnContext, 'openGroupId'>
     ) => {
       clearTrendsReturnContext();
+      const scrollY = readMainScrollY();
       const ctx: BudgetReturnContext = {
         monthKey,
         ...(opts?.openGroupId != null ? { openGroupId: opts.openGroupId } : {}),
+        ...(scrollY > 0 ? { scrollY } : {}),
       };
       setBudgetReturnContext(ctx);
       navigate(`/transactions?${params.toString()}`, {
@@ -111,6 +128,41 @@ export function BudgetDashboard() {
     },
     [monthKey, openBudgetMonthTransactions]
   );
+
+  const onPulseCategoryClick = useCallback(
+    (categoryId: number) => {
+      const q = new URLSearchParams({
+        rangeFrom: monthKey,
+        rangeTo: monthKey,
+        category: String(categoryId),
+      });
+      openBudgetMonthTransactions(q);
+    },
+    [monthKey, openBudgetMonthTransactions]
+  );
+
+  const onIncomeSourceClick = useCallback(
+    (sourceId: number) => {
+      const q = new URLSearchParams({
+        rangeFrom: monthKey,
+        rangeTo: monthKey,
+        incomeSource: String(sourceId),
+      });
+      openBudgetMonthTransactions(q);
+    },
+    [monthKey, openBudgetMonthTransactions]
+  );
+
+  const onIncomeTotalClick = useCallback(() => {
+    const ids = income.map((r) => r.id);
+    if (ids.length === 0) return;
+    const q = new URLSearchParams({
+      rangeFrom: monthKey,
+      rangeTo: monthKey,
+      incomeSources: ids.join(','),
+    });
+    openBudgetMonthTransactions(q);
+  }, [income, monthKey, openBudgetMonthTransactions]);
 
   return (
     <div className="budget-dashboard">
@@ -184,6 +236,7 @@ export function BudgetDashboard() {
               monthKey={monthKey}
               groups={groups}
               totals={totals}
+              onCategoryClick={onPulseCategoryClick}
             />
           )}
           <SpendingDonut
@@ -207,6 +260,8 @@ export function BudgetDashboard() {
             income={income}
             monthKey={monthKey}
             onChanged={refetch}
+            onSourceClick={onIncomeSourceClick}
+            onTotalClick={onIncomeTotalClick}
           />
         </>
       )}

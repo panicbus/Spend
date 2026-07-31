@@ -15,12 +15,15 @@ export type MonthlyPulseCheckProps = {
   monthKey: string;
   groups: BudgetGroup[];
   totals: BudgetTotals;
+  /** Opens Transactions for a flagged category in the viewed month. */
+  onCategoryClick?: (categoryId: number) => void;
 };
 
 export function MonthlyPulseCheck({
   monthKey,
   groups,
   totals,
+  onCategoryClick,
 }: MonthlyPulseCheckProps) {
   if (monthKey !== currentMonthKey()) return null;
 
@@ -125,7 +128,36 @@ export function MonthlyPulseCheck({
       {showHot && (
         <ul className="monthly-pulse-check__hot" aria-label="Categories ahead of pace">
           {hotRows.map((row) => (
-            <li key={row.categoryId} className="monthly-pulse-check__hot-item">
+            <li
+              key={row.categoryId}
+              className={
+                onCategoryClick
+                  ? 'monthly-pulse-check__hot-item monthly-pulse-check__hot-item--clickable'
+                  : 'monthly-pulse-check__hot-item'
+              }
+              role={onCategoryClick ? 'button' : undefined}
+              tabIndex={onCategoryClick ? 0 : undefined}
+              aria-label={
+                onCategoryClick
+                  ? `View transactions for ${row.name}`
+                  : undefined
+              }
+              onClick={
+                onCategoryClick
+                  ? () => onCategoryClick(row.categoryId)
+                  : undefined
+              }
+              onKeyDown={
+                onCategoryClick
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onCategoryClick(row.categoryId);
+                      }
+                    }
+                  : undefined
+              }
+            >
               <span
                 className="monthly-pulse-check__dot"
                 style={{ background: row.groupColor }}

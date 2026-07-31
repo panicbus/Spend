@@ -2,7 +2,14 @@ import type { TrendRange } from '../../ipc-contract';
 
 export const TRENDS_RETURN_STORAGE_KEY = 'spend-app:return-to-trends';
 
-const VALID_RANGE = new Set<TrendRange>(['3m', '6m', '12m', 'ytd', 'all']);
+const VALID_RANGE = new Set<TrendRange>([
+  '1m',
+  '3m',
+  '6m',
+  '12m',
+  'ytd',
+  'all',
+]);
 
 /** Serialized when opening Transactions from Trends so we can restore range + drill and show “Back to Trends”. */
 export interface TrendsReturnContext {

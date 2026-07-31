@@ -39,9 +39,19 @@ type IncomeSectionProps = {
   income: BudgetIncomeRow[];
   monthKey: string;
   onChanged: () => void;
+  /** Opens Transactions for one income source in the viewed month. */
+  onSourceClick?: (sourceId: number) => void;
+  /** Opens Transactions for every income source in the viewed month. */
+  onTotalClick?: () => void;
 };
 
-export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProps) {
+export function IncomeSection({
+  income,
+  monthKey,
+  onChanged,
+  onSourceClick,
+  onTotalClick,
+}: IncomeSectionProps) {
   const { createIncomeSource, setIncomeBudget } = useIncomeMutations();
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -76,6 +86,16 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
     onChanged();
   }, [createIncomeSource, newName, onChanged]);
 
+  const onRowKeyDown = useCallback(
+    (e: React.KeyboardEvent, open: () => void) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        open();
+      }
+    },
+    []
+  );
+
   const totals = useMemo(() => {
     let budget = 0;
     let actual = 0;
@@ -108,8 +128,26 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
             row.actual_cents ?? 0
           );
           const isEdit = editingId === row.id;
+          const drillable = !!onSourceClick && !isEdit;
+          const openRow = () => onSourceClick?.(row.id);
           return (
-            <div key={row.id} className="income-section__row">
+            <div
+              key={row.id}
+              className={
+                drillable
+                  ? 'income-section__row income-section__row--clickable'
+                  : 'income-section__row'
+              }
+              role={drillable ? 'button' : undefined}
+              tabIndex={drillable ? 0 : undefined}
+              aria-label={
+                drillable ? `View income entries for ${row.name}` : undefined
+              }
+              onClick={drillable ? openRow : undefined}
+              onKeyDown={
+                drillable ? (e) => onRowKeyDown(e, openRow) : undefined
+              }
+            >
               <span className="income-section__name">{row.name}</span>
               <span className="income-section__cell">
                 {isEdit ? (
@@ -131,7 +169,8 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
                   <button
                     type="button"
                     className="income-section__editable"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setEditingId(row.id);
                       setDraft(budgetEditDraftFromCents(row.budget_cents ?? 0));
                     }}
@@ -148,7 +187,24 @@ export function IncomeSection({ income, monthKey, onChanged }: IncomeSectionProp
           );
         })}
         {totalIncomeRemaining && (
-          <div className="income-section__row income-section__row--total">
+          <div
+            className={
+              onTotalClick
+                ? 'income-section__row income-section__row--total income-section__row--clickable'
+                : 'income-section__row income-section__row--total'
+            }
+            role={onTotalClick ? 'button' : undefined}
+            tabIndex={onTotalClick ? 0 : undefined}
+            aria-label={
+              onTotalClick ? 'View all income entries this month' : undefined
+            }
+            onClick={onTotalClick}
+            onKeyDown={
+              onTotalClick
+                ? (e) => onRowKeyDown(e, onTotalClick)
+                : undefined
+            }
+          >
             <span className="income-section__name">Total income</span>
             <span className="income-section__cell">
               {formatCurrency(totals.budget)}

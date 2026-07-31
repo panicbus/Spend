@@ -139,6 +139,7 @@ export function TransactionList() {
     const cat = searchParams.get('category');
     const catsRaw = searchParams.get('categories');
     const incomeSource = searchParams.get('incomeSource');
+    const incomeSourcesRaw = searchParams.get('incomeSources');
     const incomeLine = searchParams.get('incomeLine');
     let next = false;
     if (
@@ -173,7 +174,22 @@ export function TransactionList() {
       setIncomeLineLabel(undefined);
       next = true;
     }
-    if (incomeSource && /^\d+$/.test(incomeSource)) {
+    let appliedIncomeSourceIds = false;
+    if (incomeSourcesRaw != null && incomeSourcesRaw !== '') {
+      const ids = incomeSourcesRaw
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => /^\d+$/.test(s))
+        .map(Number);
+      if (ids.length > 0) {
+        setIncomeOnlySourceIds(ids);
+        setIncomeLineLabel(undefined);
+        setCategoryIds(undefined);
+        appliedIncomeSourceIds = true;
+        next = true;
+      }
+    }
+    if (!appliedIncomeSourceIds && incomeSource && /^\d+$/.test(incomeSource)) {
       setIncomeOnlySourceIds([Number(incomeSource)]);
       setIncomeLineLabel(
         incomeLine != null && incomeLine !== '' ? incomeLine : undefined
@@ -188,6 +204,7 @@ export function TransactionList() {
       p.delete('category');
       p.delete('categories');
       p.delete('incomeSource');
+      p.delete('incomeSources');
       p.delete('incomeLine');
       /** Keep router state (e.g. trendsReturn); default setSearchParams drops it. */
       setSearchParams(p, { replace: true, state: location.state });
@@ -226,6 +243,7 @@ export function TransactionList() {
       searchParams.has('category') ||
       searchParams.has('categories') ||
       searchParams.has('incomeSource') ||
+      searchParams.has('incomeSources') ||
       searchParams.has('incomeLine');
     if (!fromListDeepLink) {
       clearTrendsReturnContext();

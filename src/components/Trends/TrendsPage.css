@@ -345,3 +345,12 @@
 .recharts-tooltip-cursor {
   fill: var(--surface-subtle) !important;
 }
+
+/* Short ranges: keep the plot left-aligned rather than centring a lone bar. */
+.trends-chart-card__plot--one {
+  max-width: 300px;
+}
+
+.trends-chart-card__plot--two {
+  max-width: 460px;
+}

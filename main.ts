@@ -1039,6 +1039,11 @@ function resolveTrendWindow(
   range: TrendRange
 ): { startMonthKey: string; endMonthKey: string } {
   const end = currentMonthKeyMain();
+  if (range === '1m') {
+    // The month just gone, not the one in progress — a complete month to read.
+    const prev = addMonthsToKey(end, -1);
+    return { startMonthKey: prev, endMonthKey: prev };
+  }
   if (range === 'ytd') {
     const y = end.slice(0, 4);
     return { startMonthKey: `${y}-01`, endMonthKey: end };
@@ -1061,7 +1066,7 @@ function resolveTrendWindow(
 }
 
 function getTrendsData(range: TrendRange): TrendData {
-  if (!['3m', '6m', '12m', 'ytd', 'all'].includes(range)) {
+  if (!['1m', '3m', '6m', '12m', 'ytd', 'all'].includes(range)) {
     throw new Error('Invalid trend range.');
   }
   const { startMonthKey, endMonthKey } = resolveTrendWindow(range);
