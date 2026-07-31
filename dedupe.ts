@@ -20,6 +20,9 @@ import type {
  * Matching here is field-by-field on normalized values, and it is 1:1: each
  * existing row can absorb at most one incoming row, so two genuinely separate
  * $4.44 charges on the same day still both import when the file contains both.
+ * The one exception is a row repeated verbatim inside a single file — identical
+ * down to the statement text. That reads as a doubled export rather than two
+ * charges, so the repeat is dropped; see `analyzeImportRows` pass 3.
  *
  * Two verdicts:
  *   - `duplicate` — same day, same amount, compatible merchant/statement.
@@ -430,59 +433,71 @@ export function pairDuplicateRows(stored: StoredRow[]): DuplicatePair[] {
     return a.row.id - b.row.id;
   });
 
+  // Only rows of the same kind and amount can pair, so compare within those
+  // buckets instead of against the whole ledger.
+  const buckets = new Map<string, Entry[]>();
+  for (const e of entries) {
+    const k = `${e.row.kind}|${e.key.amountCents}`;
+    const bucket = buckets.get(k);
+    if (bucket) bucket.push(e);
+    else buckets.set(k, [e]);
+  }
+
   const pairs: DuplicatePair[] = [];
 
   const scan = (
-    accept: (earlier: Entry, later: Entry) => DuplicateReason | null,
+    accept: (keeper: Entry, later: Entry) => DuplicateReason | null,
     verdict: DuplicatePair['verdict']
   ): void => {
-    for (let i = 0; i < entries.length; i++) {
-      const later = entries[i];
-      if (later.removed) continue;
-      for (let j = 0; j < i; j++) {
-        const earlier = entries[j];
-        if (earlier.usedAsKeeper) continue;
-        if (earlier.row.kind !== later.row.kind) continue;
-        if (earlier.key.amountCents !== later.key.amountCents) continue;
-        const reason = accept(earlier, later);
-        if (!reason) continue;
-        earlier.usedAsKeeper = true;
-        later.removed = true;
-        // A charge stored three times pairs 2→1 then 3→2, and both point at the
-        // one copy that is left standing.
-        later.survivor = earlier.survivor;
-        pairs.push({
-          keep: earlier.survivor.row,
-          remove: later.row,
-          verdict,
-          reason,
-        });
-        break;
+    for (const bucket of buckets.values()) {
+      for (let i = 0; i < bucket.length; i++) {
+        const later = bucket[i];
+        // Already spoken for: offered for removal, or promised as the row a
+        // pair keeps — removing a keeper would strand the copy it answers for.
+        if (later.removed || later.usedAsKeeper) continue;
+        for (let j = 0; j < i; j++) {
+          const earlier = bucket[j];
+          if (earlier.usedAsKeeper) continue;
+          // Judge against the copy that would actually survive, not the one
+          // standing in front of it, so a run of matches cannot chain out past
+          // the window it claims to be inside.
+          const reason = accept(earlier.survivor, later);
+          if (!reason) continue;
+          earlier.usedAsKeeper = true;
+          later.removed = true;
+          // A charge stored three times pairs 2→1 then 3→2, and both point at
+          // the one copy that is left standing.
+          later.survivor = earlier.survivor;
+          pairs.push({
+            keep: earlier.survivor.row,
+            remove: later.row,
+            verdict,
+            reason,
+          });
+          break;
+        }
       }
     }
   };
 
-  scan((earlier, later) => {
-    if (
-      earlier.key.importHash &&
-      earlier.key.importHash === later.key.importHash
-    ) {
+  scan((keeper, later) => {
+    if (keeper.key.importHash && keeper.key.importHash === later.key.importHash) {
       return 'hash';
     }
     if (
-      earlier.key.dateKey === later.key.dateKey &&
-      describesSameCharge(earlier.key, later.key)
+      keeper.key.dateKey === later.key.dateKey &&
+      describesSameCharge(keeper.key, later.key)
     ) {
       return 'same_day';
     }
     return null;
   }, 'duplicate');
 
-  scan((earlier, later) => {
-    if (earlier.key.day == null || later.key.day == null) return null;
-    const diff = Math.abs(earlier.key.day - later.key.day);
+  scan((keeper, later) => {
+    if (keeper.key.day == null || later.key.day == null) return null;
+    const diff = Math.abs(keeper.key.day - later.key.day);
     if (diff === 0 || diff > NEAR_DAY_WINDOW) return null;
-    return describesSameCharge(earlier.key, later.key) ? 'near_day' : null;
+    return describesSameCharge(keeper.key, later.key) ? 'near_day' : null;
   }, 'possible');
 
   return pairs.sort(

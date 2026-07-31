@@ -281,6 +281,42 @@ describe('pairDuplicateRows', () => {
     assert.equal(pairs.length, 0);
   });
 
+  it('never offers a keeper for removal in another pair', () => {
+    // A near-day match must not delete the row a same-day pair promised to keep,
+    // which would strand that pair's exact duplicate in the ledger.
+    const older = stored({ date: '2026-05-03', createdAt: '2026-05-09 00:00:00' });
+    const keeper = stored({ date: '2026-05-05', createdAt: '2026-05-10 00:00:01' });
+    const sameDay = stored(
+      { date: '2026-05-05', createdAt: '2026-05-10 00:00:02' },
+      { originalStatement: 'Netflix.com ALAMEDA CA' }
+    );
+    const pairs = pairDuplicateRows([older, keeper, sameDay]);
+    const keeps = new Set(pairs.map((p) => p.keep.id));
+    for (const p of pairs) {
+      assert.ok(!keeps.has(p.remove.id), `row ${p.remove.id} is both kept and removed`);
+    }
+  });
+
+  it('never pairs rows further apart than the drift window', () => {
+    // A daily recurring charge must not chain 1→2→3→… into pairs that claim to
+    // be "a few days apart" while spanning a week.
+    const daily = Array.from({ length: 10 }, (_, i) =>
+      stored({
+        date: `2026-05-${String(i + 1).padStart(2, '0')}`,
+        createdAt: `2026-05-20 00:00:${String(i).padStart(2, '0')}`,
+      })
+    );
+    const pairs = pairDuplicateRows(daily);
+    for (const p of pairs) {
+      const gapDays =
+        Math.abs(Date.parse(p.remove.date) - Date.parse(p.keep.date)) / 86400000;
+      assert.ok(
+        gapDays <= 3,
+        `pair spans ${gapDays} days, past the 3-day window (${p.reason})`
+      );
+    }
+  });
+
   it('leaves distinct charges alone', () => {
     const pairs = pairDuplicateRows([
       stored({ createdAt: '2026-05-10 01:00:00' }),

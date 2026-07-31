@@ -61,6 +61,8 @@ exports of the same charge, so matching also runs on normalized fields:
 
 Matching is 1:1 — an existing row absorbs at most one incoming row — so two real
 same-day charges of the same amount both survive when the file contains both.
+The exception: a row repeated verbatim within one file (identical import hash)
+is read as a doubled export and dropped.
 
 The same rules run over stored rows via `findDuplicatePairs`, backing the
 duplicate cleanup in Settings: rows are walked oldest-first, the longest-standing

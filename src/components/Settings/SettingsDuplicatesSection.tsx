@@ -46,7 +46,8 @@ export function SettingsDuplicatesSection() {
     pairs,
     scan,
     toggle,
-    setAll,
+    selectAllCertain,
+    selectNone,
     isSelected,
     selectedCount,
     selectedTotalCents,
@@ -114,17 +115,20 @@ export function SettingsDuplicatesSection() {
                   : ''}
               </p>
               <div className="settings-dupe__bulk">
+                {certainCount > 0 ? (
+                  <button
+                    type="button"
+                    className="settings-dupe__link"
+                    onClick={selectAllCertain}
+                  >
+                    Select all {certainCount} duplicate
+                    {certainCount === 1 ? '' : 's'}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="settings-dupe__link"
-                  onClick={() => setAll(true)}
-                >
-                  Select all
-                </button>
-                <button
-                  type="button"
-                  className="settings-dupe__link"
-                  onClick={() => setAll(false)}
+                  onClick={selectNone}
                 >
                   Select none
                 </button>

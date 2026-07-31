@@ -63,12 +63,18 @@ export function useDuplicateCleanup() {
     });
   }, []);
 
-  const setAll = useCallback(
-    (on: boolean) => {
-      setSelected(on ? new Set(pairs.map(pairKey)) : new Set());
-    },
-    [pairs]
-  );
+  /**
+   * Bulk select covers certain duplicates only. Near-matches are a judgment
+   * call — a daily charge at the same merchant looks exactly like one — so they
+   * only ever get removed by being ticked deliberately.
+   */
+  const selectAllCertain = useCallback(() => {
+    setSelected(
+      new Set(pairs.filter((p) => p.verdict === 'duplicate').map(pairKey))
+    );
+  }, [pairs]);
+
+  const selectNone = useCallback(() => setSelected(new Set()), []);
 
   const isSelected = useCallback(
     (p: DuplicatePair) => selected.has(pairKey(p)),
@@ -87,8 +93,11 @@ export function useDuplicateCleanup() {
   );
 
   const deleteSelected = useCallback(async () => {
-    if (state.kind !== 'results' || selectedPairs.length === 0) return;
-    setState({ kind: 'deleting', pairs: state.pairs });
+    // The list stays live after a removal round, so `done` is a valid state to
+    // remove from — the rescan there leaves real pairs still on screen.
+    const canDelete = state.kind === 'results' || state.kind === 'done';
+    if (!canDelete || selectedPairs.length === 0) return;
+    setState({ kind: 'deleting', pairs });
     try {
       const { deleted } = await api.deleteLedgerRows({
         transactionIds: selectedPairs
@@ -109,7 +118,7 @@ export function useDuplicateCleanup() {
         message: e instanceof Error ? e.message : String(e),
       });
     }
-  }, [state, selectedPairs]);
+  }, [state, pairs, selectedPairs]);
 
   const reset = useCallback(() => {
     setSelected(new Set());
@@ -121,7 +130,8 @@ export function useDuplicateCleanup() {
     pairs,
     scan,
     toggle,
-    setAll,
+    selectAllCertain,
+    selectNone,
     isSelected,
     selectedCount: selectedPairs.length,
     selectedTotalCents,
