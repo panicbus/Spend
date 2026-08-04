@@ -14,7 +14,7 @@ export const DEFAULT_CATEGORY_GROUPS: DefaultGroupSpec[] = [
   {
     name: 'Housing',
     color: '#3A7BD5',
-    categories: ['Rent / Mortgage', 'Utilities'],
+    categories: ['Rent / Mortgage', 'Utilities', 'Home Maintenance'],
   },
   {
     name: 'Food & Dining',
@@ -24,7 +24,13 @@ export const DEFAULT_CATEGORY_GROUPS: DefaultGroupSpec[] = [
   {
     name: 'Transportation',
     color: '#E5953E',
-    categories: ['Car Payment', 'Gas', 'Transit / Rideshare', 'Auto Insurance'],
+    categories: [
+      'Car Payment',
+      'Gas',
+      'Transit / Rideshare',
+      'Auto Insurance',
+      'Auto Maintenance',
+    ],
   },
   {
     name: 'Health & Wellness',
@@ -45,6 +51,11 @@ export const DEFAULT_CATEGORY_GROUPS: DefaultGroupSpec[] = [
     name: 'Entertainment & Lifestyle',
     color: '#9F6B2D',
     categories: ['Entertainment', 'Travel & Vacation', 'Gifts'],
+  },
+  {
+    name: 'Family & Pets',
+    color: '#0F9B8E',
+    categories: ['Kids', 'Childcare', 'Pets'],
   },
   {
     name: 'Savings',

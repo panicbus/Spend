@@ -18,6 +18,8 @@ export type CategoryMappingAssignment = {
 
 export type ImportCategoryMappingPanelProps = {
   unknownCategories: string[];
+  /** Category name → the group the file filed it under, when the export has one. */
+  unknownCategoryGroups?: Record<string, string>;
   rows: ParsedRow[];
   mappingSource?: string;
   title?: string;
@@ -30,6 +32,7 @@ export type ImportCategoryMappingPanelProps = {
 
 export function ImportCategoryMappingPanel({
   unknownCategories,
+  unknownCategoryGroups,
   rows,
   mappingSource = 'monarch',
   title = 'Map categories to Spend.',
@@ -47,6 +50,8 @@ export function ImportCategoryMappingPanel({
   const [creatingMapExternal, setCreatingMapExternal] = useState<string | null>(
     null
   );
+  const [adopting, setAdopting] = useState(false);
+  const [adoptError, setAdoptError] = useState<string | null>(null);
 
   useEffect(() => {
     void Promise.all([api.getGroups(), api.getIncomeSources()]).then(
@@ -88,10 +93,99 @@ export function ImportCategoryMappingPanel({
     setGroups(g);
   }, []);
 
+  /** Categories still waiting on a decision — the ones adoption would cover. */
+  const unassigned = useMemo(
+    () => unknownCategories.filter((n) => n && !assignments[n]),
+    [assignments, unknownCategories]
+  );
+
+  /**
+   * With no groups in the file everything lands in one "Imported" bucket, which
+   * is only worth it when hand-mapping would be a slog. A handful of new names
+   * from a familiar export is better mapped onto categories that already exist.
+   */
+  const BULK_ADOPT_MIN_WITHOUT_GROUPS = 8;
+
+  const namedGroupCount = useMemo(() => {
+    const names = new Set<string>();
+    for (const n of unassigned) {
+      const g = unknownCategoryGroups?.[n];
+      if (g) names.add(g);
+    }
+    return names.size;
+  }, [unassigned, unknownCategoryGroups]);
+
+  /**
+   * Recreate the file's own categories in one pass rather than making the user
+   * hand-map every name — the whole point for someone arriving from another app.
+   */
+  const adoptFromFile = useCallback(async () => {
+    if (unassigned.length === 0) return;
+    setAdopting(true);
+    setAdoptError(null);
+    try {
+      const result = await api.adoptImportCategories({
+        source: mappingSource,
+        items: unassigned.map((name) => ({
+          categoryName: name,
+          groupName: unknownCategoryGroups?.[name],
+          externalName: name,
+        })),
+      });
+      await refreshGroups();
+      setAssignments((prev) => {
+        const next = { ...prev };
+        for (const m of result.mappings) {
+          next[m.externalName] = {
+            targetType: 'category',
+            targetId: m.categoryId,
+          };
+        }
+        return next;
+      });
+    } catch (e) {
+      setAdoptError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAdopting(false);
+    }
+  }, [mappingSource, refreshGroups, unassigned, unknownCategoryGroups]);
+
   return (
     <div className="import-card">
       <h2 className="import-card__title">{title}</h2>
       <p className="import-card__sub">{description}</p>
+      {unassigned.length > 0 &&
+        (namedGroupCount > 0 ||
+          unassigned.length >= BULK_ADOPT_MIN_WITHOUT_GROUPS) && (
+        <div className="import-adopt">
+          <div className="import-adopt__text">
+            <strong className="import-adopt__lead">
+              Keep the categories from this file
+            </strong>
+            <span className="import-adopt__sub">
+              Creates {unassigned.length} categor
+              {unassigned.length === 1 ? 'y' : 'ies'}
+              {namedGroupCount > 0
+                ? ` under ${namedGroupCount} group${namedGroupCount === 1 ? '' : 's'} from the file`
+                : ' in a new "Imported" group'}
+              , so you can skip mapping them one by one.
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={adopting}
+            onClick={() => void adoptFromFile()}
+          >
+            {adopting ? 'Creating…' : `Create all ${unassigned.length}`}
+          </Button>
+        </div>
+      )}
+      {adoptError && (
+        <p className="import-adopt__error" role="alert">
+          {adoptError}
+        </p>
+      )}
       <ul className="import-map-list">
         {unknownCategories.map((name) => {
           const count = rows.filter((r) => r.externalCategory === name).length;

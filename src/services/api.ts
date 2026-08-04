@@ -94,6 +94,9 @@ export const api = {
   setLastImportProfile: (profileId: string) =>
     getBridge().setLastImportProfile(profileId),
   getCategoryMappings: () => getBridge().getCategoryMappings(),
+  adoptImportCategories: (
+    input: Parameters<SpendApi['adoptImportCategories']>[0]
+  ) => getBridge().adoptImportCategories(input),
   saveCategoryMapping: (
     input: Parameters<SpendApi['saveCategoryMapping']>[0]
   ) => getBridge().saveCategoryMapping(input),

@@ -1,6 +1,8 @@
 /** Shared IPC contract: preload bridge, renderer api wrapper, and documentation. */
 
 import type {
+  AdoptImportCategoriesInput,
+  AdoptImportCategoriesResult,
   CategoryMapping,
   CommitImportResult,
   CommitImportRow,
@@ -22,6 +24,9 @@ import type {
 } from './src/types/transactions.js';
 
 export type {
+  AdoptImportCategoriesInput,
+  AdoptImportCategoriesResult,
+  AdoptImportCategoryItem,
   CategoryMapping,
   CommitImportResult,
   CommitImportRow,
@@ -434,6 +439,10 @@ export interface SpendApi {
   getLastImportProfile: () => Promise<string>;
   setLastImportProfile: (profileId: string) => Promise<void>;
   getCategoryMappings: () => Promise<CategoryMapping[]>;
+  /** Recreate a file's own categories and groups, and map them, in one pass. */
+  adoptImportCategories: (
+    input: AdoptImportCategoriesInput
+  ) => Promise<AdoptImportCategoriesResult>;
   saveCategoryMapping: (input: SaveCategoryMappingInput) => Promise<void>;
   commitImport: (rows: CommitImportRow[]) => Promise<CommitImportResult>;
   /** Match rows about to be imported against existing transactions and each other. */

@@ -57,6 +57,8 @@ import type {
   MappingTargetType,
   ParseCSVOptions,
   ParsedRow,
+  AdoptImportCategoriesInput,
+  AdoptImportCategoriesResult,
   DeleteLedgerRowsInput,
   SaveCategoryMappingInput,
 } from './src/types/import.js';
@@ -89,6 +91,18 @@ import {
 } from './monarch-sync.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** Colours handed to groups adopted from an import, cycled in order. */
+const ADOPTED_GROUP_COLORS = [
+  '#3A7BD5',
+  '#2D9F75',
+  '#E5953E',
+  '#D94F4F',
+  '#6B5CE7',
+  '#E76BAC',
+  '#9F6B2D',
+  '#4FBCD9',
+];
 
 /** Load .env.build into process.env (only keys not already set). */
 function loadBuildEnv() {
@@ -1810,6 +1824,114 @@ function registerIpcHandlers() {
     }
   );
 
+  /**
+   * Rebuild the file's own category structure in one go. Exports like YNAB carry
+   * a group per category, so a switcher can adopt what they already had instead
+   * of hand-mapping dozens of names onto the starter set.
+   */
+  ipcMain.handle(
+    'adoptImportCategories',
+    (_, input: AdoptImportCategoriesInput): AdoptImportCategoriesResult => {
+      const source = (input?.source ?? '').trim() || MAPPING_SOURCE;
+      const items = (input?.items ?? []).filter(
+        (i) => (i?.categoryName ?? '').trim() !== ''
+      );
+      if (items.length === 0) {
+        return {
+          createdCategories: 0,
+          createdGroups: 0,
+          mapped: 0,
+          mappings: [],
+        };
+      }
+
+      const findGroup = db.prepare(
+        'SELECT id FROM category_groups WHERE name = ? COLLATE NOCASE'
+      );
+      const findCategory = db.prepare(
+        'SELECT id FROM categories WHERE group_id = ? AND name = ? COLLATE NOCASE'
+      );
+      const nextGroupOrder = db.prepare(
+        'SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM category_groups'
+      );
+      const nextCatOrder = db.prepare(
+        'SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM categories WHERE group_id = ?'
+      );
+      const insertGroup = db.prepare(
+        'INSERT INTO category_groups (name, color, sort_order) VALUES (?, ?, ?)'
+      );
+      const insertCategory = db.prepare(
+        'INSERT INTO categories (group_id, name, sort_order) VALUES (?, ?, ?)'
+      );
+      const upsertMapping = db.prepare(
+        `INSERT INTO category_mappings (source, external_name, target_type, target_id)
+         VALUES (?, ?, 'category', ?)
+         ON CONFLICT(source, external_name) DO UPDATE SET
+           target_type = excluded.target_type,
+           target_id = excluded.target_id`
+      );
+
+      const run = db.transaction(() => {
+        let createdCategories = 0;
+        let createdGroups = 0;
+        const mappings: { externalName: string; categoryId: number }[] = [];
+        const groupIds = new Map<string, number>();
+
+        for (const item of items) {
+          const categoryName = item.categoryName.trim();
+          const groupName = (item.groupName ?? '').trim() || 'Imported';
+          const externalName = (item.externalName ?? categoryName).trim();
+
+          let groupId = groupIds.get(groupName.toLowerCase());
+          if (groupId == null) {
+            const existing = findGroup.get(groupName) as
+              | { id: number }
+              | undefined;
+            if (existing) {
+              groupId = existing.id;
+            } else {
+              const order = (nextGroupOrder.get() as { n: number }).n;
+              const color =
+                ADOPTED_GROUP_COLORS[createdGroups % ADOPTED_GROUP_COLORS.length];
+              groupId = Number(
+                insertGroup.run(groupName, color, order).lastInsertRowid
+              );
+              createdGroups++;
+            }
+            groupIds.set(groupName.toLowerCase(), groupId);
+          }
+
+          const existingCat = findCategory.get(groupId, categoryName) as
+            | { id: number }
+            | undefined;
+          let categoryId: number;
+          if (existingCat) {
+            categoryId = existingCat.id;
+          } else {
+            const order = (nextCatOrder.get(groupId) as { n: number }).n;
+            categoryId = Number(
+              insertCategory.run(groupId, categoryName, order).lastInsertRowid
+            );
+            createdCategories++;
+          }
+
+          upsertMapping.run(source, externalName, categoryId);
+          // Returned to the caller: `getCategoryMappings` cannot be used to look
+          // these up, so the panel needs them straight back.
+          mappings.push({ externalName, categoryId });
+        }
+        return {
+          createdCategories,
+          createdGroups,
+          mapped: mappings.length,
+          mappings,
+        };
+      });
+
+      return run();
+    }
+  );
+
   ipcMain.handle('deleteCategory', (_, id: number) => {
     db.transaction(() => {
       db.prepare(
@@ -2381,14 +2503,17 @@ function registerIpcHandlers() {
 
   ipcMain.handle('getCategoryMappings', () => {
     const { catNames, incomeNames } = loadMappingNameLookups(db);
+    // Every import profile writes under its own source, so listing one would
+    // hide the mappings made by any format other than the default.
     const mappingRows = db
       .prepare(
-        `SELECT id, external_name, target_type, target_id
-         FROM category_mappings WHERE source = ? ORDER BY external_name COLLATE NOCASE`
+        `SELECT id, source, external_name, target_type, target_id
+         FROM category_mappings
+         ORDER BY source COLLATE NOCASE, external_name COLLATE NOCASE`
       )
-      .all(MAPPING_SOURCE) as MappingDbRow[];
+      .all() as (MappingDbRow & { source: string })[];
     return mappingRows.map((row) =>
-      toCategoryMapping(row, MAPPING_SOURCE, catNames, incomeNames)
+      toCategoryMapping(row, row.source, catNames, incomeNames)
     );
   });
 

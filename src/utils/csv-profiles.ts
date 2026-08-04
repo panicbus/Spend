@@ -15,6 +15,8 @@ export interface CSVProfile {
   merchantColumn: string;
   amountMode: AmountMode;
   categoryColumn?: string;
+  /** Parent grouping for `categoryColumn`, when the export carries one (YNAB). */
+  categoryGroupColumn?: string;
   notesColumn?: string;
   accountColumn?: string;
   /** Description / statement column used for import hash dedup when present. */
@@ -31,6 +33,7 @@ export interface GenericColumnMapping {
   merchantColumn: string;
   amountMode: AmountMode;
   categoryColumn?: string;
+  categoryGroupColumn?: string;
   notesColumn?: string;
   accountColumn?: string;
   statementColumn?: string;
@@ -123,6 +126,7 @@ export const CSV_PROFILES: CSVProfile[] = [
     merchantColumn: 'Payee',
     amountMode: { type: 'split', debitColumn: 'Outflow', creditColumn: 'Inflow' },
     categoryColumn: 'Category',
+    categoryGroupColumn: 'Category Group',
     notesColumn: 'Memo',
     accountColumn: 'Account',
   },
@@ -292,6 +296,7 @@ export function profileToGenericMapping(profile: CSVProfile): GenericColumnMappi
     merchantColumn: profile.merchantColumn,
     amountMode: profile.amountMode,
     categoryColumn: profile.categoryColumn,
+    categoryGroupColumn: profile.categoryGroupColumn,
     notesColumn: profile.notesColumn,
     accountColumn: profile.accountColumn,
     statementColumn: profile.statementColumn,

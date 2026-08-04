@@ -1,7 +1,11 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { parse } from 'csv-parse/sync';
-import type { CategoryMapping, ParsedRow } from '../types/import.js';
+import type {
+  CategoryMapping,
+  ParseCSVResult,
+  ParsedRow,
+} from '../types/import.js';
 import type { GenericColumnMapping } from './csv-profiles.js';
 import { getCSVProfile } from './csv-profiles.js';
 import { amountCentsFromRow } from './parseCsvAmount.js';
@@ -182,7 +186,7 @@ export function parseProfileCSV(
   filePath: string,
   mapping: GenericColumnMapping,
   deps: ProfileParseDeps
-): { rows: ParsedRow[]; unknownCategories: string[] } {
+): ParseCSVResult {
   const headerRowIndex = mapping.headerRowIndex ?? 0;
   const rawRows = readRawCsvRows(filePath);
   if (rawRows.length <= headerRowIndex) {
@@ -206,6 +210,7 @@ export function parseProfileCSV(
 
   const rows: ParsedRow[] = [];
   const unknownSet = new Set<string>();
+  const unknownGroups = new Map<string, string>();
 
   for (let i = 0; i < dataRows.length; i++) {
     const rec = recordFromRow(headers, dataRows[i]);
@@ -219,6 +224,9 @@ export function parseProfileCSV(
     const merchant = (rec[mapping.merchantColumn] ?? '').trim();
     const externalCategory = mapping.categoryColumn
       ? (rec[mapping.categoryColumn] ?? '').trim()
+      : '';
+    const externalCategoryGroup = mapping.categoryGroupColumn
+      ? (rec[mapping.categoryGroupColumn] ?? '').trim()
       : '';
     const account = mapping.accountColumn
       ? (rec[mapping.accountColumn] ?? '').trim()
@@ -250,6 +258,10 @@ export function parseProfileCSV(
 
     if (!rowMapping) {
       unknownSet.add(externalCategory);
+      // Remember the file's own grouping so the import can rebuild it wholesale.
+      if (externalCategoryGroup && !unknownGroups.has(externalCategory)) {
+        unknownGroups.set(externalCategory, externalCategoryGroup);
+      }
     }
 
     rows.push({
@@ -270,7 +282,11 @@ export function parseProfileCSV(
   const unknownCategories = [...unknownSet].sort((a, b) =>
     a.localeCompare(b)
   );
-  return { rows, unknownCategories };
+  return {
+    rows,
+    unknownCategories,
+    unknownCategoryGroups: Object.fromEntries(unknownGroups),
+  };
 }
 
 export function profileNameForId(profileId: string): string {

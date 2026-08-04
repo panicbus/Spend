@@ -27,6 +27,7 @@ import type { TrendsReturnContext } from '../../utils/trendsReturnContext';
 import { clearBudgetReturnContext } from '../../utils/budgetReturnContext';
 import { setTrendsReturnContext } from '../../utils/trendsReturnContext';
 import { Button } from '../common/Button';
+import { TrendsMovers } from './TrendsMovers';
 import './TrendsPage.css';
 
 const RANGE_OPTIONS: { value: TrendRange; label: string }[] = [
@@ -588,7 +589,9 @@ export function TrendsPage() {
     (
       categoryId: number,
       trend: TrendData,
-      activeDrillGroupId: number | null
+      activeDrillGroupId: number | null,
+      /** Narrow to one month; defaults to the whole visible range. */
+      monthKey?: string
     ) => {
       const ctx: TrendsReturnContext = {
         range: trend.range,
@@ -598,8 +601,8 @@ export function TrendsPage() {
       };
       setTrendsReturnContext(ctx);
       const q = new URLSearchParams({
-        rangeFrom: trend.startMonthKey,
-        rangeTo: trend.endMonthKey,
+        rangeFrom: monthKey ?? trend.startMonthKey,
+        rangeTo: monthKey ?? trend.endMonthKey,
         category: String(categoryId),
       });
       navigate(`/transactions?${q.toString()}`, {
@@ -779,6 +782,12 @@ export function TrendsPage() {
 
       {showCharts && (
         <div className="trends-page__charts">
+          <TrendsMovers
+            data={data}
+            onCategoryClick={(categoryId, monthKey) =>
+              goTransactionsCategory(categoryId, data, null, monthKey)
+            }
+          />
           <section className="trends-chart-card">
             <h2 className="trends-chart-card__heading">Spending vs. budget</h2>
             <p className="trends-chart-card__desc">

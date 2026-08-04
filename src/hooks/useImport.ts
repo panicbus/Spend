@@ -11,6 +11,7 @@ import {
 import type {
   CommitImportResult,
   CommitImportRow,
+  ParseCSVResult,
   DedupeRow,
   DuplicateAnalysis,
   DuplicateMatch,
@@ -92,6 +93,7 @@ export type ImportState =
       genericMapping?: GenericColumnMapping | null;
       rows: ParsedRow[];
       unknownCategories: string[];
+      unknownCategoryGroups?: Record<string, string>;
       assignments: Record<
         string,
         { targetType: MappingTargetType; targetId: number | null }
@@ -240,7 +242,7 @@ export function duplicateMatchByRow(
 function applyParseResult(
   filePath: string,
   profileId: string,
-  result: { rows: ParsedRow[]; unknownCategories: string[] },
+  result: ParseCSVResult,
   genericMapping?: GenericColumnMapping | null
 ): ImportState {
   if (result.unknownCategories.length > 0) {
@@ -251,6 +253,7 @@ function applyParseResult(
       genericMapping,
       rows: result.rows,
       unknownCategories: result.unknownCategories,
+      unknownCategoryGroups: result.unknownCategoryGroups,
       assignments: {},
     };
   }

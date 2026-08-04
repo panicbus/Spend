@@ -1,11 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   AppPreferences,
   CategoryMapping,
@@ -21,6 +14,7 @@ import {
   mappingAssignmentToSelectValue,
   parseMappingSelectValue,
 } from '../../utils/mappingSelectValue';
+import { getCSVProfile } from '../../utils/csv-profiles';
 import { useColorMode } from '../../theme/ColorModeContext';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
@@ -31,23 +25,39 @@ import './SettingsPage.css';
 const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '';
 const IC = { chevR: '\u25B6', chevD: '\u25BC', edit: '\u270E', del: '\u00D7' };
 
-/** Persists scroll on `main.app-shell__main` while Settings is mounted (that element is shared across routes). */
-/** `v3`: re-apply scroll as settings content async-loads (early restore clamped to short layout + anchoring jumped to bottom). */
-const SETTINGS_MAIN_SCROLL_KEY = 'spend-app:settings-main-scroll-y:v3';
+/** Last tab the user was on, so returning to Settings lands where they left. */
+const SETTINGS_TAB_KEY = 'spend-app:settings-tab';
 
-/** Hide settings until scroll restore settles (avoids a visible jump while layout grows). */
-const SCROLL_RESTORE_MASK_MIN_PX = 16;
+type SettingsTabId =
+  | 'categories'
+  | 'income'
+  | 'import'
+  | 'duplicates'
+  | 'data'
+  | 'preferences';
 
-function readPendingScrollRestoreMask(): boolean {
+const SETTINGS_TABS: { id: SettingsTabId; label: string }[] = [
+  { id: 'categories', label: 'Categories' },
+  { id: 'income', label: 'Income' },
+  { id: 'import', label: 'Import mappings' },
+  { id: 'duplicates', label: 'Duplicates' },
+  { id: 'data', label: 'Data & reset' },
+  { id: 'preferences', label: 'Preferences' },
+];
+
+function readStoredTab(): SettingsTabId {
   try {
-    const raw = sessionStorage.getItem(SETTINGS_MAIN_SCROLL_KEY);
-    if (raw == null) return false;
-    const y = Number(raw);
-    if (Number.isNaN(y) || y < SCROLL_RESTORE_MASK_MIN_PX) return false;
-    return true;
+    const raw = sessionStorage.getItem(SETTINGS_TAB_KEY);
+    if (SETTINGS_TABS.some((t) => t.id === raw)) return raw as SettingsTabId;
   } catch {
-    return false;
+    /* private mode */
   }
+  return 'categories';
+}
+
+/** Profile id → the format name shown in the import picker. */
+function importFormatLabel(source: string): string {
+  return getCSVProfile(source)?.name ?? source;
 }
 
 function mappingDestinationLabel(
@@ -78,115 +88,52 @@ function mappingDestinationLabel(
 }
 
 export function SettingsPage() {
-  const mainScrollWhileSettingsRef = useRef(0);
-  /** Used so scroll handlers ignore events after the route DOM has been swapped (main still fires scroll). */
-  const pageRootRef = useRef<HTMLDivElement>(null);
-  const [pendingScrollMask, setPendingScrollMask] = useState(
-    readPendingScrollRestoreMask
-  );
+  const [tab, setTab] = useState<SettingsTabId>(readStoredTab);
 
-  useLayoutEffect(() => {
-    const main = document.querySelector(
-      '.app-shell__main'
-    ) as HTMLElement | null;
-    if (!main) return;
-
-    const raw = sessionStorage.getItem(SETTINGS_MAIN_SCROLL_KEY);
-    const savedY =
-      raw != null && !Number.isNaN(Number(raw)) && Number(raw) >= 0
-        ? Number(raw)
-        : null;
-
-    const onScroll = () => {
-      if (!pageRootRef.current?.isConnected) return;
-      mainScrollWhileSettingsRef.current = main.scrollTop;
-    };
-    main.addEventListener('scroll', onScroll, { passive: true });
-
-    let ro: ResizeObserver | null = null;
-    let stopTimer: number | undefined;
-
-    const shouldMask =
-      savedY != null && savedY >= SCROLL_RESTORE_MASK_MIN_PX;
-
-    const revealAfterRestore = () => {
-      if (!shouldMask) return;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setPendingScrollMask(false);
-        });
-      });
-    };
-
-    const applyRestore = () => {
-      if (savedY == null) return;
-      const max = Math.max(0, main.scrollHeight - main.clientHeight);
-      main.scrollTop = Math.min(savedY, max);
-      mainScrollWhileSettingsRef.current = main.scrollTop;
-      if (ro != null && max >= savedY - 1) {
-        ro.disconnect();
-        ro = null;
-        if (stopTimer !== undefined) {
-          clearTimeout(stopTimer);
-          stopTimer = undefined;
-        }
-        revealAfterRestore();
-      }
-    };
-
-    const pageRoot = pageRootRef.current;
-
-    if (savedY == null) {
-      main.scrollTop = 0;
-      mainScrollWhileSettingsRef.current = 0;
-    } else {
-      applyRestore();
-      requestAnimationFrame(applyRestore);
-      ro = new ResizeObserver(() => {
-        applyRestore();
-      });
-      if (pageRoot) ro.observe(pageRoot);
-      ro.observe(main);
-      stopTimer = window.setTimeout(() => {
-        ro?.disconnect();
-        ro = null;
-        stopTimer = undefined;
-        revealAfterRestore();
-      }, 3000) as unknown as number;
+  const selectTab = useCallback((next: SettingsTabId) => {
+    setTab(next);
+    try {
+      sessionStorage.setItem(SETTINGS_TAB_KEY, next);
+    } catch {
+      /* private mode */
     }
-
-    return () => {
-      if (stopTimer !== undefined) clearTimeout(stopTimer);
-      ro?.disconnect();
-      main.removeEventListener('scroll', onScroll);
-      sessionStorage.setItem(
-        SETTINGS_MAIN_SCROLL_KEY,
-        String(mainScrollWhileSettingsRef.current)
-      );
-    };
+    // Each panel is its own page now; start it at the top.
+    const main = document.querySelector('.app-shell__main');
+    if (main) main.scrollTop = 0;
   }, []);
 
   return (
-    <div
-      ref={pageRootRef}
-      className={
-        pendingScrollMask
-          ? 'settings-page settings-page--scroll-restore-pending'
-          : 'settings-page'
-      }
-    >
+    <div className="settings-page">
       <header className="settings-page__header">
         <h1 className="settings-page__title">Settings</h1>
         <p className="settings-page__intro">
           Manage categories, import mappings, backups, and a few app preferences.
         </p>
       </header>
-      <SettingsCategoriesSection />
-      <SettingsIncomeSection />
-      <SettingsMappingsSection />
-      <SettingsDuplicatesSection />
-      <SettingsDataSection />
-      <SettingsPreferencesSection />
+      <div className="settings-tabs" role="tablist" aria-label="Settings sections">
+        {SETTINGS_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={t.id === tab}
+            className={
+              t.id === tab
+                ? 'settings-tabs__tab settings-tabs__tab--active'
+                : 'settings-tabs__tab'
+            }
+            onClick={() => selectTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === 'categories' && <SettingsCategoriesSection />}
+      {tab === 'income' && <SettingsIncomeSection />}
+      {tab === 'import' && <SettingsMappingsSection />}
+      {tab === 'duplicates' && <SettingsDuplicatesSection />}
+      {tab === 'data' && <SettingsDataSection />}
+      {tab === 'preferences' && <SettingsPreferencesSection />}
     </div>
   );
 }
@@ -1165,10 +1112,12 @@ function SettingsMappingsSection() {
       api.getGroups(),
       api.getIncomeSources(),
     ]);
-    const sorted = [...(m ?? [])].sort((a, b) =>
-      a.externalName.localeCompare(b.externalName, undefined, {
-        sensitivity: 'base',
-      })
+    const sorted = [...(m ?? [])].sort(
+      (a, b) =>
+        a.source.localeCompare(b.source, undefined, { sensitivity: 'base' }) ||
+        a.externalName.localeCompare(b.externalName, undefined, {
+          sensitivity: 'base',
+        })
     );
     setMappings(sorted);
     setGroups(g ?? []);
@@ -1191,8 +1140,8 @@ function SettingsMappingsSection() {
     <section className="settings-section">
       <h2 className="settings-section__title">Import mappings</h2>
       <p className="settings-section__desc">
-        Monarch CSV categories you have mapped to Spend. Edit or remove a
-        mapping if you made a mistake.
+        Categories from your imports mapped into Spend., grouped by the file
+        format they came from. Edit or remove a mapping if you made a mistake.
       </p>
       <div className="settings-card settings-mapping-table">
         {mappings.length === 0 ? (
@@ -1201,14 +1150,21 @@ function SettingsMappingsSection() {
             your first import.
           </p>
         ) : (
-          mappings.map((m) => {
+          mappings.map((m, i) => {
             const dest = mappingDestinationLabel(m, groups, income);
+            const newSource = i === 0 || mappings[i - 1].source !== m.source;
             const sel = mappingAssignmentToSelectValue({
               targetType: m.targetType,
               targetId: m.targetId,
             });
             return (
-              <div key={m.id} className="settings-mapping-row">
+              <React.Fragment key={m.id}>
+                {newSource && (
+                  <div className="settings-mapping-source">
+                    {importFormatLabel(m.source)}
+                  </div>
+                )}
+              <div className="settings-mapping-row">
                 <span className="settings-mapping-monarch">{m.externalName}</span>
                 {editingId === m.id ? (
                   <MappingEditRow
@@ -1259,6 +1215,7 @@ function SettingsMappingsSection() {
                   </>
                 )}
               </div>
+              </React.Fragment>
             );
           })
         )}
@@ -1321,6 +1278,7 @@ function MappingEditRow({
       externalName: mapping.externalName,
       targetType: p.targetType,
       targetId: p.targetId,
+      source: mapping.source,
     });
     await onSaved();
   };

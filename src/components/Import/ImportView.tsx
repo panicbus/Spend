@@ -423,6 +423,7 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
       {state.kind === 'mapping' && (
         <ImportCategoryMappingPanel
           unknownCategories={state.unknownCategories}
+          unknownCategoryGroups={state.unknownCategoryGroups}
           rows={state.rows}
           mappingSource={mappingSource}
           onCancel={reset}

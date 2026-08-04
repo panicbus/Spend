@@ -114,19 +114,71 @@ describe('monarch sample CSV via profile parser', () => {
 });
 
 describe('split amount columns', () => {
-  it('debit is expense and credit is income', () => {
-    const cents = amountCentsFromRow(
-      { Debit: '50.00', Credit: '' },
-      { type: 'split', debitColumn: 'Debit', creditColumn: 'Credit' },
-      'row 1'
-    );
-    assert.equal(cents, -5000);
+  const split = {
+    type: 'split',
+    debitColumn: 'Outflow',
+    creditColumn: 'Inflow',
+  } as const;
+  const cents = (debit: string, credit: string) =>
+    amountCentsFromRow({ Outflow: debit, Inflow: credit }, split, 'row 1');
 
-    const income = amountCentsFromRow(
-      { Debit: '', Credit: '100.00' },
-      { type: 'split', debitColumn: 'Debit', creditColumn: 'Credit' },
-      'row 2'
+  it('debit is expense and credit is income', () => {
+    assert.equal(cents('50.00', ''), -5000);
+    assert.equal(cents('', '100.00'), 10000);
+  });
+
+  it('treats a zero filler as an empty column', () => {
+    // YNAB writes $0.00 into the column each row does not use.
+    assert.equal(cents('$25.00', '$0.00'), -2500);
+    assert.equal(cents('$0.00', '$1,000.00'), 100000);
+  });
+
+  it('reads a row that is zero on both sides as zero', () => {
+    assert.equal(cents('$0.00', '$0.00'), 0);
+  });
+
+  it('ignores placeholder text in the unused column', () => {
+    assert.equal(cents('$25.00', '-'), -2500);
+    assert.equal(cents('n/a', '$40.00'), 4000);
+  });
+
+  it('still rejects two real amounts on one row', () => {
+    assert.throws(() => cents('$25.00', '$40.00'), /Both debit and credit/);
+  });
+
+  it('still rejects a row with no amount at all', () => {
+    assert.throws(() => cents('', ''), /Missing amount/);
+  });
+});
+
+describe('YNAB export via profile parser', () => {
+  const ynabFixture = path.join(__dirname, 'fixtures/ynab-sample.csv');
+  const profile = getCSVProfile('ynab');
+
+  it('imports a real YNAB register export', () => {
+    assert.ok(profile);
+    const { rows } = parseProfileCSV(
+      ynabFixture,
+      profileToGenericMapping(profile),
+      {
+        mappingSource: 'ynab',
+        profileName: profile.name,
+        loadMappingNameLookups: () => ({
+          catNames: new Map(),
+          incomeNames: new Map(),
+        }),
+        loadMappingRows: () => [],
+      }
     );
-    assert.equal(income, 10000);
+    assert.equal(rows.length, 8);
+    // Outflow rows are expenses despite the $0.00 inflow filler.
+    assert.equal(rows[0].amountCents, -1000);
+    assert.equal(rows[0].date, '2026-08-02');
+    // Inflow row, comma in the amount.
+    assert.equal(rows[6].amountCents, 250000);
+    // Category names carry emoji and stray trailing spaces.
+    assert.equal(rows[5].externalCategory, '\u{1F687} Transportation');
+    // Payee is allowed to be blank.
+    assert.equal(rows[4].merchant, '');
   });
 });

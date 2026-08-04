@@ -75,6 +75,8 @@ const api: SpendApi = {
   setLastImportProfile: (profileId) =>
     ipcRenderer.invoke('setLastImportProfile', profileId),
   getCategoryMappings: () => ipcRenderer.invoke('getCategoryMappings'),
+  adoptImportCategories: (input) =>
+    ipcRenderer.invoke('adoptImportCategories', input),
   saveCategoryMapping: (input) =>
     ipcRenderer.invoke('saveCategoryMapping', input),
   commitImport: (rows) => ipcRenderer.invoke('commitImport', rows),

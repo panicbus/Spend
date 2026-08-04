@@ -33,6 +33,8 @@ export interface ParseCSVResult {
   rows: ParsedRow[];
   /** Unique trimmed Monarch category names that have no row in category_mappings. */
   unknownCategories: string[];
+  /** Unknown category name → the group the file filed it under, when it has one. */
+  unknownCategoryGroups?: Record<string, string>;
 }
 
 export interface SaveCategoryMappingInput {
@@ -125,6 +127,31 @@ export interface DuplicatePair {
 export interface DeleteLedgerRowsInput {
   transactionIds: number[];
   incomeIds: number[];
+}
+
+/** One category to recreate from an import, with the group the file had it under. */
+export interface AdoptImportCategoryItem {
+  /** Category name as it appears in the file. */
+  categoryName: string;
+  /** Group from the file; falls back to "Imported" when the export has none. */
+  groupName?: string;
+  /** Mapping key, when it differs from the category name. */
+  externalName?: string;
+}
+
+export interface AdoptImportCategoriesInput {
+  items: AdoptImportCategoryItem[];
+  /** Mapping source / profile id. */
+  source?: string;
+}
+
+export interface AdoptImportCategoriesResult {
+  createdGroups: number;
+  createdCategories: number;
+  mapped: number;
+  /** What each external name now points at — `getCategoryMappings` only reads
+   *  the default source, so the caller cannot look these up afterwards. */
+  mappings: { externalName: string; categoryId: number }[];
 }
 
 export interface CommitImportResult {
