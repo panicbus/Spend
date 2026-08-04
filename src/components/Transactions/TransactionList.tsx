@@ -141,6 +141,7 @@ export function TransactionList() {
     const incomeSource = searchParams.get('incomeSource');
     const incomeSourcesRaw = searchParams.get('incomeSources');
     const incomeLine = searchParams.get('incomeLine');
+    const search = searchParams.get('search');
     let next = false;
     if (
       rf &&
@@ -197,6 +198,10 @@ export function TransactionList() {
       setCategoryIds(undefined);
       next = true;
     }
+    if (search != null && search !== '') {
+      setSearchText(search);
+      next = true;
+    }
     if (next) {
       const p = new URLSearchParams(searchParams);
       p.delete('rangeFrom');
@@ -206,6 +211,7 @@ export function TransactionList() {
       p.delete('incomeSource');
       p.delete('incomeSources');
       p.delete('incomeLine');
+      p.delete('search');
       /** Keep router state (e.g. trendsReturn); default setSearchParams drops it. */
       setSearchParams(p, { replace: true, state: location.state });
     }
@@ -217,6 +223,7 @@ export function TransactionList() {
     setCategoryIds,
     setIncomeOnlySourceIds,
     setIncomeLineLabel,
+    setSearchText,
     location.state,
   ]);
 
@@ -244,7 +251,8 @@ export function TransactionList() {
       searchParams.has('categories') ||
       searchParams.has('incomeSource') ||
       searchParams.has('incomeSources') ||
-      searchParams.has('incomeLine');
+      searchParams.has('incomeLine') ||
+      searchParams.has('search');
     if (!fromListDeepLink) {
       clearTrendsReturnContext();
       clearBudgetReturnContext();

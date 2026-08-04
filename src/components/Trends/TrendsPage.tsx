@@ -28,6 +28,7 @@ import { clearBudgetReturnContext } from '../../utils/budgetReturnContext';
 import { setTrendsReturnContext } from '../../utils/trendsReturnContext';
 import { Button } from '../common/Button';
 import { TrendsMovers } from './TrendsMovers';
+import { TrendsReports } from './TrendsReports';
 import './TrendsPage.css';
 
 const RANGE_OPTIONS: { value: TrendRange; label: string }[] = [
@@ -612,6 +613,27 @@ export function TrendsPage() {
     [navigate]
   );
 
+  const goTransactionsMerchant = useCallback(
+    (merchant: string, trend: TrendData) => {
+      const ctx: TrendsReturnContext = {
+        range: trend.range,
+        drillGroupId: null,
+        drillIncomeSourceId: null,
+        drillIncomeLineLabel: null,
+      };
+      setTrendsReturnContext(ctx);
+      const q = new URLSearchParams({
+        rangeFrom: trend.startMonthKey,
+        rangeTo: trend.endMonthKey,
+        search: merchant,
+      });
+      navigate(`/transactions?${q.toString()}`, {
+        state: { trendsReturn: ctx },
+      });
+    },
+    [navigate]
+  );
+
   const goTransactionsIncome = useCallback(
     (
       trend: TrendData,
@@ -786,6 +808,15 @@ export function TrendsPage() {
             data={data}
             onCategoryClick={(categoryId, monthKey) =>
               goTransactionsCategory(categoryId, data, null, monthKey)
+            }
+          />
+          <TrendsReports
+            data={data}
+            onCategoryMonthClick={(categoryId, monthKey) =>
+              goTransactionsCategory(categoryId, data, null, monthKey)
+            }
+            onMerchantClick={(merchant) =>
+              goTransactionsMerchant(merchant, data)
             }
           />
           <section className="trends-chart-card">

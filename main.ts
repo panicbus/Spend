@@ -31,6 +31,8 @@ import type {
   TrendIncomeLineSlice,
   TrendIncomeSlice,
   TrendMonthSnapshot,
+  TopMerchantsInput,
+  TopMerchantsResult,
   TrendRange,
   TrendTopCategory,
   MerchantInsights,
@@ -1516,6 +1518,75 @@ function getTransactionsList(filters: TransactionFilters): TransactionListResult
   };
 }
 
+/**
+ * Where the money goes by merchant over a window, next to the same-length
+ * window before it — "we spent more at X" is the question people ask after
+ * seeing a category move.
+ */
+function getTopMerchantsData(input: TopMerchantsInput): TopMerchantsResult {
+  const startMonthKey = input.startMonthKey;
+  const endMonthKey = input.endMonthKey;
+  if (
+    !/^\d{4}-\d{2}$/.test(startMonthKey) ||
+    !/^\d{4}-\d{2}$/.test(endMonthKey) ||
+    startMonthKey > endMonthKey
+  ) {
+    throw new Error('Invalid month range.');
+  }
+  const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 50);
+  const span = enumerateMonthKeys(startMonthKey, endMonthKey).length;
+  const priorEndMonthKey = addMonthsToKey(startMonthKey, -1);
+  const priorStartMonthKey = addMonthsToKey(priorEndMonthKey, -(span - 1));
+
+  const label = `COALESCE(NULLIF(TRIM(t.merchant), ''), t.description)`;
+  const totalsFor = (from: string, to: string) =>
+    db
+      .prepare(
+        `SELECT LOWER(TRIM(${label})) AS key,
+                MAX(${label}) AS display,
+                COALESCE(SUM(t.amount_cents), 0) AS total,
+                COUNT(*) AS n
+         FROM transactions t
+         WHERE substr(t.date, 1, 7) >= ? AND substr(t.date, 1, 7) <= ?
+         GROUP BY key
+         HAVING TRIM(COALESCE(key, '')) <> ''`
+      )
+      .all(from, to) as {
+      key: string;
+      display: string;
+      total: number;
+      n: number;
+    }[];
+
+  const priorByKey = new Map(
+    totalsFor(priorStartMonthKey, priorEndMonthKey).map((r) => [r.key, r.total])
+  );
+
+  const merchants = totalsFor(startMonthKey, endMonthKey)
+    .filter((r) => r.total > 0)
+    .map((r) => {
+      const priorTotalCents = priorByKey.get(r.key) ?? 0;
+      return {
+        merchant: r.display,
+        totalCents: r.total,
+        transactionCount: r.n,
+        averageCents: r.n > 0 ? Math.round(r.total / r.n) : 0,
+        priorTotalCents,
+        deltaCents: r.total - priorTotalCents,
+      };
+    })
+    .sort((a, b) => b.totalCents - a.totalCents)
+    .slice(0, limit);
+
+  return {
+    startMonthKey,
+    endMonthKey,
+    priorStartMonthKey,
+    priorEndMonthKey,
+    merchants,
+  };
+}
+
 function merchantMatchWhere(alias = 't'): string {
   return `LOWER(TRIM(COALESCE(NULLIF(TRIM(${alias}.merchant), ''), ${alias}.description))) = ?`;
 }
@@ -2568,6 +2639,10 @@ function registerIpcHandlers() {
       .get(monthKey) as { t: number };
     return Number(row?.t ?? 0);
   });
+
+  ipcMain.handle('getTopMerchants', (_, input: TopMerchantsInput) =>
+    getTopMerchantsData(input)
+  );
 
   ipcMain.handle('getMerchantInsights', (_, merchantName: string) =>
     getMerchantInsightsData(typeof merchantName === 'string' ? merchantName : '')

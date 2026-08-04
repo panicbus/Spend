@@ -93,6 +93,7 @@ const api: SpendApi = {
 
   getTrends: (range) => ipcRenderer.invoke('getTrends', range),
 
+  getTopMerchants: (input) => ipcRenderer.invoke('getTopMerchants', input),
   getMerchantInsights: (merchantName) =>
     ipcRenderer.invoke('getMerchantInsights', merchantName),
   getMonthNote: (monthKey) => ipcRenderer.invoke('getMonthNote', monthKey),

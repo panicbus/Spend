@@ -1,23 +1,25 @@
 import type { AmountMode } from './csv-profiles.js';
 
-/** Parse a dollar string to signed cents (handles $, commas, parenthetical negatives). */
+/**
+ * Signed cents from a dollar string (handles $, commas, parenthetical
+ * negatives), or null when there is no number to read.
+ */
+function tryParseAmountCents(amountStr: string): number | null {
+  const trimmed = amountStr.trim();
+  if (!trimmed) return null;
+  const paren = /^\((.+)\)$/.exec(trimmed);
+  const s = paren ? `-${paren[1]}` : trimmed;
+  const n = parseFloat(s.replace(/[$,\s]/g, ''));
+  return Number.isNaN(n) ? null : Math.round(n * 100);
+}
+
+/** Parse a dollar string to signed cents, naming the row if it will not parse. */
 export function parseAmountToCents(amountStr: string, rowLabel: string): number {
-  let s = amountStr.trim();
-  if (!s) {
+  const cents = tryParseAmountCents(amountStr);
+  if (cents == null) {
     throw new Error(`Invalid amount on ${rowLabel}: "${amountStr}".`);
   }
-
-  const paren = /^\((.+)\)$/.exec(s);
-  if (paren) {
-    s = `-${paren[1]}`;
-  }
-
-  const cleaned = s.replace(/[$,\s]/g, '');
-  const n = parseFloat(cleaned);
-  if (Number.isNaN(n)) {
-    throw new Error(`Invalid amount on ${rowLabel}: "${amountStr}".`);
-  }
-  return Math.round(n * 100);
+  return cents;
 }
 
 /**
@@ -32,15 +34,9 @@ type AmountSide =
   | { kind: 'none' };
 
 function amountSide(raw: string | undefined): AmountSide {
-  const s = (raw ?? '').trim();
-  if (!s) return { kind: 'none' };
-  let cents: number;
-  try {
-    cents = parseAmountToCents(s, '');
-  } catch {
-    // Placeholder text in the column this row does not use.
-    return { kind: 'none' };
-  }
+  // Blank, or placeholder text in the column this row does not use.
+  const cents = tryParseAmountCents(raw ?? '');
+  if (cents == null) return { kind: 'none' };
   return cents === 0 ? { kind: 'zero' } : { kind: 'value', cents };
 }
 

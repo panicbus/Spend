@@ -120,6 +120,8 @@ export const api = {
   getTrends: (range: Parameters<SpendApi['getTrends']>[0]) =>
     getBridge().getTrends(range),
 
+  getTopMerchants: (input: Parameters<SpendApi['getTopMerchants']>[0]) =>
+    getBridge().getTopMerchants(input),
   getMerchantInsights: (
     merchantName: Parameters<SpendApi['getMerchantInsights']>[0]
   ) => getBridge().getMerchantInsights(merchantName),

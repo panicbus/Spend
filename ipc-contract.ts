@@ -318,6 +318,31 @@ export interface TrendGroupLegendItem {
   sortOrder: number;
 }
 
+export interface TopMerchantsInput {
+  startMonthKey: string;
+  endMonthKey: string;
+  /** Defaults to 10, capped at 50. */
+  limit?: number;
+}
+
+export interface TopMerchantRow {
+  merchant: string;
+  totalCents: number;
+  transactionCount: number;
+  averageCents: number;
+  /** Same merchant over the equally long window immediately before. */
+  priorTotalCents: number;
+  deltaCents: number;
+}
+
+export interface TopMerchantsResult {
+  startMonthKey: string;
+  endMonthKey: string;
+  priorStartMonthKey: string;
+  priorEndMonthKey: string;
+  merchants: TopMerchantRow[];
+}
+
 export interface MerchantInsights {
   totalCents: number;
   transactionCount: number;
@@ -465,6 +490,8 @@ export interface SpendApi {
   getTrends: (range: TrendRange) => Promise<TrendData>;
 
   getMerchantInsights: (merchantName: string) => Promise<MerchantInsights>;
+  /** Merchants by spend over a month range, with the prior window for comparison. */
+  getTopMerchants: (input: TopMerchantsInput) => Promise<TopMerchantsResult>;
   getMonthNote: (monthKey: string) => Promise<string>;
   setMonthNote: (monthKey: string, note: string) => Promise<void>;
 }
