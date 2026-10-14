@@ -7,7 +7,12 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from 'react-router-dom';
 import type { MergedTransactionRow } from '../../hooks/useTransactionList';
 import { useTransactionList } from '../../hooks/useTransactionList';
 import {
@@ -72,10 +77,7 @@ function TransactionNoteBadge({ note }: { note: string }) {
       className="transaction-list__note-wrap"
       onClick={(e) => e.stopPropagation()}
     >
-      <span
-        className="transaction-list__note-badge"
-        aria-describedby={tipId}
-      >
+      <span className="transaction-list__note-badge" aria-describedby={tipId}>
         <svg
           width="12"
           height="12"
@@ -90,7 +92,11 @@ function TransactionNoteBadge({ note }: { note: string }) {
           <polyline points="20 6 9 17 4 12" />
         </svg>
       </span>
-      <span id={tipId} className="transaction-list__note-tooltip" role="tooltip">
+      <span
+        id={tipId}
+        className="transaction-list__note-tooltip"
+        role="tooltip"
+      >
         {note}
       </span>
     </span>
@@ -333,9 +339,7 @@ export function TransactionList() {
   }, [setCategoryIds, setIncomeOnlySourceIds, setIncomeLineLabel]);
 
   const groupChipState = useCallback(
-    (
-      g: GroupWithCategories
-    ): 'all' | 'some' | 'none' => {
+    (g: GroupWithCategories): 'all' | 'some' | 'none' => {
       const gIds = g.categories.map((c) => c.id);
       if (gIds.length === 0) return 'none';
       if (categoryIds === undefined) return 'all';
@@ -415,10 +419,7 @@ export function TransactionList() {
     if (!catMenuOpen) return;
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node;
-      if (
-        catMenuRef.current?.contains(t) ||
-        catBtnRef.current?.contains(t)
-      ) {
+      if (catMenuRef.current?.contains(t) || catBtnRef.current?.contains(t)) {
         return;
       }
       setCatMenuOpen(false);
@@ -635,10 +636,7 @@ export function TransactionList() {
                   All categories
                 </span>
               </label>
-              <div
-                className="transaction-list__cat-master-rule"
-                aria-hidden
-              />
+              <div className="transaction-list__cat-master-rule" aria-hidden />
               {groups.map((g) => (
                 <div key={g.id} className="transaction-list__cat-group">
                   <label className="transaction-list__cat-group-header">
@@ -649,9 +647,7 @@ export function TransactionList() {
                       }}
                       type="checkbox"
                       checked={groupChipState(g) === 'all'}
-                      onChange={(e) =>
-                        onGroupFilterChange(g, e.target.checked)
-                      }
+                      onChange={(e) => onGroupFilterChange(g, e.target.checked)}
                     />
                     <span
                       className="transaction-list__cat-group-header-dot"
@@ -799,7 +795,8 @@ export function TransactionList() {
                   expanded={expandedKey === rowKey(row)}
                   onToggleRow={() =>
                     setExpandedKey((k) =>
-                      k === rowKey(row) ? null : rowKey(row))
+                      k === rowKey(row) ? null : rowKey(row)
+                    )
                   }
                   groups={groups}
                   incomeSources={incomeSources}
@@ -837,7 +834,11 @@ type RowsProps = {
   /** Expense ids flash as-is; income ids flash negated so the two never collide. */
   savedForId: number | null;
   onRecatChange: (id: number, cat: number) => void;
-  onCreateCategory: (id: number, groupId: number, name: string) => Promise<void>;
+  onCreateCategory: (
+    id: number,
+    groupId: number,
+    name: string
+  ) => Promise<void>;
   onIncomeSourceChange: (id: number, sourceId: number) => void;
   onRemoveExpense: (id: number) => void;
   onRemoveIncome: (id: number) => void;
@@ -878,8 +879,9 @@ function TransactionTableRows({
 
   const startNewCategory = (currentCategoryId: number) => {
     const home =
-      groups.find((g) => g.categories.some((c) => c.id === currentCategoryId)) ??
-      groups[0];
+      groups.find((g) =>
+        g.categories.some((c) => c.id === currentCategoryId)
+      ) ?? groups[0];
     if (!home) return;
     setNewCat({ name: '', groupId: home.id, saving: false, error: null });
   };
@@ -895,12 +897,13 @@ function TransactionTableRows({
       await onCreateCategory(txId, newCat.groupId, newCat.name);
       setNewCat(null);
     } catch (e) {
-      setNewCat((cur) =>
-        cur && {
-          ...cur,
-          saving: false,
-          error: e instanceof Error ? e.message : String(e),
-        }
+      setNewCat(
+        (cur) =>
+          cur && {
+            ...cur,
+            saving: false,
+            error: e instanceof Error ? e.message : String(e),
+          }
       );
     }
   };
@@ -974,7 +977,9 @@ function TransactionTableRows({
                     </div>
                   </div>
                   <div>
-                    <div className="transaction-list__detail-label">Imported</div>
+                    <div className="transaction-list__detail-label">
+                      Imported
+                    </div>
                     <div className="transaction-list__detail-value">
                       {formatImportedDateOnly(tx.createdAt)}
                     </div>
@@ -1083,7 +1088,10 @@ function TransactionTableRows({
                           </button>
                         </div>
                         {newCat.error && (
-                          <p className="transaction-list__new-cat-error" role="alert">
+                          <p
+                            className="transaction-list__new-cat-error"
+                            role="alert"
+                          >
                             {newCat.error}
                           </p>
                         )}

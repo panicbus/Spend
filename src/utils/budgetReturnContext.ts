@@ -36,7 +36,9 @@ export function readBudgetReturnContext(): BudgetReturnContext | null {
         ? v.openGroupId
         : undefined;
     const scrollY =
-      typeof v.scrollY === 'number' && Number.isFinite(v.scrollY) && v.scrollY > 0
+      typeof v.scrollY === 'number' &&
+      Number.isFinite(v.scrollY) &&
+      v.scrollY > 0
         ? v.scrollY
         : undefined;
     return {

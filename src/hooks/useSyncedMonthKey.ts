@@ -33,16 +33,19 @@ export function useSyncedMonthKey(initialFallback?: string): {
       window.removeEventListener(MONTH_KEY_CHANGED_EVENT, onExternal);
   }, []);
 
-  const setMonthKey = useCallback((update: string | ((prev: string) => string)) => {
-    setMonthKeyState((prev) => {
-      const raw = typeof update === 'function' ? update(prev) : update;
-      const next = clampMonthKeyToEarliestData(raw);
-      if (next !== prev) {
-        writeStoredMonthKey(next);
-      }
-      return next;
-    });
-  }, []);
+  const setMonthKey = useCallback(
+    (update: string | ((prev: string) => string)) => {
+      setMonthKeyState((prev) => {
+        const raw = typeof update === 'function' ? update(prev) : update;
+        const next = clampMonthKeyToEarliestData(raw);
+        if (next !== prev) {
+          writeStoredMonthKey(next);
+        }
+        return next;
+      });
+    },
+    []
+  );
 
   return { monthKey, setMonthKey };
 }

@@ -53,12 +53,18 @@ describe('csv-profiles', () => {
 
 describe('parseCsvDate', () => {
   it('passes through YYYY-MM-DD', () => {
-    assert.equal(parseCsvDate('2026-01-05', 'YYYY-MM-DD', 'row 1'), '2026-01-05');
+    assert.equal(
+      parseCsvDate('2026-01-05', 'YYYY-MM-DD', 'row 1'),
+      '2026-01-05'
+    );
   });
 
   it('parses M/D/YYYY', () => {
     assert.equal(parseCsvDate('1/5/2026', 'M/D/YYYY', 'row 1'), '2026-01-05');
-    assert.equal(parseCsvDate('01/05/2026', 'MM/DD/YYYY', 'row 1'), '2026-01-05');
+    assert.equal(
+      parseCsvDate('01/05/2026', 'MM/DD/YYYY', 'row 1'),
+      '2026-01-05'
+    );
   });
 });
 

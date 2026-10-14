@@ -25,7 +25,8 @@
   flex-direction: column;
   box-sizing: border-box;
   overflow: hidden;
-  animation: category-group-overlay-enter 0.38s cubic-bezier(0.33, 1, 0.68, 1) both;
+  animation: category-group-overlay-enter 0.38s cubic-bezier(0.33, 1, 0.68, 1)
+    both;
 }
 
 @keyframes category-group-overlay-enter {
@@ -84,7 +85,9 @@
   padding: 4px 8px;
   margin: -4px -8px 0 0;
   border-radius: 8px;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .category-group-overlay__close:hover {

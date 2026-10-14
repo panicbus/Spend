@@ -129,7 +129,9 @@ export function MonarchSyncButton() {
         setPhase('success');
       } catch (e) {
         showToast(
-          e instanceof Error ? e.message : 'Could not import Monarch transactions.',
+          e instanceof Error
+            ? e.message
+            : 'Could not import Monarch transactions.',
           'error'
         );
       } finally {

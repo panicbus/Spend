@@ -189,7 +189,10 @@ export function reviewSelectValue(
   return selectValueFromEffective(effectiveRowTarget(row, ov));
 }
 
-function toCommitRow(row: ParsedRow, ov: RowOverride | undefined): CommitImportRow {
+function toCommitRow(
+  row: ParsedRow,
+  ov: RowOverride | undefined
+): CommitImportRow {
   const e = effectiveRowTarget(row, ov);
   const skip = e.skip || e.targetType === 'skip';
   return {
@@ -609,9 +612,7 @@ export function useImport() {
     const s = stateRef.current;
     if (s.kind !== 'reviewing') return;
     const { rows, rowOverrides, filePath, profileId: activeProfileId } = s;
-    const payload = rows.map((r) =>
-      toCommitRow(r, rowOverrides[r.rowIndex])
-    );
+    const payload = rows.map((r) => toCommitRow(r, rowOverrides[r.rowIndex]));
     const candidates = dedupeCandidates(payload);
     const importCandidateCount = candidates.length;
 
@@ -662,9 +663,7 @@ export function useImport() {
       const s = stateRef.current;
       if (s.kind !== 'duplicate_warning') return;
       const { rows, rowOverrides, analysis } = s;
-      const payload = rows.map((r) =>
-        toCommitRow(r, rowOverrides[r.rowIndex])
-      );
+      const payload = rows.map((r) => toCommitRow(r, rowOverrides[r.rowIndex]));
       if (skipPossible) {
         for (const m of analysis.matches) {
           if (m.verdict === 'possible' && payload[m.rowIndex]) {

@@ -76,7 +76,11 @@
 }
 
 .category-card__summary:hover .category-card__header-top {
-  background: color-mix(in srgb, var(--bar-track) 32%, var(--text-primary) 12.5%);
+  background: color-mix(
+    in srgb,
+    var(--bar-track) 32%,
+    var(--text-primary) 12.5%
+  );
 }
 
 .category-card__chevron {
@@ -208,7 +212,6 @@
     transition: none;
   }
 }
-
 
 .category-card__bar-fill {
   display: block;

@@ -25,7 +25,10 @@ function stripExtendedAttributes(appBundle) {
   );
 
   try {
-    execSync(`/usr/bin/dot_clean -s ${q}`, { stdio: 'inherit', env: process.env });
+    execSync(`/usr/bin/dot_clean -s ${q}`, {
+      stdio: 'inherit',
+      env: process.env,
+    });
   } catch {
     /* optional */
   }

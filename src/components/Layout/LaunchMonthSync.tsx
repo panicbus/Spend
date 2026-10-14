@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { api } from '../../services/api';
-import { clampMonthKeyToEarliestData, currentMonthKey } from '../../utils/dates';
+import {
+  clampMonthKeyToEarliestData,
+  currentMonthKey,
+} from '../../utils/dates';
 import {
   MONTH_KEY_CHANGED_EVENT,
   writeStoredMonthKey,

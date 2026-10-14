@@ -21,8 +21,7 @@ function budget(categoryId: number, monthKey: string) {
       'SELECT amount_cents, frequency FROM budgets WHERE category_id = ? AND month_key = ?'
     )
     .get(categoryId, monthKey) as
-    | { amount_cents: number; frequency: string }
-    | undefined;
+    { amount_cents: number; frequency: string } | undefined;
   // node:sqlite rows have a null prototype; copy so deepEqual compares plain objects.
   return r && { ...r };
 }
@@ -45,7 +44,13 @@ function seedBudget(
   db.prepare(
     `INSERT INTO budgets (category_id, month_key, amount_cents, frequency, annual_amount_cents)
      VALUES (?, ?, ?, ?, ?)`
-  ).run(categoryId, monthKey, cents, frequency, frequency === 'monthly' ? null : cents * 12);
+  ).run(
+    categoryId,
+    monthKey,
+    cents,
+    frequency,
+    frequency === 'monthly' ? null : cents * 12
+  );
 }
 
 beforeEach(() => {

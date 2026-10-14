@@ -1,9 +1,7 @@
 import type { MappingTargetType } from '../types/import';
 
 export function mappingAssignmentToSelectValue(
-  a:
-    | { targetType: MappingTargetType; targetId: number | null }
-    | undefined
+  a: { targetType: MappingTargetType; targetId: number | null } | undefined
 ): string {
   if (!a) return '';
   if (a.targetType === 'skip') return 'skip';

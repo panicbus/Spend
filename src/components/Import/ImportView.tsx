@@ -1,5 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GroupWithCategories, IncomeSourceRow } from '../../../ipc-contract';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type {
+  GroupWithCategories,
+  IncomeSourceRow,
+} from '../../../ipc-contract';
 import type { ParsedRow } from '../../types/import';
 import {
   useImport,
@@ -35,9 +44,7 @@ function categoryColumnLabel(
   const e = effectiveRowTarget(row, override);
   if (e.skip || e.targetType === 'skip') return 'Skip';
   if (e.targetType === 'income_source' && e.targetId != null) {
-    return (
-      incomeSources.find((i) => i.id === e.targetId)?.name ?? 'Income'
-    );
+    return incomeSources.find((i) => i.id === e.targetId)?.name ?? 'Income';
   }
   if (e.targetType === 'category' && e.targetId != null) {
     for (const g of groups) {
@@ -231,11 +238,7 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
       e.stopPropagation();
       if (!dataTransferHasFiles(e.dataTransfer)) return;
       const rel = e.relatedTarget as Node | null;
-      if (
-        rel &&
-        dropZoneRef.current &&
-        dropZoneRef.current.contains(rel)
-      ) {
+      if (rel && dropZoneRef.current && dropZoneRef.current.contains(rel)) {
         return;
       }
       dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
@@ -290,19 +293,24 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
         : profileId;
 
   return (
-    <div className={embedded ? 'import-view import-view--embedded' : 'import-view'}>
+    <div
+      className={embedded ? 'import-view import-view--embedded' : 'import-view'}
+    >
       {!embedded && (
         <header className="import-view__header">
           <h1 className="import-view__title">Import</h1>
-          <p className="import-view__subtitle">
-            CSV → Spend. (local, private)
-          </p>
+          <p className="import-view__subtitle">CSV → Spend. (local, private)</p>
         </header>
       )}
 
-      {(state.kind === 'idle' || state.kind === 'error' || state.kind === 'done') && (
+      {(state.kind === 'idle' ||
+        state.kind === 'error' ||
+        state.kind === 'done') && (
         <div className="import-format-select-wrap">
-          <label className="import-format-select__label" htmlFor="import-format">
+          <label
+            className="import-format-select__label"
+            htmlFor="import-format"
+          >
             What format is your CSV?
           </label>
           <select
@@ -325,7 +333,8 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
             ) : null}
           </select>
           <p className="import-format-select__hint">
-            Not sure? Check your bank&apos;s website for CSV export instructions.
+            Not sure? Check your bank&apos;s website for CSV export
+            instructions.
           </p>
         </div>
       )}
@@ -368,14 +377,16 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
                 </p>
               ) : (
                 <>
-                  <p className="import-drop__text">
-                    Drag a CSV here
-                  </p>
+                  <p className="import-drop__text">Drag a CSV here</p>
                   <span className="import-drop__or">or</span>
                 </>
               )}
             </div>
-            <Button type="button" variant="dashed" onClick={() => void pickFile()}>
+            <Button
+              type="button"
+              variant="dashed"
+              onClick={() => void pickFile()}
+            >
               Choose CSV file
             </Button>
             {dropError ? (
@@ -453,10 +464,7 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
               Cancel import
             </Button>
           </div>
-          <ReviewSummary
-            rows={state.rows}
-            rowOverrides={state.rowOverrides}
-          />
+          <ReviewSummary rows={state.rows} rowOverrides={state.rowOverrides} />
           <div className="import-review__table-wrap">
             <div className="import-review__thead">
               <span>Date</span>
@@ -533,28 +541,28 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
                         />
                       )}
                     </span>
-                  <span
-                    className={`import-review__cell import-review__cell--amt ${amountClass(row.amountCents)}`}
-                  >
-                    {formatCurrency(row.amountCents)}
-                  </span>
-                  <label className="import-review__cell import-review__skip">
-                    <input
-                      type="checkbox"
-                      disabled={reviewLocked}
-                      checked={
-                        effectiveRowTarget(
-                          row,
-                          state.rowOverrides[row.rowIndex]
-                        ).skip
-                      }
-                      onChange={(e) =>
-                        setRowSkip(row.rowIndex, e.target.checked)
-                      }
-                      aria-label={`Skip row ${idx + 1}`}
-                    />
-                  </label>
-                </div>
+                    <span
+                      className={`import-review__cell import-review__cell--amt ${amountClass(row.amountCents)}`}
+                    >
+                      {formatCurrency(row.amountCents)}
+                    </span>
+                    <label className="import-review__cell import-review__skip">
+                      <input
+                        type="checkbox"
+                        disabled={reviewLocked}
+                        checked={
+                          effectiveRowTarget(
+                            row,
+                            state.rowOverrides[row.rowIndex]
+                          ).skip
+                        }
+                        onChange={(e) =>
+                          setRowSkip(row.rowIndex, e.target.checked)
+                        }
+                        aria-label={`Skip row ${idx + 1}`}
+                      />
+                    </label>
+                  </div>
                 );
               })}
             </div>

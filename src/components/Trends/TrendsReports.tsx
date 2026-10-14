@@ -43,7 +43,15 @@ function pctText(current: number, prior: number): string {
 }
 
 /** Bar scaled against the largest value in its own column. */
-function Bar({ value, max, color }: { value: number; max: number; color: string }) {
+function Bar({
+  value,
+  max,
+  color,
+}: {
+  value: number;
+  max: number;
+  color: string;
+}) {
   const pct = max > 0 ? Math.max(2, (value / max) * 100) : 0;
   return (
     <span className="trends-reports__bar-track" aria-hidden>
@@ -63,7 +71,10 @@ function CategoryOverTime({
   onMonthClick: (categoryId: number, monthKey: string) => void;
 }) {
   const categories = useMemo(() => {
-    const seen = new Map<number, { id: number; name: string; groupName: string; color: string }>();
+    const seen = new Map<
+      number,
+      { id: number; name: string; groupName: string; color: string }
+    >();
     for (const m of data.months) {
       for (const c of m.byCategory) {
         if (!seen.has(c.categoryId)) {
@@ -94,7 +105,9 @@ function CategoryOverTime({
   }, [active, data]);
 
   if (categories.length === 0) {
-    return <p className="trends-reports__empty">No categories with spending yet.</p>;
+    return (
+      <p className="trends-reports__empty">No categories with spending yet.</p>
+    );
   }
 
   const cat = categories.find((c) => c.id === active) ?? categories[0];
@@ -201,7 +214,11 @@ function TopMerchants({
   }
   if (!result) return <p className="trends-reports__empty">Loading…</p>;
   if (result.merchants.length === 0) {
-    return <p className="trends-reports__empty">No merchant spending in this range.</p>;
+    return (
+      <p className="trends-reports__empty">
+        No merchant spending in this range.
+      </p>
+    );
   }
 
   const max = Math.max(...result.merchants.map((m) => m.totalCents), 1);
@@ -321,7 +338,8 @@ function CompareMonths({
                 />
                 <span className="trends-reports__name">{m.name}</span>
                 <span className="trends-reports__meta">
-                  {formatCurrency(m.priorCents)} → {formatCurrency(m.currentCents)}
+                  {formatCurrency(m.priorCents)} →{' '}
+                  {formatCurrency(m.currentCents)}
                 </span>
                 <span
                   className={
@@ -365,7 +383,9 @@ export function TrendsReports({
       return <TopMerchants data={data} onMerchantClick={onMerchantClick} />;
     }
     if (active === 'months') {
-      return <CompareMonths data={data} onCategoryClick={onCategoryMonthClick} />;
+      return (
+        <CompareMonths data={data} onCategoryClick={onCategoryMonthClick} />
+      );
     }
     return <CategoryOverTime data={data} onMonthClick={onCategoryMonthClick} />;
   }, [active, data, onCategoryMonthClick, onMerchantClick]);

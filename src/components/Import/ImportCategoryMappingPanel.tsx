@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import type { GroupWithCategories, IncomeSourceRow } from '../../../ipc-contract';
+import type {
+  GroupWithCategories,
+  IncomeSourceRow,
+} from '../../../ipc-contract';
 import type { MappingTargetType, ParsedRow } from '../../types/import';
 import { api } from '../../services/api';
 import { Button } from '../common/Button';
@@ -25,7 +28,9 @@ export type ImportCategoryMappingPanelProps = {
   title?: string;
   description?: string;
   confirmLabel?: string;
-  onConfirm: (assignments: Record<string, CategoryMappingAssignment>) => void | Promise<void>;
+  onConfirm: (
+    assignments: Record<string, CategoryMappingAssignment>
+  ) => void | Promise<void>;
   onCancel: () => void;
   confirming?: boolean;
 };
@@ -69,24 +74,27 @@ export function ImportCategoryMappingPanel({
 
   const mappingsReady = isCategoryMappingReady(unknownCategories, assignments);
 
-  const assignMapping = useCallback((externalName: string, selectValue: string) => {
-    if (selectValue === '__create_category__') return;
-    let targetType: MappingTargetType = 'skip';
-    let targetId: number | null = null;
-    if (selectValue === 'skip') {
-      targetType = 'skip';
-    } else if (selectValue.startsWith('income:')) {
-      targetType = 'income_source';
-      targetId = Number(selectValue.slice(7));
-    } else if (selectValue.startsWith('cat:')) {
-      targetType = 'category';
-      targetId = Number(selectValue.slice(4));
-    }
-    setAssignments((prev) => ({
-      ...prev,
-      [externalName]: { targetType, targetId },
-    }));
-  }, []);
+  const assignMapping = useCallback(
+    (externalName: string, selectValue: string) => {
+      if (selectValue === '__create_category__') return;
+      let targetType: MappingTargetType = 'skip';
+      let targetId: number | null = null;
+      if (selectValue === 'skip') {
+        targetType = 'skip';
+      } else if (selectValue.startsWith('income:')) {
+        targetType = 'income_source';
+        targetId = Number(selectValue.slice(7));
+      } else if (selectValue.startsWith('cat:')) {
+        targetType = 'category';
+        targetId = Number(selectValue.slice(4));
+      }
+      setAssignments((prev) => ({
+        ...prev,
+        [externalName]: { targetType, targetId },
+      }));
+    },
+    []
+  );
 
   const refreshGroups = useCallback(async () => {
     const g = await api.getGroups();
@@ -157,30 +165,30 @@ export function ImportCategoryMappingPanel({
       {unassigned.length > 0 &&
         (namedGroupCount > 0 ||
           unassigned.length >= BULK_ADOPT_MIN_WITHOUT_GROUPS) && (
-        <div className="import-adopt">
-          <div className="import-adopt__text">
-            <strong className="import-adopt__lead">
-              Keep the categories from this file
-            </strong>
-            <span className="import-adopt__sub">
-              Creates {unassigned.length} categor
-              {unassigned.length === 1 ? 'y' : 'ies'}
-              {namedGroupCount > 0
-                ? ` under ${namedGroupCount} group${namedGroupCount === 1 ? '' : 's'} from the file`
-                : ' in a new "Imported" group'}
-              , so you can skip mapping them one by one.
-            </span>
+          <div className="import-adopt">
+            <div className="import-adopt__text">
+              <strong className="import-adopt__lead">
+                Keep the categories from this file
+              </strong>
+              <span className="import-adopt__sub">
+                Creates {unassigned.length} categor
+                {unassigned.length === 1 ? 'y' : 'ies'}
+                {namedGroupCount > 0
+                  ? ` under ${namedGroupCount} group${namedGroupCount === 1 ? '' : 's'} from the file`
+                  : ' in a new "Imported" group'}
+                , so you can skip mapping them one by one.
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={adopting}
+              onClick={() => void adoptFromFile()}
+            >
+              {adopting ? 'Creating…' : `Create all ${unassigned.length}`}
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="primary"
-            disabled={adopting}
-            onClick={() => void adoptFromFile()}
-          >
-            {adopting ? 'Creating…' : `Create all ${unassigned.length}`}
-          </Button>
-        </div>
-      )}
+        )}
       {adoptError && (
         <p className="import-adopt__error" role="alert">
           {adoptError}

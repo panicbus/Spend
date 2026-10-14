@@ -32,7 +32,11 @@ export function readTrendsReturnContext(): TrendsReturnContext | null {
     const raw = sessionStorage.getItem(TRENDS_RETURN_STORAGE_KEY);
     if (!raw) return null;
     const v = JSON.parse(raw) as Partial<TrendsReturnContext>;
-    if (!v || typeof v.range !== 'string' || !VALID_RANGE.has(v.range as TrendRange)) {
+    if (
+      !v ||
+      typeof v.range !== 'string' ||
+      !VALID_RANGE.has(v.range as TrendRange)
+    ) {
       return null;
     }
     const drillGroupId =

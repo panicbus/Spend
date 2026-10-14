@@ -11,8 +11,7 @@ const api: SpendApi = {
   deleteGroup: (id) => ipcRenderer.invoke('deleteGroup', id),
   getPreferences: () => ipcRenderer.invoke('getPreferences'),
   setPreferences: (partial) => ipcRenderer.invoke('setPreferences', partial),
-  getSetupStatus: (monthKey) =>
-    ipcRenderer.invoke('getSetupStatus', monthKey),
+  getSetupStatus: (monthKey) => ipcRenderer.invoke('getSetupStatus', monthKey),
   seedDefaultSetup: () => ipcRenderer.invoke('seedDefaultSetup'),
   getBudgetSuggestions: (monthKey) =>
     ipcRenderer.invoke('getBudgetSuggestions', monthKey),

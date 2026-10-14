@@ -14,7 +14,10 @@ function tryParseAmountCents(amountStr: string): number | null {
 }
 
 /** Parse a dollar string to signed cents, naming the row if it will not parse. */
-export function parseAmountToCents(amountStr: string, rowLabel: string): number {
+export function parseAmountToCents(
+  amountStr: string,
+  rowLabel: string
+): number {
   const cents = tryParseAmountCents(amountStr);
   if (cents == null) {
     throw new Error(`Invalid amount on ${rowLabel}: "${amountStr}".`);
@@ -29,9 +32,7 @@ export function parseAmountToCents(amountStr: string, rowLabel: string): number 
  * amount, so a zero filler cannot look like a second value.
  */
 type AmountSide =
-  | { kind: 'value'; cents: number }
-  | { kind: 'zero' }
-  | { kind: 'none' };
+  { kind: 'value'; cents: number } | { kind: 'zero' } | { kind: 'none' };
 
 function amountSide(raw: string | undefined): AmountSide {
   // Blank, or placeholder text in the column this row does not use.

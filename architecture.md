@@ -12,13 +12,13 @@ This document describes what Spend does, how it is structured, and how data flow
 
 ## Architecture
 
-| Layer | Role |
-|--------|------|
-| `main.ts` | Application window, SQLite file path, database reads/writes, IPC handlers |
-| `preload.ts` | Exposes a typed **`SpendApi`** to the renderer through `contextBridge` and `ipcRenderer.invoke` |
-| `src/services/api.ts` | Renderer-side wrapper around the preload bridge |
-| `ipc-contract.ts` | Shared TypeScript types and the **`SpendApi`** method contract (preload, renderer, main) |
-| Renderer (`src/`) | React pages composed under `AppShell` with sidebar navigation |
+| Layer                 | Role                                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------------- |
+| `main.ts`             | Application window, SQLite file path, database reads/writes, IPC handlers                       |
+| `preload.ts`          | Exposes a typed **`SpendApi`** to the renderer through `contextBridge` and `ipcRenderer.invoke` |
+| `src/services/api.ts` | Renderer-side wrapper around the preload bridge                                                 |
+| `ipc-contract.ts`     | Shared TypeScript types and the **`SpendApi`** method contract (preload, renderer, main)        |
+| Renderer (`src/`)     | React pages composed under `AppShell` with sidebar navigation                                   |
 
 **Live updates:** The renderer dispatches a **`DATA_CHANGED_EVENT`** (see `src/utils/dataChanged.ts`) so views refetch after imports, edits, and other mutations.
 
@@ -30,18 +30,18 @@ This document describes what Spend does, how it is structured, and how data flow
 
 Schema source of truth: `database/schema.sql`.
 
-| Table | Purpose |
-|--------|---------|
-| `category_groups` | Budget groups: name, color, sort order |
-| `categories` | Line items under a group; budgets attach per category |
-| `budgets` | Per category + `month_key` (`YYYY-MM`): amount, frequency (monthly / quarterly / yearly / bimonthly), optional annual amount |
-| `income_sources` | Income buckets |
-| `income_budgets` | Monthly budget amounts per income source |
-| `transactions` | Expenses: date, merchant, amount, category, account / statement / notes, `source` (`manual` \| `csv`), `import_hash` for deduplication |
-| `income_actuals` | Income lines tied to a source |
-| `category_mappings` | CSV external category name → category, income source, or skip (Monarch-oriented `source` values) |
-| `settings` | Key/value store (e.g. preferences) |
-| `month_notes` | Free-text note per `month_key` |
+| Table               | Purpose                                                                                                                                |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `category_groups`   | Budget groups: name, color, sort order                                                                                                 |
+| `categories`        | Line items under a group; budgets attach per category                                                                                  |
+| `budgets`           | Per category + `month_key` (`YYYY-MM`): amount, frequency (monthly / quarterly / yearly / bimonthly), optional annual amount           |
+| `income_sources`    | Income buckets                                                                                                                         |
+| `income_budgets`    | Monthly budget amounts per income source                                                                                               |
+| `transactions`      | Expenses: date, merchant, amount, category, account / statement / notes, `source` (`manual` \| `csv`), `import_hash` for deduplication |
+| `income_actuals`    | Income lines tied to a source                                                                                                          |
+| `category_mappings` | CSV external category name → category, income source, or skip (Monarch-oriented `source` values)                                       |
+| `settings`          | Key/value store (e.g. preferences)                                                                                                     |
+| `month_notes`       | Free-text note per `month_key`                                                                                                         |
 
 Indexes support queries by month, category, and import hash.
 
@@ -111,14 +111,14 @@ The full method list and types live in **`ipc-contract.ts`**. Summary:
 
 ## Routes & major features
 
-| Route | Component | Highlights |
-|--------|-----------|------------|
-| `/` | `BudgetDashboard` | Month nav, summary cards, pulse checks, **spending donut** (allocation by budget group), **category grid**, income section, **month notes**, add-group / add-categories modals. Donut: tooltip on ring, legend label hover syncs slice highlight, click-through to transactions for that group/month with “Back to Budget”. |
-| `/transactions` | `TransactionList` | Merged expense + income table; month or range; category filters; search; accordion row detail (notes, import date, recategorize, delete); note badge + tooltip; **merchant insights** when eligible; deep links via query params (`rangeFrom`/`rangeTo`, `category`, `categories`, `incomeSource`, `incomeLine`); “Back to Trends” / “Back to Budget”. |
-| `/trends` | `TrendsPage` | Range presets, charts/tables, drill-down to transactions (clears budget return context when used), links to budget month where relevant, month notes where loaded. |
-| `/settings` (Duplicates) | `SettingsDuplicatesSection` | Scan the ledger for duplicate pairs, review certain vs possible matches, remove selected rows. |
-| `/import` | `ImportView` | CSV pick, parse, review rows, map unknowns, create category/group from import, duplicate checks, commit with detailed result counts. |
-| `/settings` | `SettingsPage` | Categories & groups, income sources, import mappings, data export/import/reset, preferences (appearance, default month on launch). |
+| Route                    | Component                   | Highlights                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/`                      | `BudgetDashboard`           | Month nav, summary cards, pulse checks, **spending donut** (allocation by budget group), **category grid**, income section, **month notes**, add-group / add-categories modals. Donut: tooltip on ring, legend label hover syncs slice highlight, click-through to transactions for that group/month with “Back to Budget”.                            |
+| `/transactions`          | `TransactionList`           | Merged expense + income table; month or range; category filters; search; accordion row detail (notes, import date, recategorize, delete); note badge + tooltip; **merchant insights** when eligible; deep links via query params (`rangeFrom`/`rangeTo`, `category`, `categories`, `incomeSource`, `incomeLine`); “Back to Trends” / “Back to Budget”. |
+| `/trends`                | `TrendsPage`                | Range presets, charts/tables, drill-down to transactions (clears budget return context when used), links to budget month where relevant, month notes where loaded.                                                                                                                                                                                     |
+| `/settings` (Duplicates) | `SettingsDuplicatesSection` | Scan the ledger for duplicate pairs, review certain vs possible matches, remove selected rows.                                                                                                                                                                                                                                                         |
+| `/import`                | `ImportView`                | CSV pick, parse, review rows, map unknowns, create category/group from import, duplicate checks, commit with detailed result counts.                                                                                                                                                                                                                   |
+| `/settings`              | `SettingsPage`              | Categories & groups, income sources, import mappings, data export/import/reset, preferences (appearance, default month on launch).                                                                                                                                                                                                                     |
 
 Shell: `AppShell` + `Sidebar` (`src/components/Layout/`).
 
@@ -145,18 +145,18 @@ Shell: `AppShell` + `Sidebar` (`src/components/Layout/`).
 
 ## Key source locations
 
-| Area | Location |
-|------|----------|
+| Area                               | Location                                                              |
+| ---------------------------------- | --------------------------------------------------------------------- |
 | IPC contract & shared domain types | `ipc-contract.ts`, `src/types/transactions.ts`, `src/types/import.ts` |
-| Main process DB + handlers | `main.ts` |
-| Preload bridge | `preload.ts` |
-| Renderer API | `src/services/api.ts` |
-| Budget UI | `src/components/Budget/` |
-| Transactions UI | `src/components/Transactions/` |
-| Trends UI | `src/components/Trends/` |
-| Import UI | `src/components/Import/` |
-| Settings UI | `src/components/Settings/SettingsPage.tsx` |
-| App entry & routes | `src/App.tsx`, `src/main.tsx` (if present), `index.html` |
+| Main process DB + handlers         | `main.ts`                                                             |
+| Preload bridge                     | `preload.ts`                                                          |
+| Renderer API                       | `src/services/api.ts`                                                 |
+| Budget UI                          | `src/components/Budget/`                                              |
+| Transactions UI                    | `src/components/Transactions/`                                        |
+| Trends UI                          | `src/components/Trends/`                                              |
+| Import UI                          | `src/components/Import/`                                              |
+| Settings UI                        | `src/components/Settings/SettingsPage.tsx`                            |
+| App entry & routes                 | `src/App.tsx`, `src/main.tsx` (if present), `index.html`              |
 
 ---
 

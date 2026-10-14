@@ -1,5 +1,8 @@
 import React from 'react';
-import type { GroupWithCategories, IncomeSourceRow } from '../../../ipc-contract';
+import type {
+  GroupWithCategories,
+  IncomeSourceRow,
+} from '../../../ipc-contract';
 
 type MappingTargetSelectProps = {
   value: string;

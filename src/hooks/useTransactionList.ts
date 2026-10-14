@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GroupWithCategories, IncomeSourceRow } from '../../ipc-contract';
 import type {
   IncomeActual,
@@ -15,14 +9,16 @@ import type {
 import { api } from '../services/api';
 import { DATA_CHANGED_EVENT } from '../utils/dataChanged';
 import { currentMonthKey } from '../utils/dates';
-import {
-  type SetMonthKeyFn,
-  useSyncedMonthKey,
-} from './useSyncedMonthKey';
+import { type SetMonthKeyFn, useSyncedMonthKey } from './useSyncedMonthKey';
 
 export type MergedTransactionRow =
   | { kind: 'expense'; tx: Transaction; sortDate: string; sortCreated: string }
-  | { kind: 'income'; inc: IncomeActual; sortDate: string; sortCreated: string };
+  | {
+      kind: 'income';
+      inc: IncomeActual;
+      sortDate: string;
+      sortCreated: string;
+    };
 
 export interface TransactionDateRange {
   startMonthKey: string;
@@ -179,7 +175,9 @@ function recomputeTotals(
   };
 }
 
-export function useTransactionList(initialMonth?: string): UseTransactionListReturn {
+export function useTransactionList(
+  initialMonth?: string
+): UseTransactionListReturn {
   const routeDeepLink = useMemo(() => readTransactionRouteSearch(), []);
   const { monthKey, setMonthKey } = useSyncedMonthKey(
     routeDeepLink.monthFromRange ?? initialMonth ?? currentMonthKey()
@@ -326,11 +324,7 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
   );
 
   const applyRowCategory = useCallback(
-    async (
-      id: number,
-      categoryId: number,
-      inGroups: GroupWithCategories[]
-    ) => {
+    async (id: number, categoryId: number, inGroups: GroupWithCategories[]) => {
       const prev = dataRef.current;
       if (!prev) return;
       const tx = prev.transactions.find((t) => t.id === id);
@@ -359,7 +353,8 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
   );
 
   const updateRowCategory = useCallback(
-    (id: number, categoryId: number) => applyRowCategory(id, categoryId, groups),
+    (id: number, categoryId: number) =>
+      applyRowCategory(id, categoryId, groups),
     [applyRowCategory, groups]
   );
 

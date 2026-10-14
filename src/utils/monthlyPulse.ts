@@ -53,7 +53,10 @@ export function computePulseAdjustedTotals(
   return { adjustableBudgetCents, adjustableSpentCents, completeSpentCents };
 }
 
-export function verdictFromPace(pace: number): { label: string; tone: PulseTone } {
+export function verdictFromPace(pace: number): {
+  label: string;
+  tone: PulseTone;
+} {
   if (pace <= 0.85) return { label: 'Way under', tone: 'good' };
   if (pace <= 1.0) return { label: 'On pace', tone: 'good' };
   if (pace <= 1.15) return { label: 'Slightly ahead', tone: 'soft-warn' };
@@ -61,7 +64,10 @@ export function verdictFromPace(pace: number): { label: string; tone: PulseTone 
   return { label: 'Over pace', tone: 'danger' };
 }
 
-export function pctThroughMonth(dayOfMonth: number, daysInMonth: number): number {
+export function pctThroughMonth(
+  dayOfMonth: number,
+  daysInMonth: number
+): number {
   if (daysInMonth <= 0) return 0;
   return dayOfMonth / daysInMonth;
 }
@@ -118,7 +124,7 @@ export function hotCategoriesAheadOfPace(
       if (isPaceCompleteBudgetLine(spentCents, budgetCents)) continue;
 
       const pctUsed = categoryBudgetUsedPct(spentCents, budgetCents);
-      const pace = (spentCents / budgetCents) / percentThroughMonth;
+      const pace = spentCents / budgetCents / percentThroughMonth;
       if (pace > 1) {
         rows.push({
           categoryId: c.id,

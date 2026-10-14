@@ -56,7 +56,9 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .budget-dashboard__nav:hover:not(:disabled) {

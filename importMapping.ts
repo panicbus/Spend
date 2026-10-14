@@ -27,9 +27,10 @@ export function loadMappingNameLookups(db: Database.Database): {
   for (const r of catRows) {
     catNames.set(r.id, `${r.cat_name} · ${r.group_name}`);
   }
-  const incRows = db
-    .prepare('SELECT id, name FROM income_sources')
-    .all() as { id: number; name: string }[];
+  const incRows = db.prepare('SELECT id, name FROM income_sources').all() as {
+    id: number;
+    name: string;
+  }[];
   const incomeNames = new Map<number, string>();
   for (const r of incRows) {
     incomeNames.set(r.id, r.name);
@@ -65,7 +66,12 @@ export function toCategoryMapping(
       targetId: null,
     };
   }
-  const tn = targetDisplayName(targetType, row.target_id, catNames, incomeNames);
+  const tn = targetDisplayName(
+    targetType,
+    row.target_id,
+    catNames,
+    incomeNames
+  );
   if (!tn) {
     return {
       id: row.id,
@@ -122,9 +128,7 @@ export function enrichParsedRowsWithMappings(
     return { ...row, mapping };
   });
 
-  const unknownCategories = [...unknownSet].sort((a, b) =>
-    a.localeCompare(b)
-  );
+  const unknownCategories = [...unknownSet].sort((a, b) => a.localeCompare(b));
   return { rows: enriched, unknownCategories };
 }
 

@@ -5,7 +5,10 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..'
+);
 const ebCli = path.join(repoRoot, 'node_modules', 'electron-builder', 'cli.js');
 const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
 
@@ -16,9 +19,13 @@ const build = spawnSync('npm', ['run', 'build'], {
 });
 if (build.status !== 0) process.exit(build.status ?? 1);
 
-const pack = spawnSync(process.execPath, [ebCli, '--mac', '--dir', `--${arch}`], {
-  stdio: 'inherit',
-  cwd: repoRoot,
-  env: { ...process.env, CSC_IDENTITY_AUTO_SELECT: 'false' },
-});
+const pack = spawnSync(
+  process.execPath,
+  [ebCli, '--mac', '--dir', `--${arch}`],
+  {
+    stdio: 'inherit',
+    cwd: repoRoot,
+    env: { ...process.env, CSC_IDENTITY_AUTO_SELECT: 'false' },
+  }
+);
 process.exit(pack.status ?? 1);

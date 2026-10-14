@@ -29,11 +29,11 @@ That compiles the desktop shell, starts the dev server, and opens the Electron w
 
 Other useful commands:
 
-| Command | What it does |
-|--------|----------------|
-| `npm run build` | Production build of the UI and main process |
-| `npm start` | Build, then run the packaged app |
-| `npm run typecheck` | Check TypeScript without starting the app |
+| Command             | What it does                                |
+| ------------------- | ------------------------------------------- |
+| `npm run build`     | Production build of the UI and main process |
+| `npm start`         | Build, then run the packaged app            |
+| `npm run typecheck` | Check TypeScript without starting the app   |
 
 Native SQLite is compiled for Electron during `npm install`. If that step fails after switching Node or Electron versions, try `npm run rebuild:sqlite`.
 
@@ -43,10 +43,10 @@ Native SQLite is compiled for Electron during `npm install`. If that step fails 
 
 The repo includes **electron-builder** scripts for Mac:
 
-| Command | Purpose |
-|--------|---------|
+| Command                  | Purpose                                                 |
+| ------------------------ | ------------------------------------------------------- |
 | `npm run pack:mac:arm64` | Unsigned `.app` in `release/mac-arm64/` (local testing) |
-| `npm run dist:mac` | Signed, notarized `.dmg` + `.zip` for distribution |
+| `npm run dist:mac`       | Signed, notarized `.dmg` + `.zip` for distribution      |
 
 **Signed release (`dist:mac`):** Requires a **Developer ID Application** cert in your login keychain, Xcode command line tools, and Apple notarization credentials. Copy `.env.build.example` to `.env.build` (gitignored) and set `APPLE_ID` and `APPLE_APP_SPECIFIC_PASSWORD`. The build signs with hardened runtime, submits to Apple’s notary service (often 2–15 minutes), then staples the ticket.
 

@@ -17,11 +17,7 @@ function toIso(y: number, m: number, d: number, rowLabel: string): string {
     throw new Error(`Invalid date on ${rowLabel}.`);
   }
   const dt = new Date(y, m - 1, d);
-  if (
-    dt.getFullYear() !== y ||
-    dt.getMonth() !== m - 1 ||
-    dt.getDate() !== d
-  ) {
+  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) {
     throw new Error(`Invalid date on ${rowLabel}.`);
   }
   return `${y}-${pad2(m)}-${pad2(d)}`;

@@ -92,9 +92,7 @@ export function CategoryCard({
         </span>
         <span className="category-card__amounts">
           <span className="category-card__spent">{formatCurrency(spent)}</span>
-          <span className="category-card__of">
-            of {formatCurrency(budget)}
-          </span>
+          <span className="category-card__of">of {formatCurrency(budget)}</span>
         </span>
         <span className="category-card__bar-wrap">
           <span className="category-card__bar-track-shell">

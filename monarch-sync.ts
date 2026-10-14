@@ -193,7 +193,10 @@ class MonarchSyncError extends Error {
 async function listTools(): Promise<MCPTool[]> {
   if (cachedTools) return cachedTools;
   const result = await mcpRequest('tools/list', {});
-  console.log('[Monarch sync] tools/list response:', JSON.stringify(result, null, 2));
+  console.log(
+    '[Monarch sync] tools/list response:',
+    JSON.stringify(result, null, 2)
+  );
 
   const tools = extractTools(result);
   cachedTools = tools;
@@ -261,7 +264,9 @@ function buildDateArguments(
   if (Object.keys(args).length >= 2) return args;
 
   if (keys.some((k) => lower(k) === 'daterange' || lower(k) === 'date_range')) {
-    const key = keys.find((k) => lower(k) === 'daterange' || lower(k) === 'date_range')!;
+    const key = keys.find(
+      (k) => lower(k) === 'daterange' || lower(k) === 'date_range'
+    )!;
     return { [key]: { start: startDate, end: endDate } };
   }
 
@@ -296,7 +301,10 @@ async function fetchMonarchTransactions(
     JSON.stringify(arguments_, null, 2)
   );
   if (tool.inputSchema) {
-    console.log('[Monarch sync] tool schema:', JSON.stringify(tool.inputSchema, null, 2));
+    console.log(
+      '[Monarch sync] tool schema:',
+      JSON.stringify(tool.inputSchema, null, 2)
+    );
   }
 
   const result = await mcpRequest('tools/call', {
@@ -304,7 +312,10 @@ async function fetchMonarchTransactions(
     arguments: arguments_,
   });
 
-  console.log('[Monarch sync] tools/call response:', JSON.stringify(result, null, 2));
+  console.log(
+    '[Monarch sync] tools/call response:',
+    JSON.stringify(result, null, 2)
+  );
   return extractTransactions(result);
 }
 
@@ -352,7 +363,10 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string {
   return '';
 }
 
-function pickNumber(obj: Record<string, unknown>, keys: string[]): number | null {
+function pickNumber(
+  obj: Record<string, unknown>,
+  keys: string[]
+): number | null {
   for (const k of keys) {
     const v = obj[k];
     if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -385,7 +399,10 @@ function amountToCents(obj: Record<string, unknown>): number {
   return Math.round(amount * 100);
 }
 
-function monarchRecordToParsedRow(rec: unknown, index: number): ParsedRow | null {
+function monarchRecordToParsedRow(
+  rec: unknown,
+  index: number
+): ParsedRow | null {
   if (!rec || typeof rec !== 'object') return null;
   const o = rec as Record<string, unknown>;
 
@@ -455,7 +472,10 @@ function transformMonarchRecords(records: unknown[]): ParsedRow[] {
   return rows;
 }
 
-function syncDateRange(db: Database.Database): { startDate: string; endDate: string } {
+function syncDateRange(db: Database.Database): {
+  startDate: string;
+  endDate: string;
+} {
   const endDate = todayIsoDate();
   const last = getLastMonarchSync(db);
   const startDate = last ?? daysAgoIso(30);

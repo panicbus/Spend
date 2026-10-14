@@ -29,12 +29,7 @@ const IC = { chevR: '\u25B6', chevD: '\u25BC', edit: '\u270E', del: '\u00D7' };
 const SETTINGS_TAB_KEY = 'spend-app:settings-tab';
 
 type SettingsTabId =
-  | 'categories'
-  | 'income'
-  | 'import'
-  | 'duplicates'
-  | 'data'
-  | 'preferences';
+  'categories' | 'income' | 'import' | 'duplicates' | 'data' | 'preferences';
 
 const SETTINGS_TABS: { id: SettingsTabId; label: string }[] = [
   { id: 'categories', label: 'Categories' },
@@ -107,10 +102,15 @@ export function SettingsPage() {
       <header className="settings-page__header">
         <h1 className="settings-page__title">Settings</h1>
         <p className="settings-page__intro">
-          Manage categories, import mappings, backups, and a few app preferences.
+          Manage categories, import mappings, backups, and a few app
+          preferences.
         </p>
       </header>
-      <div className="settings-tabs" role="tablist" aria-label="Settings sections">
+      <div
+        className="settings-tabs"
+        role="tablist"
+        aria-label="Settings sections"
+      >
         {SETTINGS_TABS.map((t) => (
           <button
             key={t.id}
@@ -187,7 +187,8 @@ function SettingsCategoriesSection() {
     <section className="settings-section">
       <h2 className="settings-section__title">Categories &amp; Groups</h2>
       <p className="settings-section__desc">
-        Rename, recolor, reorder, and organize your budget groups and categories.
+        Rename, recolor, reorder, and organize your budget groups and
+        categories.
       </p>
       <div className="settings-card">
         {groups.length === 0 ? (
@@ -364,9 +365,8 @@ function SettingsCategoriesSection() {
                                 aria-label={`Delete ${c.name}`}
                                 onClick={() =>
                                   void (async () => {
-                                    const p = await api.getCategoryDeletePreview(
-                                      c.id
-                                    );
+                                    const p =
+                                      await api.getCategoryDeletePreview(c.id);
                                     setDeleteCatState({
                                       id: c.id,
                                       name: c.name,
@@ -444,8 +444,8 @@ function SettingsCategoriesSection() {
             ) : (
               <>
                 <p className="settings-modal-p settings-modal-p--warn">
-                  Deleting &ldquo;{deleteGroupState.name}&rdquo; will permanently
-                  remove {deleteGroupState.preview.categoryCount}{' '}
+                  Deleting &ldquo;{deleteGroupState.name}&rdquo; will
+                  permanently remove {deleteGroupState.preview.categoryCount}{' '}
                   {deleteGroupState.preview.categoryCount === 1
                     ? 'category'
                     : 'categories'}{' '}
@@ -486,10 +486,7 @@ function SettingsCategoriesSection() {
               </>
             )}
             <div className="settings-modal-actions">
-              <Button
-                variant="ghost"
-                onClick={() => setDeleteGroupState(null)}
-              >
+              <Button variant="ghost" onClick={() => setDeleteGroupState(null)}>
                 Cancel
               </Button>
               {deleteGroupState.preview.categoryCount > 0 &&
@@ -922,7 +919,9 @@ function SettingsIncomeSection() {
                       aria-label={`Delete ${s.name}`}
                       onClick={() =>
                         void (async () => {
-                          const p = await api.getIncomeSourceDeletePreview(s.id);
+                          const p = await api.getIncomeSourceDeletePreview(
+                            s.id
+                          );
                           setDeleteState({
                             id: s.id,
                             name: s.name,
@@ -953,7 +952,11 @@ function SettingsIncomeSection() {
           </div>
         ) : (
           <div className="settings-add-row">
-            <Button type="button" variant="dashed" onClick={() => setAdding(true)}>
+            <Button
+              type="button"
+              variant="dashed"
+              onClick={() => setAdding(true)}
+            >
               Add income source
             </Button>
           </div>
@@ -1164,57 +1167,59 @@ function SettingsMappingsSection() {
                     {importFormatLabel(m.source)}
                   </div>
                 )}
-              <div className="settings-mapping-row">
-                <span className="settings-mapping-monarch">{m.externalName}</span>
-                {editingId === m.id ? (
-                  <MappingEditRow
-                    key={m.id}
-                    mapping={m}
-                    initialSelect={sel}
-                    groups={groupsSorted}
-                    income={income}
-                    onCancel={() => setEditingId(null)}
-                    onSaved={async () => {
-                      setEditingId(null);
-                      await reload();
-                      dispatchDataChanged();
-                    }}
-                  />
-                ) : (
-                  <>
-                    <span
-                      className={`settings-mapping-dest${dest.muted ? ' settings-mapping-dest--muted' : ''}`}
-                    >
-                      {dest.color ? (
-                        <span
-                          className="settings-color-dot"
-                          style={{ background: dest.color }}
-                          aria-hidden
-                        />
-                      ) : null}
-                      {dest.text}
-                    </span>
-                    <div className="settings-actions">
-                      <button
-                        type="button"
-                        className="settings-icon-btn"
-                        aria-label="Edit mapping"
-                        onClick={() => setEditingId(m.id)}
+                <div className="settings-mapping-row">
+                  <span className="settings-mapping-monarch">
+                    {m.externalName}
+                  </span>
+                  {editingId === m.id ? (
+                    <MappingEditRow
+                      key={m.id}
+                      mapping={m}
+                      initialSelect={sel}
+                      groups={groupsSorted}
+                      income={income}
+                      onCancel={() => setEditingId(null)}
+                      onSaved={async () => {
+                        setEditingId(null);
+                        await reload();
+                        dispatchDataChanged();
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <span
+                        className={`settings-mapping-dest${dest.muted ? ' settings-mapping-dest--muted' : ''}`}
                       >
-                        {IC.edit}
-                      </button>
-                      <button
-                        type="button"
-                        className="settings-icon-btn settings-icon-btn--danger"
-                        aria-label="Delete mapping"
-                        onClick={() => setDeleteMap(m)}
-                      >
-                        {IC.del}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+                        {dest.color ? (
+                          <span
+                            className="settings-color-dot"
+                            style={{ background: dest.color }}
+                            aria-hidden
+                          />
+                        ) : null}
+                        {dest.text}
+                      </span>
+                      <div className="settings-actions">
+                        <button
+                          type="button"
+                          className="settings-icon-btn"
+                          aria-label="Edit mapping"
+                          onClick={() => setEditingId(m.id)}
+                        >
+                          {IC.edit}
+                        </button>
+                        <button
+                          type="button"
+                          className="settings-icon-btn settings-icon-btn--danger"
+                          aria-label="Delete mapping"
+                          onClick={() => setDeleteMap(m)}
+                        >
+                          {IC.del}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </React.Fragment>
             );
           })
@@ -1333,9 +1338,7 @@ function SettingsDataSection() {
                   const p = await api.exportDatabaseBackup();
                   setExportMsg(p ? `Saved to ${p}` : 'Export canceled.');
                 } catch (e) {
-                  setExportMsg(
-                    e instanceof Error ? e.message : String(e)
-                  );
+                  setExportMsg(e instanceof Error ? e.message : String(e));
                 }
               })()
             }
@@ -1368,7 +1371,11 @@ function SettingsDataSection() {
             Permanently delete all transactions, budgets, and import mappings.
             Categories, groups, and income sources are kept.
           </p>
-          <Button type="button" variant="primary" onClick={() => setResetTx(true)}>
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => setResetTx(true)}
+          >
             Reset all data
           </Button>
         </div>
@@ -1409,9 +1416,7 @@ function SettingsDataSection() {
                 try {
                   await api.importDatabaseBackup();
                 } catch (e) {
-                  window.alert(
-                    e instanceof Error ? e.message : String(e)
-                  );
+                  window.alert(e instanceof Error ? e.message : String(e));
                 }
               })()
             }

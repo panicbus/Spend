@@ -74,7 +74,9 @@ export function TrendsMovers({ data, onCategoryClick }: TrendsMoversProps) {
 
   const column = (title: string, rows: Mover[], tone: 'up' | 'down') => (
     <div className="trends-movers__col">
-      <h3 className={`trends-movers__col-title trends-movers__col-title--${tone}`}>
+      <h3
+        className={`trends-movers__col-title trends-movers__col-title--${tone}`}
+      >
         {title}
       </h3>
       {rows.length === 0 ? (
@@ -96,9 +98,12 @@ export function TrendsMovers({ data, onCategoryClick }: TrendsMoversProps) {
                 />
                 <span className="trends-movers__name">{m.name}</span>
                 <span className="trends-movers__was">
-                  {formatCurrency(m.priorCents)} → {formatCurrency(m.currentCents)}
+                  {formatCurrency(m.priorCents)} →{' '}
+                  {formatCurrency(m.currentCents)}
                 </span>
-                <span className={`trends-movers__delta trends-movers__delta--${tone}`}>
+                <span
+                  className={`trends-movers__delta trends-movers__delta--${tone}`}
+                >
                   {deltaLabel(m)}
                   <span className="trends-movers__pct">{pctLabel(m)}</span>
                 </span>
@@ -117,8 +122,8 @@ export function TrendsMovers({ data, onCategoryClick }: TrendsMoversProps) {
           <h2 className="trends-chart-card__heading">What changed</h2>
           <p className="trends-chart-card__desc">
             Biggest category moves,{' '}
-            {currentInProgress ? `${current.label} so far` : current.label}{' '}
-            vs {prior.label}
+            {currentInProgress ? `${current.label} so far` : current.label} vs{' '}
+            {prior.label}
           </p>
         </div>
         <button

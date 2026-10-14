@@ -11,13 +11,8 @@ type SummaryCardsProps = {
 };
 
 export function SummaryCards({ monthKey, totals }: SummaryCardsProps) {
-  const {
-    totalBudget,
-    totalSpent,
-    remaining,
-    incomeBudget,
-    incomeActual,
-  } = totals;
+  const { totalBudget, totalSpent, remaining, incomeBudget, incomeActual } =
+    totals;
 
   const spentPct =
     totalBudget > 0
@@ -103,7 +98,9 @@ export function SummaryCards({ monthKey, totals }: SummaryCardsProps) {
 
       <div className="summary-card summary-card--default">
         <div className="summary-card__label">Income earned</div>
-        <div className="summary-card__value">{formatCurrency(incomeActual)}</div>
+        <div className="summary-card__value">
+          {formatCurrency(incomeActual)}
+        </div>
         <div
           className={
             incomeAhead

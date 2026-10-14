@@ -136,7 +136,9 @@
   border: 0.5px solid var(--border);
   background: var(--bg-card-alt);
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .first-run-wizard__option:hover {

@@ -109,7 +109,10 @@ export function accountDigits(raw: string | null | undefined): string {
 }
 
 /** Account labels drift between exports, so only *conflicting* card numbers rule a match out. */
-export function accountsCompatible(a: string | null | undefined, b: string | null | undefined): boolean {
+export function accountsCompatible(
+  a: string | null | undefined,
+  b: string | null | undefined
+): boolean {
   const da = accountDigits(a);
   const db = accountDigits(b);
   if (!da || !db) return true;
@@ -220,7 +223,11 @@ export function analyzeImportRows(
       rowIndex: row.rowIndex,
       verdict,
       reason,
-      existing: matchInfo(candidate.row.id, candidate.key, candidate.row.merchant),
+      existing: matchInfo(
+        candidate.row.id,
+        candidate.key,
+        candidate.row.merchant
+      ),
     });
   };
 
@@ -228,7 +235,9 @@ export function analyzeImportRows(
     key: Keyed,
     predicate: (c: Candidate<ExistingRow>) => boolean
   ): Candidate<ExistingRow> | undefined =>
-    (byAmount.get(key.amountCents) ?? []).find((c) => !c.claimed && predicate(c));
+    (byAmount.get(key.amountCents) ?? []).find(
+      (c) => !c.claimed && predicate(c)
+    );
 
   // Pass 1 — certain duplicates: identical hash, or same day and same charge.
   for (const item of rows) {
@@ -259,7 +268,9 @@ export function analyzeImportRows(
     const near = find(key, (c) => {
       if (c.key.day == null) return false;
       const diff = Math.abs(c.key.day - key.day!);
-      return diff > 0 && diff <= NEAR_DAY_WINDOW && describesSameCharge(c.key, key);
+      return (
+        diff > 0 && diff <= NEAR_DAY_WINDOW && describesSameCharge(c.key, key)
+      );
     });
     if (near) {
       claim(row, near, 'possible', 'near_day');
@@ -481,7 +492,10 @@ export function pairDuplicateRows(stored: StoredRow[]): DuplicatePair[] {
   };
 
   scan((keeper, later) => {
-    if (keeper.key.importHash && keeper.key.importHash === later.key.importHash) {
+    if (
+      keeper.key.importHash &&
+      keeper.key.importHash === later.key.importHash
+    ) {
       return 'hash';
     }
     if (
@@ -596,5 +610,11 @@ export function analyzeImportCandidates(
   if (!rows.length) {
     return { matches: [], duplicateCount: 0, possibleCount: 0, newCount: 0 };
   }
-  return analyzeImportRows(rows, loadExistingRows(db, rows.map((r) => r.date)));
+  return analyzeImportRows(
+    rows,
+    loadExistingRows(
+      db,
+      rows.map((r) => r.date)
+    )
+  );
 }

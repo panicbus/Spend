@@ -36,9 +36,9 @@ type FirstRunWizardProps = {
 
 export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   const [step, setStep] = useState(1);
-  const [categoryChoice, setCategoryChoice] = useState<'defaults' | 'scratch' | null>(
-    null
-  );
+  const [categoryChoice, setCategoryChoice] = useState<
+    'defaults' | 'scratch' | null
+  >(null);
   const [seedMessage, setSeedMessage] = useState<string | null>(null);
   const [scratchGroups, setScratchGroups] = useState<ScratchGroup[]>([
     { name: '', categories: [''] },
@@ -47,7 +47,9 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   const [importFinished, setImportFinished] = useState(false);
   const [budgetData, setBudgetData] = useState<BudgetPayload | null>(null);
   const [budgetInputs, setBudgetInputs] = useState<Record<string, string>>({});
-  const [suggestLabels, setSuggestLabels] = useState<Record<string, string>>({});
+  const [suggestLabels, setSuggestLabels] = useState<Record<string, string>>(
+    {}
+  );
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
   const [summary, setSummary] = useState<WizardSummary | null>(null);
   const monthKey = currentMonthKey();
@@ -126,16 +128,19 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
     setExpandedGroups(new Set(budget.groups.map((g) => g.id)));
   }, [monthKey]);
 
-  const advanceToStep = useCallback(async (targetStep: number) => {
-    if (targetStep === 4) {
-      try {
-        await loadBudgetStep();
-      } catch {
-        /* still advance — user can set budgets manually later */
+  const advanceToStep = useCallback(
+    async (targetStep: number) => {
+      if (targetStep === 4) {
+        try {
+          await loadBudgetStep();
+        } catch {
+          /* still advance — user can set budgets manually later */
+        }
       }
-    }
-    setStep(targetStep);
-  }, [loadBudgetStep]);
+      setStep(targetStep);
+    },
+    [loadBudgetStep]
+  );
 
   const saveBudgets = async () => {
     let count = 0;
@@ -165,14 +170,17 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
     });
   };
 
-  const onImportDone = useCallback((result: CommitImportResult) => {
-    setImportedCount(result.imported);
-    setImportFinished(true);
-    dispatchDataChanged();
-    window.setTimeout(() => {
-      void advanceToStep(4);
-    }, 2000);
-  }, [advanceToStep]);
+  const onImportDone = useCallback(
+    (result: CommitImportResult) => {
+      setImportedCount(result.imported);
+      setImportFinished(true);
+      dispatchDataChanged();
+      window.setTimeout(() => {
+        void advanceToStep(4);
+      }, 2000);
+    },
+    [advanceToStep]
+  );
 
   const goNext = async () => {
     if (step === 2 && categoryChoice === 'scratch') {
@@ -212,7 +220,8 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   };
 
   const hasBudgetEntry = useMemo(
-    () => Object.values(budgetInputs).some((raw) => formatInputDollars(raw) > 0),
+    () =>
+      Object.values(budgetInputs).some((raw) => formatInputDollars(raw) > 0),
     [budgetInputs]
   );
 
@@ -259,7 +268,9 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
                   void applyDefaults();
                 }}
               >
-                <div className="first-run-wizard__option-title">Start with defaults</div>
+                <div className="first-run-wizard__option-title">
+                  Start with defaults
+                </div>
                 <p className="first-run-wizard__option-desc">
                   We&apos;ll set up common budget categories that work for most
                   people. You can customize everything later.
@@ -277,7 +288,9 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
                 }
                 onClick={() => setCategoryChoice('scratch')}
               >
-                <div className="first-run-wizard__option-title">Start from scratch</div>
+                <div className="first-run-wizard__option-title">
+                  Start from scratch
+                </div>
                 <p className="first-run-wizard__option-desc">
                   Set up your own categories and groups from the beginning.
                 </p>
@@ -306,7 +319,9 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
                         const next = [...scratchGroups];
                         next[gi] = {
                           ...g,
-                          categories: e.target.value.split(',').map((s) => s.trim()),
+                          categories: e.target.value
+                            .split(',')
+                            .map((s) => s.trim()),
                         };
                         setScratchGroups(next);
                       }}
@@ -317,7 +332,10 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
                   type="button"
                   variant="ghost"
                   onClick={() =>
-                    setScratchGroups([...scratchGroups, { name: '', categories: [''] }])
+                    setScratchGroups([
+                      ...scratchGroups,
+                      { name: '', categories: [''] },
+                    ])
                   }
                 >
                   + Add group
@@ -333,8 +351,8 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               Bring in your transactions
             </h2>
             <p className="first-run-wizard__body first-run-wizard__body--compact">
-              Export a CSV from your bank or money app, pick the format, and drop
-              the file below.
+              Export a CSV from your bank or money app, pick the format, and
+              drop the file below.
             </p>
             <div className="first-run-wizard__import-embed">
               <ImportView embedded onImportDone={onImportDone} />
@@ -344,7 +362,9 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
       case 4:
         return (
           <>
-            <h2 className="first-run-wizard__title">Set your monthly targets</h2>
+            <h2 className="first-run-wizard__title">
+              Set your monthly targets
+            </h2>
             <p className="first-run-wizard__body">
               How much do you plan to spend in each category this month?
             </p>
@@ -372,7 +392,10 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
                       {g.categories.map((c) => {
                         const key = `cat:${c.id}`;
                         return (
-                          <div key={c.id} className="first-run-wizard__budget-line">
+                          <div
+                            key={c.id}
+                            className="first-run-wizard__budget-line"
+                          >
                             <span>{c.name}</span>
                             <div>
                               <input
@@ -407,12 +430,17 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
               ))}
               {budgetData?.income && budgetData.income.length > 0 ? (
                 <div className="first-run-wizard__budget-group">
-                  <div className="first-run-wizard__budget-group-head">Income</div>
+                  <div className="first-run-wizard__budget-group-head">
+                    Income
+                  </div>
                   <div className="first-run-wizard__budget-lines">
                     {budgetData.income.map((row) => {
                       const key = `inc:${row.id}`;
                       return (
-                        <div key={row.id} className="first-run-wizard__budget-line">
+                        <div
+                          key={row.id}
+                          className="first-run-wizard__budget-line"
+                        >
                           <span>{row.name}</span>
                           <div>
                             <input
@@ -459,7 +487,9 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
                   : 'Categories'}
               </li>
               <li>
-                {summary && summary.importedCount != null && summary.importedCount > 0
+                {summary &&
+                summary.importedCount != null &&
+                summary.importedCount > 0
                   ? '✓'
                   : '○'}{' '}
                 {summary?.importedCount != null && summary.importedCount > 0

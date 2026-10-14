@@ -106,8 +106,7 @@ export function SpendingDonut({
     const alloc = (groups ?? []).filter((g) => (g.budget_cents ?? 0) > 0);
     const tb = alloc.reduce((s, g) => s + g.budget_cents, 0);
     const ts = alloc.reduce((s, g) => s + g.spent_cents, 0);
-    const pct =
-      tb > 0 ? Math.min(999, Math.round((ts / tb) * 100)) : 0;
+    const pct = tb > 0 ? Math.min(999, Math.round((ts / tb) * 100)) : 0;
 
     let acc = -Math.PI / 2;
     const segs: DonutSeg[] = [];
@@ -220,9 +219,7 @@ export function SpendingDonut({
         {segments.map((s) => {
           const g = groups.find((x) => x.id === s.id);
           const canDrill =
-            !!onLegendGroupClick &&
-            !!g &&
-            (g.categories?.length ?? 0) > 0;
+            !!onLegendGroupClick && !!g && (g.categories?.length ?? 0) > 0;
           const row = (
             <>
               <svg

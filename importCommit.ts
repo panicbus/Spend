@@ -1,10 +1,10 @@
 import type Database from 'better-sqlite3';
-import type { CommitImportResult, CommitImportRow } from './src/types/import.js';
+import type {
+  CommitImportResult,
+  CommitImportRow,
+} from './src/types/import.js';
 import type { DedupeRow } from './dedupe.js';
-import {
-  analyzeImportCandidates,
-  importSpaceAmount,
-} from './dedupe.js';
+import { analyzeImportCandidates, importSpaceAmount } from './dedupe.js';
 
 export function runCommitImport(
   db: Database.Database,
@@ -102,7 +102,10 @@ export function runCommitImport(
           expenseByMonth[mk] = (expenseByMonth[mk] ?? 0) + stored;
         }
       } else if (row.targetType === 'income_source' && row.targetId != null) {
-        if (!Number.isFinite(row.targetId) || !incomeSrcExists.get(row.targetId)) {
+        if (
+          !Number.isFinite(row.targetId) ||
+          !incomeSrcExists.get(row.targetId)
+        ) {
           staleTargets++;
           skipped++;
           continue;

@@ -58,10 +58,7 @@ export function BudgetDashboard() {
     const restore = (
       location.state as { budgetRestore?: BudgetReturnContext } | null
     )?.budgetRestore;
-    if (
-      !restore?.monthKey ||
-      !/^\d{4}-\d{2}$/.test(restore.monthKey)
-    ) {
+    if (!restore?.monthKey || !/^\d{4}-\d{2}$/.test(restore.monthKey)) {
       return;
     }
     setMonthKey(restore.monthKey);
@@ -265,7 +262,6 @@ export function BudgetDashboard() {
           />
         </>
       )}
-
     </div>
   );
 }

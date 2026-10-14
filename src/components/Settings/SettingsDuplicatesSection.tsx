@@ -198,9 +198,10 @@ export function SettingsDuplicatesSection() {
       >
         <p className="settings-modal-p">
           Permanently delete {selectedCount} row
-          {selectedCount === 1 ? '' : 's'} — {formatCurrency(selectedTotalCents)}{' '}
-          of double-counted activity. The older copy of each pair is kept. Export
-          a backup first if you want a safety net.
+          {selectedCount === 1 ? '' : 's'} —{' '}
+          {formatCurrency(selectedTotalCents)} of double-counted activity. The
+          older copy of each pair is kept. Export a backup first if you want a
+          safety net.
         </p>
         <div className="settings-modal-actions">
           <Button variant="ghost" onClick={() => setConfirming(false)}>

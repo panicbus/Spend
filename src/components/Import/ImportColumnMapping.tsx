@@ -42,8 +42,10 @@ export function ImportColumnMapping({
   ready,
 }: ImportColumnMappingProps) {
   const splitMode = draft.amountMode.type === 'split';
-  const singleMode = draft.amountMode.type === 'single' ? draft.amountMode : null;
-  const splitAmount = draft.amountMode.type === 'split' ? draft.amountMode : null;
+  const singleMode =
+    draft.amountMode.type === 'single' ? draft.amountMode : null;
+  const splitAmount =
+    draft.amountMode.type === 'split' ? draft.amountMode : null;
 
   return (
     <div className="import-column-map">
@@ -78,7 +80,9 @@ export function ImportColumnMapping({
           </select>
         </label>
         <label className="import-column-map__field">
-          <span className="import-column-map__label">Merchant / Description *</span>
+          <span className="import-column-map__label">
+            Merchant / Description *
+          </span>
           <select
             className="import-select"
             value={draft.merchantColumn}
@@ -160,7 +164,9 @@ export function ImportColumnMapping({
         ) : splitAmount ? (
           <>
             <label className="import-column-map__field">
-              <span className="import-column-map__label">Debit / Outflow *</span>
+              <span className="import-column-map__label">
+                Debit / Outflow *
+              </span>
               <select
                 className="import-select"
                 value={splitAmount.debitColumn}
@@ -178,7 +184,9 @@ export function ImportColumnMapping({
               </select>
             </label>
             <label className="import-column-map__field">
-              <span className="import-column-map__label">Credit / Inflow *</span>
+              <span className="import-column-map__label">
+                Credit / Inflow *
+              </span>
               <select
                 className="import-select"
                 value={splitAmount.creditColumn}
@@ -229,7 +237,12 @@ export function ImportColumnMapping({
         </label>
       </div>
       <div className="import-actions import-actions--spread">
-        <Button type="button" variant="ghost" className="import-btn-cancel" onClick={onCancel}>
+        <Button
+          type="button"
+          variant="ghost"
+          className="import-btn-cancel"
+          onClick={onCancel}
+        >
           Cancel import
         </Button>
         <Button

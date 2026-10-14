@@ -19,7 +19,12 @@ export function useBudgetMutations() {
       details: SetBudgetDetailsInput,
       applyToFullYear?: boolean
     ) => {
-      await api.setBudgetDetails(categoryId, monthKey, details, applyToFullYear);
+      await api.setBudgetDetails(
+        categoryId,
+        monthKey,
+        details,
+        applyToFullYear
+      );
       dispatchDataChanged();
     },
     []

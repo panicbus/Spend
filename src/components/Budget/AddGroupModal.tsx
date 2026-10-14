@@ -11,7 +11,11 @@ type AddGroupModalProps = {
   onCreated: (id: number) => void;
 };
 
-export function AddGroupModal({ isOpen, onClose, onCreated }: AddGroupModalProps) {
+export function AddGroupModal({
+  isOpen,
+  onClose,
+  onCreated,
+}: AddGroupModalProps) {
   const { createGroup, loading } = useCategories();
   const [name, setName] = useState('');
   const [color, setColor] = useState(CATEGORY_COLOR_PRESETS[0].value);
@@ -73,7 +77,11 @@ export function AddGroupModal({ isOpen, onClose, onCreated }: AddGroupModalProps
         <Button variant="ghost" onClick={onClose} disabled={loading}>
           Cancel
         </Button>
-        <Button variant="primary" onClick={() => void submit()} disabled={loading || !name.trim()}>
+        <Button
+          variant="primary"
+          onClick={() => void submit()}
+          disabled={loading || !name.trim()}
+        >
           Create group
         </Button>
       </div>

@@ -76,7 +76,9 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--sidebar-text-muted);
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 button.sidebar__link {
@@ -144,7 +146,9 @@ button.sidebar__link {
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
   text-align: left;
 }
 

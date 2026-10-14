@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { BudgetGroup, BudgetIncomeRow, BudgetTotals } from '../../ipc-contract';
+import type {
+  BudgetGroup,
+  BudgetIncomeRow,
+  BudgetTotals,
+} from '../../ipc-contract';
 import { api } from '../services/api';
 import { DATA_CHANGED_EVENT } from '../utils/dataChanged';
 
@@ -56,10 +60,7 @@ export function useBudget(monthKey: string) {
     const totalSpent = groups.reduce((s, g) => s + (g.spent_cents ?? 0), 0);
     const remaining = totalBudget - totalSpent;
     const incomeBudget = income.reduce((s, i) => s + (i.budget_cents ?? 0), 0);
-    const incomeActual = income.reduce(
-      (s, i) => s + (i.actual_cents ?? 0),
-      0
-    );
+    const incomeActual = income.reduce((s, i) => s + (i.actual_cents ?? 0), 0);
     return {
       totalBudget,
       totalSpent,

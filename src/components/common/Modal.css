@@ -38,7 +38,9 @@
   color: var(--text-tertiary);
   padding: 4px 8px;
   border-radius: 8px;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .modal__close:hover {

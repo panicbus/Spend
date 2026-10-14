@@ -110,7 +110,9 @@
 
 .monthly-pulse-check__hot-item--clickable {
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .monthly-pulse-check__hot-item--clickable:hover {

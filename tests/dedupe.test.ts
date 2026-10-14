@@ -64,7 +64,9 @@ describe('labelsCompatible', () => {
   });
 
   it('rejects unrelated labels and bare fragments', () => {
-    assert.ok(!labelsCompatible(textTokens('Target'), textTokens('Trader Joe')));
+    assert.ok(
+      !labelsCompatible(textTokens('Target'), textTokens('Trader Joe'))
+    );
     assert.ok(!labelsCompatible(textTokens('A'), textTokens('A Big Store')));
     assert.ok(!labelsCompatible(textTokens('Ross'), textTokens('')));
   });
@@ -116,7 +118,11 @@ describe('analyzeImportRows', () => {
   it('still matches when the hash is identical', () => {
     const rows = [incoming({ importHash: 'shared' })];
     const analysis = analyzeImportRows(rows, [
-      existing({ date: '2026-05-01', merchant: 'Whatever', importHash: 'shared' }),
+      existing({
+        date: '2026-05-01',
+        merchant: 'Whatever',
+        importHash: 'shared',
+      }),
     ]);
     assert.equal(analysis.matches[0].reason, 'hash');
   });
@@ -148,7 +154,9 @@ describe('analyzeImportRows', () => {
 
   it('flags date drift as possible, not certain', () => {
     const rows = [incoming({ date: '2026-05-11' })];
-    const analysis = analyzeImportRows(rows, [existing({ date: '2026-05-09' })]);
+    const analysis = analyzeImportRows(rows, [
+      existing({ date: '2026-05-09' }),
+    ]);
     assert.equal(analysis.duplicateCount, 0);
     assert.equal(analysis.possibleCount, 1);
     assert.equal(analysis.matches[0].reason, 'near_day');
@@ -216,7 +224,10 @@ describe('analyzeImportRows', () => {
   });
 });
 
-function stored(over: Partial<StoredRow['row']> = {}, extra: Partial<StoredRow> = {}): StoredRow {
+function stored(
+  over: Partial<StoredRow['row']> = {},
+  extra: Partial<StoredRow> = {}
+): StoredRow {
   const id = seq++;
   return {
     row: {
@@ -276,7 +287,11 @@ describe('pairDuplicateRows', () => {
   it('never pairs a transaction with an income row', () => {
     const pairs = pairDuplicateRows([
       stored({ amountCents: 1999, createdAt: '2026-05-10 01:00:00' }),
-      stored({ kind: 'income', amountCents: 1999, createdAt: '2026-06-01 01:00:00' }),
+      stored({
+        kind: 'income',
+        amountCents: 1999,
+        createdAt: '2026-06-01 01:00:00',
+      }),
     ]);
     assert.equal(pairs.length, 0);
   });
@@ -284,8 +299,14 @@ describe('pairDuplicateRows', () => {
   it('never offers a keeper for removal in another pair', () => {
     // A near-day match must not delete the row a same-day pair promised to keep,
     // which would strand that pair's exact duplicate in the ledger.
-    const older = stored({ date: '2026-05-03', createdAt: '2026-05-09 00:00:00' });
-    const keeper = stored({ date: '2026-05-05', createdAt: '2026-05-10 00:00:01' });
+    const older = stored({
+      date: '2026-05-03',
+      createdAt: '2026-05-09 00:00:00',
+    });
+    const keeper = stored({
+      date: '2026-05-05',
+      createdAt: '2026-05-10 00:00:01',
+    });
     const sameDay = stored(
       { date: '2026-05-05', createdAt: '2026-05-10 00:00:02' },
       { originalStatement: 'Netflix.com ALAMEDA CA' }
@@ -293,7 +314,10 @@ describe('pairDuplicateRows', () => {
     const pairs = pairDuplicateRows([older, keeper, sameDay]);
     const keeps = new Set(pairs.map((p) => p.keep.id));
     for (const p of pairs) {
-      assert.ok(!keeps.has(p.remove.id), `row ${p.remove.id} is both kept and removed`);
+      assert.ok(
+        !keeps.has(p.remove.id),
+        `row ${p.remove.id} is both kept and removed`
+      );
     }
   });
 
@@ -309,7 +333,8 @@ describe('pairDuplicateRows', () => {
     const pairs = pairDuplicateRows(daily);
     for (const p of pairs) {
       const gapDays =
-        Math.abs(Date.parse(p.remove.date) - Date.parse(p.keep.date)) / 86400000;
+        Math.abs(Date.parse(p.remove.date) - Date.parse(p.keep.date)) /
+        86400000;
       assert.ok(
         gapDays <= 3,
         `pair spans ${gapDays} days, past the 3-day window (${p.reason})`

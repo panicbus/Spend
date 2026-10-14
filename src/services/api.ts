@@ -56,18 +56,28 @@ export const api = {
     getBridge().resetDatabase(mode),
 
   getBudget: (monthKey: string) => getBridge().getBudget(monthKey),
-  setBudgetAmount: (categoryId: number, monthKey: string, amountCents: number) =>
-    getBridge().setBudgetAmount(categoryId, monthKey, amountCents),
+  setBudgetAmount: (
+    categoryId: number,
+    monthKey: string,
+    amountCents: number
+  ) => getBridge().setBudgetAmount(categoryId, monthKey, amountCents),
   setBudgetDetails: (
     categoryId: number,
     monthKey: string,
     details: Parameters<SpendApi['setBudgetDetails']>[2],
     applyToFullYear?: Parameters<SpendApi['setBudgetDetails']>[3]
-  ) => getBridge().setBudgetDetails(categoryId, monthKey, details, applyToFullYear),
+  ) =>
+    getBridge().setBudgetDetails(
+      categoryId,
+      monthKey,
+      details,
+      applyToFullYear
+    ),
 
   getIncomeSources: () => getBridge().getIncomeSources(),
-  createIncomeSource: (payload: Parameters<SpendApi['createIncomeSource']>[0]) =>
-    getBridge().createIncomeSource(payload),
+  createIncomeSource: (
+    payload: Parameters<SpendApi['createIncomeSource']>[0]
+  ) => getBridge().createIncomeSource(payload),
   setIncomeBudget: (sourceId: number, monthKey: string, amountCents: number) =>
     getBridge().setIncomeBudget(sourceId, monthKey, amountCents),
 
@@ -84,14 +94,10 @@ export const api = {
 
   openCSVDialog: () => getBridge().openCSVDialog(),
   getPathForFile: (file: File) => getBridge().getPathForFile(file),
-  peekCSV: (
-    filePath: string,
-    headerRowIndex?: number
-  ) => getBridge().peekCSV(filePath, headerRowIndex),
-  parseCSV: (
-    filePath: string,
-    options?: Parameters<SpendApi['parseCSV']>[1]
-  ) => getBridge().parseCSV(filePath, options),
+  peekCSV: (filePath: string, headerRowIndex?: number) =>
+    getBridge().peekCSV(filePath, headerRowIndex),
+  parseCSV: (filePath: string, options?: Parameters<SpendApi['parseCSV']>[1]) =>
+    getBridge().parseCSV(filePath, options),
   getLastImportProfile: () => getBridge().getLastImportProfile(),
   setLastImportProfile: (profileId: string) =>
     getBridge().setLastImportProfile(profileId),

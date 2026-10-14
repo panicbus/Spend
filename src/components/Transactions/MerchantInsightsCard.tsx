@@ -11,11 +11,16 @@ function formatFrequencyLabel(insights: MerchantInsights): string {
     return '1 visit';
   }
   const f = insights.frequencyPerMonth;
-  const rounded = Math.abs(f - Math.round(f)) < 0.05 ? Math.round(f) : Number(f.toFixed(1));
+  const rounded =
+    Math.abs(f - Math.round(f)) < 0.05 ? Math.round(f) : Number(f.toFixed(1));
   return `~${rounded} times per month`;
 }
 
-export function MerchantInsightsCard({ merchantName }: { merchantName: string }) {
+export function MerchantInsightsCard({
+  merchantName,
+}: {
+  merchantName: string;
+}) {
   const [insights, setInsights] = useState<MerchantInsights | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -55,7 +60,10 @@ export function MerchantInsightsCard({ merchantName }: { merchantName: string })
 
   if (!insights) {
     return (
-      <div className="merchant-insights merchant-insights--loading" aria-busy="true">
+      <div
+        className="merchant-insights merchant-insights--loading"
+        aria-busy="true"
+      >
         <p className="merchant-insights__loading">Loading merchant summary…</p>
       </div>
     );
@@ -67,7 +75,10 @@ export function MerchantInsightsCard({ merchantName }: { merchantName: string })
       : 1;
 
   return (
-    <section className="merchant-insights" aria-label={`Insights for ${merchantName}`}>
+    <section
+      className="merchant-insights"
+      aria-label={`Insights for ${merchantName}`}
+    >
       <h2 className="merchant-insights__title">{merchantName}</h2>
       <div className="merchant-insights__body">
         <div className="merchant-insights__stats">
@@ -113,11 +124,16 @@ export function MerchantInsightsCard({ merchantName }: { merchantName: string })
             </span>
           </div>
         </div>
-        <div className="merchant-insights__chart" aria-hidden={insights.monthlySpending.length === 0}>
+        <div
+          className="merchant-insights__chart"
+          aria-hidden={insights.monthlySpending.length === 0}
+        >
           <div className="merchant-insights__bars">
             {insights.monthlySpending.map((m) => {
               const h =
-                m.totalCents > 0 ? Math.max(8, (m.totalCents / maxBar) * 52) : 4;
+                m.totalCents > 0
+                  ? Math.max(8, (m.totalCents / maxBar) * 52)
+                  : 4;
               const label = formatMonthLabel(m.monthKey);
               return (
                 <div key={m.monthKey} className="merchant-insights__bar-wrap">

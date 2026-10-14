@@ -3,7 +3,9 @@ export const EARLIEST_DATA_MONTH_KEY = '2026-02';
 
 export function clampMonthKeyToEarliestData(monthKey: string): string {
   if (!/^\d{4}-\d{2}$/.test(monthKey)) return monthKey;
-  return monthKey < EARLIEST_DATA_MONTH_KEY ? EARLIEST_DATA_MONTH_KEY : monthKey;
+  return monthKey < EARLIEST_DATA_MONTH_KEY
+    ? EARLIEST_DATA_MONTH_KEY
+    : monthKey;
 }
 
 /** False when already at {@link EARLIEST_DATA_MONTH_KEY} (cannot go further back). */
@@ -66,7 +68,10 @@ export function daysRemainingInMonth(monthKey: string): number {
   return Math.max(0, daysInMonth - dayOfMonth);
 }
 
-export function formatMonthRangeLabel(fromMonthKey: string, toMonthKey: string) {
+export function formatMonthRangeLabel(
+  fromMonthKey: string,
+  toMonthKey: string
+) {
   const [y1, m1] = fromMonthKey.split('-').map(Number);
   const [y2, m2] = toMonthKey.split('-').map(Number);
   const d1 = new Date(y1, m1 - 1, 1);

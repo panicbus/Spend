@@ -1,6 +1,6 @@
 .import-view {
   max-width: 960px;
-   margin: 0 auto;
+  margin: 0 auto;
   padding: 8px 8px 48px;
   color: var(--text-primary);
 }
@@ -161,7 +161,9 @@
   background: var(--bg-card-alt);
   padding: 28px 20px;
   text-align: center;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .import-drop--active {
@@ -596,7 +598,9 @@
 }
 
 .import-create-form__swatch--active .import-create-form__swatch-dot {
-  box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 3px var(--text-primary);
+  box-shadow:
+    0 0 0 2px var(--bg-card),
+    0 0 0 3px var(--text-primary);
 }
 
 .import-create-form__swatch-dot {

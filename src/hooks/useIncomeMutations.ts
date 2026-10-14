@@ -5,14 +5,17 @@ import { api } from '../services/api';
 export function useIncomeMutations() {
   const [loading, setLoading] = useState(false);
 
-  const createIncomeSource = useCallback(async (payload: CreateIncomeSourcePayload) => {
-    setLoading(true);
-    try {
-      return await api.createIncomeSource(payload);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const createIncomeSource = useCallback(
+    async (payload: CreateIncomeSourcePayload) => {
+      setLoading(true);
+      try {
+        return await api.createIncomeSource(payload);
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   const setIncomeBudget = useCallback(
     async (sourceId: number, monthKey: string, amountCents: number) => {

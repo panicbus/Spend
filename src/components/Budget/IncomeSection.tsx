@@ -200,9 +200,7 @@ export function IncomeSection({
             }
             onClick={onTotalClick}
             onKeyDown={
-              onTotalClick
-                ? (e) => onRowKeyDown(e, onTotalClick)
-                : undefined
+              onTotalClick ? (e) => onRowKeyDown(e, onTotalClick) : undefined
             }
           >
             <span className="income-section__name">Total income</span>

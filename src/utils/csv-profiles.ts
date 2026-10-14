@@ -4,7 +4,8 @@ export type AmountMode =
   | { type: 'single'; column: string; expenseSign: 'negative' | 'positive' }
   | { type: 'split'; debitColumn: string; creditColumn: string };
 
-export type DateFormat = 'YYYY-MM-DD' | 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'M/D/YYYY';
+export type DateFormat =
+  'YYYY-MM-DD' | 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'M/D/YYYY';
 
 export interface CSVProfile {
   id: string;
@@ -124,7 +125,11 @@ export const CSV_PROFILES: CSVProfile[] = [
     dateColumn: 'Date',
     dateFormat: 'MM/DD/YYYY',
     merchantColumn: 'Payee',
-    amountMode: { type: 'split', debitColumn: 'Outflow', creditColumn: 'Inflow' },
+    amountMode: {
+      type: 'split',
+      debitColumn: 'Outflow',
+      creditColumn: 'Inflow',
+    },
     categoryColumn: 'Category',
     categoryGroupColumn: 'Category Group',
     notesColumn: 'Memo',
@@ -289,7 +294,9 @@ export function getCSVProfile(id: string): CSVProfile | undefined {
   return CSV_PROFILES.find((p) => p.id === id);
 }
 
-export function profileToGenericMapping(profile: CSVProfile): GenericColumnMapping {
+export function profileToGenericMapping(
+  profile: CSVProfile
+): GenericColumnMapping {
   return {
     dateColumn: profile.dateColumn,
     dateFormat: profile.dateFormat,
