@@ -42,7 +42,7 @@ function readRawCsvRows(filePath: string): string[][] {
     }) as string[][];
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(`Could not read this CSV: ${msg}`);
+    throw new Error(`Could not read this CSV: ${msg}`, { cause: e });
   }
 }
 
@@ -248,12 +248,7 @@ export function parseProfileCSV(
 
     const mapRow = mappingByExternal.get(externalCategory);
     const rowMapping: CategoryMapping | null = mapRow
-      ? toCategoryMapping(
-          mapRow,
-          deps.mappingSource,
-          catNames,
-          incomeNames
-        )
+      ? toCategoryMapping(mapRow, deps.mappingSource, catNames, incomeNames)
       : null;
 
     if (!rowMapping) {
@@ -279,9 +274,7 @@ export function parseProfileCSV(
     });
   }
 
-  const unknownCategories = [...unknownSet].sort((a, b) =>
-    a.localeCompare(b)
-  );
+  const unknownCategories = [...unknownSet].sort((a, b) => a.localeCompare(b));
   return {
     rows,
     unknownCategories,

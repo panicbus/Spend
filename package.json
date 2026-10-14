@@ -20,7 +20,7 @@
     "pack:mac:arm64:verbose": "npm run build && DEBUG=electron-builder* CSC_IDENTITY_AUTO_SELECT=false electron-builder --mac --dir --arm64",
     "pack:mac:x64": "npm run build && CSC_IDENTITY_AUTO_SELECT=false electron-builder --mac --dir --x64",
     "dist:mac": "npm run build && bash scripts/dist-mac-signed.sh",
-    "typecheck": "tsc -p tsconfig.app.json && tsc -p tsconfig.node.json",
+    "typecheck": "tsc -p tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json --noEmit",
     "test:import": "tsx --test tests/csv-import.test.ts",
     "test:dedupe": "tsx --test tests/dedupe.test.ts",
     "test": "tsx --test tests/*.test.ts",
@@ -28,7 +28,10 @@
     "bump:minor": "node scripts/bump-version.mjs minor",
     "bump:major": "node scripts/bump-version.mjs major",
     "postinstall": "electron-rebuild -f -w better-sqlite3 --arch $(node scripts/electron-native-arch.mjs)",
-    "rebuild:sqlite": "electron-rebuild -f -w better-sqlite3 --arch $(node scripts/electron-native-arch.mjs)"
+    "rebuild:sqlite": "electron-rebuild -f -w better-sqlite3 --arch $(node scripts/electron-native-arch.mjs)",
+    "prepare": "husky",
+    "lint": "eslint .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",
@@ -40,6 +43,7 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
+    "@eslint/js": "^10.0.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.12",
@@ -48,8 +52,15 @@
     "concurrently": "^9.1.0",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.10",
     "tsx": "^4.22.3",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.71.2",
     "vite": "^6.0.3",
     "wait-on": "^8.0.1"
   },
@@ -100,5 +111,12 @@
       "entitlementsInherit": "buildResources/entitlements.mac.plist",
       "notarize": true
     }
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{css,json,md,html}": "prettier --write"
   }
 }

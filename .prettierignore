@@ -1,0 +1,7 @@
+dist
+dist-electron
+release
+build
+buildResources
+package-lock.json
+*.sql

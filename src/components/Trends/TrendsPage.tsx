@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Bar,
@@ -298,9 +304,7 @@ function TrendsCursor(props: {
 
 function TrendsTooltipNote({ note }: { note?: string }) {
   if (!note) return null;
-  return (
-    <div className="trends-tooltip__note">{truncateTrendNote(note)}</div>
-  );
+  return <div className="trends-tooltip__note">{truncateTrendNote(note)}</div>;
 }
 
 type TrendsTooltipProps = {
@@ -374,8 +378,7 @@ function StackSliceTooltip({
     }
   }
   const pct = pctOf(cents, total);
-  const mk =
-    row && typeof row.monthKey === 'string' ? row.monthKey : undefined;
+  const mk = row && typeof row.monthKey === 'string' ? row.monthKey : undefined;
   return (
     <div className="trends-tooltip">
       <div className="trends-tooltip__title">{String(name)}</div>
@@ -400,7 +403,9 @@ function NetTooltip({
   monthNotes,
 }: {
   active?: boolean;
-  payload?: Array<{ payload?: { monthKey: string; netCents: number; label: string } }>;
+  payload?: Array<{
+    payload?: { monthKey: string; netCents: number; label: string };
+  }>;
   months: TrendMonthSnapshot[];
   monthNotes?: Record<string, string>;
 }) {
@@ -541,8 +546,7 @@ export function TrendsPage() {
       if (data) void loadMonthNotesForData(data);
     };
     window.addEventListener(MONTH_NOTES_CHANGED_EVENT, onNotes);
-    return () =>
-      window.removeEventListener(MONTH_NOTES_CHANGED_EVENT, onNotes);
+    return () => window.removeEventListener(MONTH_NOTES_CHANGED_EVENT, onNotes);
   }, [data, loadMonthNotesForData]);
 
   useEffect(() => {
@@ -553,14 +557,18 @@ export function TrendsPage() {
     pendingScrollToTrendsSectionRef.current =
       restore.drillIncomeSourceId != null ? 'income' : 'category';
     setRange(restore.range);
-    setDrillGroupId(
-      restore.drillGroupId != null ? restore.drillGroupId : null
-    );
+    setDrillGroupId(restore.drillGroupId != null ? restore.drillGroupId : null);
     setDrillIncomeSourceId(
       restore.drillIncomeSourceId != null ? restore.drillIncomeSourceId : null
     );
     navigate('/trends', { replace: true, state: null });
-  }, [location.state, navigate, setRange, setDrillGroupId, setDrillIncomeSourceId]);
+  }, [
+    location.state,
+    navigate,
+    setRange,
+    setDrillGroupId,
+    setDrillIncomeSourceId,
+  ]);
 
   useEffect(() => {
     if (!pendingScrollToTrendsSectionRef.current) return;
@@ -662,14 +670,18 @@ export function TrendsPage() {
     [navigate]
   );
 
-  const animationToken = useMemo(() => (animationTokenRef.current += 1), [data]);
+  const animationToken = useMemo(
+    () => (animationTokenRef.current += 1),
+    [data]
+  );
 
   const vsRows = useMemo(
     () => (data ? padPlotRows(buildVsRows(data.months)) : []),
     [data]
   );
   const groupStackRows = useMemo(
-    () => (data ? padPlotRows(buildGroupStackRows(data.months, data.groups)) : []),
+    () =>
+      data ? padPlotRows(buildGroupStackRows(data.months, data.groups)) : [],
     [data]
   );
 
@@ -679,10 +691,7 @@ export function TrendsPage() {
     if (!g) return null;
     const rows = buildCategoryStackRowsForGroup(data.months, drillGroupId);
     const keys = categoryKeysFromGroupRows(rows);
-    const catById = new Map<
-      number,
-      { name: string; color: string }
-    >();
+    const catById = new Map<number, { name: string; color: string }>();
     for (const m of data.months) {
       for (const c of m.byCategory) {
         if (c.groupId === drillGroupId && !catById.has(c.categoryId)) {
@@ -745,7 +754,11 @@ export function TrendsPage() {
         <p className="trends-page__subtitle">
           Your spending and income across time
         </p>
-        <div className="trends-page__pills" role="group" aria-label="Time range">
+        <div
+          className="trends-page__pills"
+          role="group"
+          aria-label="Time range"
+        >
           {RANGE_OPTIONS.map((opt) => (
             <button
               key={opt.value}
@@ -906,7 +919,7 @@ export function TrendsPage() {
                         radius={[4, 4, 0, 0]}
                         animationDuration={400}
                       >
-                        {vsRows.map((entry, i) => (
+                        {vsRows.map((entry) => (
                           <Cell
                             key={entry.monthKey}
                             fill={
@@ -998,7 +1011,10 @@ export function TrendsPage() {
                       <Tooltip
                         cursor={<TrendsCursor />}
                         content={(props) => (
-                          <StackSliceTooltip {...props} monthNotes={monthNotes} />
+                          <StackSliceTooltip
+                            {...props}
+                            monthNotes={monthNotes}
+                          />
                         )}
                         shared={false}
                       />
@@ -1025,11 +1041,7 @@ export function TrendsPage() {
                             cursor="pointer"
                             onClick={() => {
                               if (data) {
-                                goTransactionsCategory(
-                                  id,
-                                  data,
-                                  drillGroupId
-                                );
+                                goTransactionsCategory(id, data, drillGroupId);
                               }
                             }}
                           />
@@ -1102,7 +1114,10 @@ export function TrendsPage() {
                       <Tooltip
                         cursor={<TrendsCursor />}
                         content={(props) => (
-                          <StackSliceTooltip {...props} monthNotes={monthNotes} />
+                          <StackSliceTooltip
+                            {...props}
+                            monthNotes={monthNotes}
+                          />
                         )}
                         shared={false}
                       />
@@ -1219,7 +1234,10 @@ export function TrendsPage() {
                         <Tooltip
                           cursor={<TrendsCursor />}
                           content={(props) => (
-                            <StackSliceTooltip {...props} monthNotes={monthNotes} />
+                            <StackSliceTooltip
+                              {...props}
+                              monthNotes={monthNotes}
+                            />
                           )}
                           shared={false}
                         />
@@ -1307,7 +1325,10 @@ export function TrendsPage() {
                       <Tooltip
                         cursor={<TrendsCursor />}
                         content={(props) => (
-                          <StackSliceTooltip {...props} monthNotes={monthNotes} />
+                          <StackSliceTooltip
+                            {...props}
+                            monthNotes={monthNotes}
+                          />
                         )}
                         shared={false}
                       />
@@ -1349,7 +1370,9 @@ export function TrendsPage() {
           </section>
 
           <section className="trends-chart-card">
-            <h2 className="trends-chart-card__heading">Where your money went</h2>
+            <h2 className="trends-chart-card__heading">
+              Where your money went
+            </h2>
             <p className="trends-chart-card__desc">
               Top categories by spending across the selected time range
             </p>

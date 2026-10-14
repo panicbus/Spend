@@ -8,7 +8,6 @@ import {
   formatCurrency,
   formatInputDollars,
   budgetEditDraftFromCents,
-  dollarsFromCentsInput,
 } from '../../services/formatters';
 import {
   annualCentsFromPerOccurrenceCents,
@@ -162,10 +161,7 @@ export function CategoryCardLineList({
     } else {
       setEditDraft(
         budgetEditDraftFromCents(
-          perOccurrenceCentsFromAnnualCents(
-            c.annual_amount_cents ?? 0,
-            freq
-          )
+          perOccurrenceCentsFromAnnualCents(c.annual_amount_cents ?? 0, freq)
         )
       );
     }
@@ -181,9 +177,7 @@ export function CategoryCardLineList({
             formatInputDollars(editDraft),
             editFreq
           );
-          setEditDraft(
-            budgetEditDraftFromCents(Math.round(annualBridge / 12))
-          );
+          setEditDraft(budgetEditDraftFromCents(Math.round(annualBridge / 12)));
         } else {
           setEditDraft(budgetEditDraftFromCents(c.budget_cents ?? 0));
         }
@@ -227,10 +221,7 @@ export function CategoryCardLineList({
       {(group.categories ?? []).map((c) => {
         const sinking = isSinkingLine(c);
         const annual = c.annual_amount_cents ?? 0;
-        const linePctMonthly = pctUsed(
-          c.spent_cents ?? 0,
-          c.budget_cents ?? 0
-        );
+        const linePctMonthly = pctUsed(c.spent_cents ?? 0, c.budget_cents ?? 0);
         const lineFill = sinking
           ? sinkingBarFill(
               c.spent_ytd_cents ?? 0,
@@ -256,9 +247,7 @@ export function CategoryCardLineList({
               )
             : 0;
         const monthlySetAsideHint =
-          editFreq !== 'monthly'
-            ? Math.round(annualFromDraftHint / 12)
-            : 0;
+          editFreq !== 'monthly' ? Math.round(annualFromDraftHint / 12) : 0;
         const yearLabel = calendarYearLabel(monthKey);
         const lineDrillable = !!onLineClick && !isEdit;
 
@@ -273,19 +262,13 @@ export function CategoryCardLineList({
             role={lineDrillable ? 'button' : undefined}
             tabIndex={lineDrillable ? 0 : undefined}
             aria-label={
-              lineDrillable
-                ? `View transactions for ${c.name}`
-                : undefined
+              lineDrillable ? `View transactions for ${c.name}` : undefined
             }
             onClick={
-              lineDrillable
-                ? () => onLineClick(c.id, group.id)
-                : undefined
+              lineDrillable ? () => onLineClick(c.id, group.id) : undefined
             }
             onKeyDown={
-              lineDrillable
-                ? (e) => onLineKeyDown(e, c.id)
-                : undefined
+              lineDrillable ? (e) => onLineKeyDown(e, c.id) : undefined
             }
           >
             <div className="category-card__line-head">
@@ -334,10 +317,7 @@ export function CategoryCardLineList({
                   <>
                     {' · '}
                     {formatCurrency(
-                      perOccurrenceCentsFromAnnualCents(
-                        annual,
-                        c.frequency
-                      )
+                      perOccurrenceCentsFromAnnualCents(annual, c.frequency)
                     )}{' '}
                     per bill
                   </>
@@ -403,13 +383,9 @@ export function CategoryCardLineList({
                     <input
                       type="checkbox"
                       checked={applyToFullYear}
-                      onChange={(e) =>
-                        setApplyToFullYear(e.target.checked)
-                      }
+                      onChange={(e) => setApplyToFullYear(e.target.checked)}
                     />
-                    <span>
-                      Also apply to earlier months in {yearLabel}
-                    </span>
+                    <span>Also apply to earlier months in {yearLabel}</span>
                   </label>
                 )}
                 <div className="category-card__budget-actions">

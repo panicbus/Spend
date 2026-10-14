@@ -56,7 +56,6 @@ import type {
 import type {
   CategoryMapping,
   CommitImportRow,
-  MappingTargetType,
   ParseCSVOptions,
   ParsedRow,
   AdoptImportCategoriesInput,
@@ -199,7 +198,9 @@ app.setPath('userData', path.join(app.getPath('appData'), 'spend-app'));
 
 process.on('uncaughtException', (err) => {
   console.error('[Spend] uncaughtException:', err);
-  appendBootLog(`uncaughtException: ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
+  appendBootLog(
+    `uncaughtException: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`
+  );
   try {
     dialog.showErrorBox(
       'Spend hit an error',
@@ -264,7 +265,9 @@ const BUDGET_FREQUENCIES = new Set<string>([
   'bimonthly',
 ]);
 
-function normalizeBudgetFrequency(raw: string | null | undefined): BudgetFrequency {
+function normalizeBudgetFrequency(
+  raw: string | null | undefined
+): BudgetFrequency {
   const s = raw ?? 'monthly';
   return BUDGET_FREQUENCIES.has(s) ? (s as BudgetFrequency) : 'monthly';
 }
@@ -414,25 +417,29 @@ function getPreferencesFromDb(): AppPreferences {
 
 function setPreferencesInDb(partial: Partial<AppPreferences>) {
   if (partial.defaultMonthOnLaunch != null) {
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
-      SETTINGS_KEY_DEFAULT_MONTH,
-      partial.defaultMonthOnLaunch
-    );
+    db.prepare(
+      'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)'
+    ).run(SETTINGS_KEY_DEFAULT_MONTH, partial.defaultMonthOnLaunch);
   }
   if (partial.colorMode != null) {
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
-      SETTINGS_KEY_COLOR_MODE,
-      partial.colorMode
-    );
+    db.prepare(
+      'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)'
+    ).run(SETTINGS_KEY_COLOR_MODE, partial.colorMode);
   }
   if (partial.firstRunComplete != null) {
     setSettingBool(SETTINGS_KEY_FIRST_RUN, partial.firstRunComplete);
   }
   if (partial.checklistDismissed != null) {
-    setSettingBool(SETTINGS_KEY_CHECKLIST_DISMISSED, partial.checklistDismissed);
+    setSettingBool(
+      SETTINGS_KEY_CHECKLIST_DISMISSED,
+      partial.checklistDismissed
+    );
   }
   if (partial.viewedTransactions != null) {
-    setSettingBool(SETTINGS_KEY_VIEWED_TRANSACTIONS, partial.viewedTransactions);
+    setSettingBool(
+      SETTINGS_KEY_VIEWED_TRANSACTIONS,
+      partial.viewedTransactions
+    );
   }
   if (partial.wizardSeen != null) {
     setSettingBool(SETTINGS_KEY_WIZARD_SEEN, partial.wizardSeen);
@@ -539,7 +546,7 @@ function suggestionLabel(monthCount: number): string {
   return `Based on ${monthCount}-month average`;
 }
 
-function getBudgetSuggestionsFromDb(monthKey: string): BudgetSuggestions {
+function getBudgetSuggestionsFromDb(_monthKey: string): BudgetSuggestions {
   const catRows = db
     .prepare(
       `SELECT category_id AS id, month_key, SUM(ABS(amount_cents)) AS total
@@ -558,9 +565,7 @@ function getBudgetSuggestionsFromDb(monthKey: string): BudgetSuggestions {
   }
 
   const categories = [...byCategory.entries()].map(([id, totals]) => {
-    const avg = Math.round(
-      totals.reduce((a, b) => a + b, 0) / totals.length
-    );
+    const avg = Math.round(totals.reduce((a, b) => a + b, 0) / totals.length);
     return {
       id,
       suggestedCents: avg,
@@ -585,9 +590,7 @@ function getBudgetSuggestionsFromDb(monthKey: string): BudgetSuggestions {
   }
 
   const income = [...byIncome.entries()].map(([id, totals]) => {
-    const avg = Math.round(
-      totals.reduce((a, b) => a + b, 0) / totals.length
-    );
+    const avg = Math.round(totals.reduce((a, b) => a + b, 0) / totals.length);
     return {
       id,
       suggestedCents: avg,
@@ -711,7 +714,7 @@ function parseMonarchCSV(filePath: string): {
     }) as Record<(typeof MONARCH_HEADERS)[number], string>[];
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(`Could not read this CSV: ${msg}`);
+    throw new Error(`Could not read this CSV: ${msg}`, { cause: e });
   }
 
   if (!records.length) {
@@ -781,9 +784,7 @@ function parseMonarchCSV(filePath: string): {
     });
   }
 
-  const unknownCategories = [...unknownSet].sort((a, b) =>
-    a.localeCompare(b)
-  );
+  const unknownCategories = [...unknownSet].sort((a, b) => a.localeCompare(b));
 
   return { rows, unknownCategories };
 }
@@ -1038,9 +1039,10 @@ function enumerateMonthKeys(start: string, end: string): string[] {
   return keys;
 }
 
-function resolveTrendWindow(
-  range: TrendRange
-): { startMonthKey: string; endMonthKey: string } {
+function resolveTrendWindow(range: TrendRange): {
+  startMonthKey: string;
+  endMonthKey: string;
+} {
   const end = currentMonthKeyMain();
   if (range === '1m') {
     // The month just gone, not the one in progress — a complete month to read.
@@ -1083,7 +1085,9 @@ function getTrendsData(range: TrendRange): TrendData {
     db.prepare('SELECT COUNT(*) AS c FROM transactions').get() as { c: number }
   ).c;
   const incomeRowCount = (
-    db.prepare('SELECT COUNT(*) AS c FROM income_actuals').get() as { c: number }
+    db.prepare('SELECT COUNT(*) AS c FROM income_actuals').get() as {
+      c: number;
+    }
   ).c;
   const hasTrendsData = txCount > 0 || incomeRowCount > 0;
 
@@ -1333,8 +1337,7 @@ function getTrendsData(range: TrendRange): TrendData {
   for (const m of months) {
     m.byIncomeSource.sort((a, b) => a.name.localeCompare(b.name));
     m.byIncomeLine.sort(
-      (a, b) =>
-        a.sourceId - b.sourceId || a.label.localeCompare(b.label)
+      (a, b) => a.sourceId - b.sourceId || a.label.localeCompare(b.label)
     );
     m.netCents = m.totalIncomeCents - m.totalSpendingCents;
   }
@@ -1359,7 +1362,9 @@ function getTrendsData(range: TrendRange): TrendData {
   };
 }
 
-function getTransactionsList(filters: TransactionFilters): TransactionListResult {
+function getTransactionsList(
+  filters: TransactionFilters
+): TransactionListResult {
   const monthKey = filters.monthKey;
   if (!/^\d{4}-\d{2}$/.test(monthKey)) {
     throw new Error('Invalid monthKey (expected YYYY-MM).');
@@ -1374,15 +1379,11 @@ function getTransactionsList(filters: TransactionFilters): TransactionListResult
   const ids = filters.categoryIds;
   const mode: 'all' | 'none' | 'subset' =
     filters.categoryFilter ??
-    (ids === undefined
-      ? 'all'
-      : ids.length === 0
-        ? 'none'
-        : 'subset');
+    (ids === undefined ? 'all' : ids.length === 0 ? 'none' : 'subset');
 
   let categoryFilterNone = mode === 'none';
   let categoryFilterSubset = mode === 'subset';
-  let subsetIds: number[] =
+  const subsetIds: number[] =
     mode === 'subset' && Array.isArray(ids) ? ids : [];
 
   if (mode === 'subset' && subsetIds.length === 0) {
@@ -1402,10 +1403,8 @@ function getTransactionsList(filters: TransactionFilters): TransactionListResult
     categoryFilterSubset = false;
   }
 
-  const categoryFilterActive =
-    categoryFilterNone || categoryFilterSubset;
-  let includeIncome =
-    filters.includeIncome !== false && !categoryFilterActive;
+  const categoryFilterActive = categoryFilterNone || categoryFilterSubset;
+  let includeIncome = filters.includeIncome !== false && !categoryFilterActive;
   if (incomeOnly) {
     includeIncome = true;
   }
@@ -1944,14 +1943,15 @@ function registerIpcHandlers() {
           let groupId = groupIds.get(groupName.toLowerCase());
           if (groupId == null) {
             const existing = findGroup.get(groupName) as
-              | { id: number }
-              | undefined;
+              { id: number } | undefined;
             if (existing) {
               groupId = existing.id;
             } else {
               const order = (nextGroupOrder.get() as { n: number }).n;
               const color =
-                ADOPTED_GROUP_COLORS[createdGroups % ADOPTED_GROUP_COLORS.length];
+                ADOPTED_GROUP_COLORS[
+                  createdGroups % ADOPTED_GROUP_COLORS.length
+                ];
               groupId = Number(
                 insertGroup.run(groupName, color, order).lastInsertRowid
               );
@@ -1961,8 +1961,7 @@ function registerIpcHandlers() {
           }
 
           const existingCat = findCategory.get(groupId, categoryName) as
-            | { id: number }
-            | undefined;
+            { id: number } | undefined;
           let categoryId: number;
           if (existingCat) {
             categoryId = existingCat.id;
@@ -2011,12 +2010,9 @@ function registerIpcHandlers() {
 
   ipcMain.handle('getPreferences', () => getPreferencesFromDb());
 
-  ipcMain.handle(
-    'setPreferences',
-    (_, partial: Partial<AppPreferences>) => {
-      setPreferencesInDb(partial);
-    }
-  );
+  ipcMain.handle('setPreferences', (_, partial: Partial<AppPreferences>) => {
+    setPreferencesInDb(partial);
+  });
 
   ipcMain.handle('getSetupStatus', (_, monthKey: string) =>
     getSetupStatusFromDb(monthKey)
@@ -2032,9 +2028,7 @@ function registerIpcHandlers() {
     const name = payload.name.trim();
     if (!name) throw new Error('Group name is required.');
     const dup = db
-      .prepare(
-        'SELECT 1 AS ok FROM category_groups WHERE name = ? AND id != ?'
-      )
+      .prepare('SELECT 1 AS ok FROM category_groups WHERE name = ? AND id != ?')
       .get(name, payload.id) as { ok: number } | undefined;
     if (dup) {
       throw new Error('A group with this name already exists.');
@@ -2144,7 +2138,9 @@ function registerIpcHandlers() {
       )
       .get(payload.groupId, name, payload.id) as { ok: number } | undefined;
     if (dup) {
-      throw new Error('A category with this name already exists in that group.');
+      throw new Error(
+        'A category with this name already exists in that group.'
+      );
     }
     db.transaction(() => {
       if (cur.group_id !== payload.groupId) {
@@ -2170,12 +2166,9 @@ function registerIpcHandlers() {
 
   ipcMain.handle('reorderCategory', (_, payload: ReorderEntityPayload) => {
     const row = db
-      .prepare(
-        'SELECT id, group_id, sort_order FROM categories WHERE id = ?'
-      )
+      .prepare('SELECT id, group_id, sort_order FROM categories WHERE id = ?')
       .get(payload.id) as
-        | { id: number; group_id: number; sort_order: number }
-        | undefined;
+      { id: number; group_id: number; sort_order: number } | undefined;
     if (!row) throw new Error('Category not found.');
     const siblings = db
       .prepare(
@@ -2255,14 +2248,10 @@ function registerIpcHandlers() {
 
   ipcMain.handle('getIncomeSourceDeletePreview', (_, sourceId: number) => {
     const a = db
-      .prepare(
-        'SELECT COUNT(*) AS n FROM income_actuals WHERE source_id = ?'
-      )
+      .prepare('SELECT COUNT(*) AS n FROM income_actuals WHERE source_id = ?')
       .get(sourceId) as { n: number };
     const b = db
-      .prepare(
-        'SELECT COUNT(*) AS n FROM income_budgets WHERE source_id = ?'
-      )
+      .prepare('SELECT COUNT(*) AS n FROM income_budgets WHERE source_id = ?')
       .get(sourceId) as { n: number };
     return { actualCount: a.n, budgetRowCount: b.n };
   });
@@ -2330,9 +2319,7 @@ function registerIpcHandlers() {
     reloadAllRendererWindows();
   });
 
-  ipcMain.handle('getBudget', (_, monthKey: string) =>
-    getBudgetData(monthKey)
-  );
+  ipcMain.handle('getBudget', (_, monthKey: string) => getBudgetData(monthKey));
 
   ipcMain.handle(
     'setBudgetAmount',
@@ -2388,7 +2375,8 @@ function registerIpcHandlers() {
         if (applyToFullYear === true) {
           // Earlier months of the year; this month onward is covered below.
           for (const mk of monthKeysForCalendarYear(monthKey)) {
-            if (mk < monthKey) upsertCategoryBudget(db, categoryId, mk, sinking);
+            if (mk < monthKey)
+              upsertCategoryBudget(db, categoryId, mk, sinking);
           }
         }
         setCategoryBudgetFrom(db, categoryId, monthKey, sinking);
@@ -2518,10 +2506,9 @@ function registerIpcHandlers() {
       typeof profileId === 'string' && profileId.trim()
         ? profileId.trim()
         : DEFAULT_IMPORT_PROFILE_ID;
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
-      SETTINGS_KEY_LAST_IMPORT_PROFILE,
-      id
-    );
+    db.prepare(
+      'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)'
+    ).run(SETTINGS_KEY_LAST_IMPORT_PROFILE, id);
   });
 
   ipcMain.handle(
@@ -2536,9 +2523,7 @@ function registerIpcHandlers() {
         options?.genericMapping ?? null
       );
       if (!mapping) {
-        throw new Error(
-          'Column mapping is required for generic CSV imports.'
-        );
+        throw new Error('Column mapping is required for generic CSV imports.');
       }
       return parseProfileCSV(filePath, mapping, {
         mappingSource: profileId,
@@ -2582,12 +2567,7 @@ function registerIpcHandlers() {
          ON CONFLICT(source, external_name) DO UPDATE SET
            target_type = excluded.target_type,
            target_id = excluded.target_id`
-      ).run(
-        source,
-        external_name,
-        input.targetType,
-        input.targetId
-      );
+      ).run(source, external_name, input.targetType, input.targetId);
     }
   );
 
@@ -2601,7 +2581,9 @@ function registerIpcHandlers() {
     const txIds = (input?.transactionIds ?? []).filter((id) =>
       Number.isInteger(id)
     );
-    const incIds = (input?.incomeIds ?? []).filter((id) => Number.isInteger(id));
+    const incIds = (input?.incomeIds ?? []).filter((id) =>
+      Number.isInteger(id)
+    );
     const delTx = db.prepare('DELETE FROM transactions WHERE id = ?');
     const delInc = db.prepare('DELETE FROM income_actuals WHERE id = ?');
     const run = db.transaction(() => {
@@ -2628,7 +2610,9 @@ function registerIpcHandlers() {
   );
 
   ipcMain.handle('getMerchantInsights', (_, merchantName: string) =>
-    getMerchantInsightsData(typeof merchantName === 'string' ? merchantName : '')
+    getMerchantInsightsData(
+      typeof merchantName === 'string' ? merchantName : ''
+    )
   );
 
   ipcMain.handle('getMonthNote', (_, monthKey: string) =>
@@ -2662,10 +2646,7 @@ function registerIpcHandlers() {
     if (!isMonarchSyncEnabled()) {
       throw new Error('Monarch sync is not configured.');
     }
-    return commitMappedMonarchRows(
-      { db },
-      Array.isArray(rows) ? rows : []
-    );
+    return commitMappedMonarchRows({ db }, Array.isArray(rows) ? rows : []);
   });
 }
 
@@ -2714,7 +2695,11 @@ function createWindow() {
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http:') || url.startsWith('https:') || url.startsWith('mailto:')) {
+    if (
+      url.startsWith('http:') ||
+      url.startsWith('https:') ||
+      url.startsWith('mailto:')
+    ) {
       void shell.openExternal(url);
     }
     return { action: 'deny' };

@@ -51,7 +51,7 @@ export function MonthlyPulseCheck({
     : hotCategoriesAheadOfPace(groups, percentThroughMonth, 3);
 
   let toneClass = 'monthly-pulse-check--tone-muted';
-  let headline = '';
+  let headline: string;
   let secondary: string | null = null;
 
   if (noSpending) {
@@ -81,10 +81,11 @@ export function MonthlyPulseCheck({
         'Every budget line is either full or overspent, so there is nothing left to pace linearly.';
     } else {
       const pace =
-        (adjustableSpentCents / adjustableBudgetCents) / percentThroughMonth;
+        adjustableSpentCents / adjustableBudgetCents / percentThroughMonth;
       const { label, tone } = verdictFromPace(pace);
       if (tone === 'good') toneClass = 'monthly-pulse-check--tone-good';
-      else if (tone === 'soft-warn') toneClass = 'monthly-pulse-check--tone-soft-warn';
+      else if (tone === 'soft-warn')
+        toneClass = 'monthly-pulse-check--tone-soft-warn';
       else if (tone === 'warn') toneClass = 'monthly-pulse-check--tone-warn';
       else toneClass = 'monthly-pulse-check--tone-danger';
 
@@ -111,8 +112,7 @@ export function MonthlyPulseCheck({
           paceNote +
           `On track to finish ~${formatCurrency(undershoot)} under your total budget`;
       } else {
-        secondary =
-          paceNote + 'On pace to finish right at your total budget.';
+        secondary = paceNote + 'On pace to finish right at your total budget.';
       }
     }
   }
@@ -126,7 +126,10 @@ export function MonthlyPulseCheck({
         <p className="monthly-pulse-check__secondary">{secondary}</p>
       )}
       {showHot && (
-        <ul className="monthly-pulse-check__hot" aria-label="Categories ahead of pace">
+        <ul
+          className="monthly-pulse-check__hot"
+          aria-label="Categories ahead of pace"
+        >
           {hotRows.map((row) => (
             <li
               key={row.categoryId}
@@ -165,7 +168,8 @@ export function MonthlyPulseCheck({
               />
               <span className="monthly-pulse-check__hot-name">{row.name}</span>
               <span className="monthly-pulse-check__hot-meta">
-                {formatCurrency(row.spentCents)} / {formatCurrency(row.budgetCents)}
+                {formatCurrency(row.spentCents)} /{' '}
+                {formatCurrency(row.budgetCents)}
                 {' · '}
                 {row.pctUsed}% used, month {row.pctMonth}% through ·{' '}
                 {row.statusLabel}

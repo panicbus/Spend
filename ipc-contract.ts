@@ -10,15 +10,12 @@ import type {
   DeleteLedgerRowsInput,
   DuplicateAnalysis,
   DuplicatePair,
-  GenericColumnMapping,
   ParseCSVOptions,
   ParseCSVResult,
   ParsedRow,
   SaveCategoryMappingInput,
 } from './src/types/import.js';
 import type {
-  IncomeActual,
-  Transaction,
   TransactionFilters,
   TransactionListResult,
 } from './src/types/transactions.js';
@@ -91,11 +88,7 @@ export interface CreateCategoryForImportResult {
   groupId: number;
 }
 
-export type BudgetFrequency =
-  | 'monthly'
-  | 'quarterly'
-  | 'yearly'
-  | 'bimonthly';
+export type BudgetFrequency = 'monthly' | 'quarterly' | 'yearly' | 'bimonthly';
 
 export interface BudgetCategoryLine {
   id: number;
@@ -444,10 +437,7 @@ export interface SpendApi {
     filters: TransactionFilters
   ) => Promise<TransactionListResult>;
   addTransaction: (payload: AddTransactionPayload) => Promise<{ id: number }>;
-  updateTransactionCategory: (
-    id: number,
-    categoryId: number
-  ) => Promise<void>;
+  updateTransactionCategory: (id: number, categoryId: number) => Promise<void>;
   deleteTransaction: (id: number) => Promise<void>;
   deleteIncomeActual: (id: number) => Promise<void>;
   updateIncomeActualSource: (id: number, sourceId: number) => Promise<void>;
