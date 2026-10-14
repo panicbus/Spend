@@ -79,6 +79,8 @@ export const api = {
     getBridge().updateTransactionCategory(id, categoryId),
   deleteTransaction: (id: number) => getBridge().deleteTransaction(id),
   deleteIncomeActual: (id: number) => getBridge().deleteIncomeActual(id),
+  updateIncomeActualSource: (id: number, sourceId: number) =>
+    getBridge().updateIncomeActualSource(id, sourceId),
 
   openCSVDialog: () => getBridge().openCSVDialog(),
   getPathForFile: (file: File) => getBridge().getPathForFile(file),

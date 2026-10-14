@@ -428,7 +428,7 @@ export interface SpendApi {
     categoryId: number,
     monthKey: string,
     details: SetBudgetDetailsInput,
-    /** When true with a non-monthly frequency, sync this category’s budget rows for all 12 months of monthKey’s year. Passed separately so it cannot be dropped by IPC cloning. */
+    /** Every save applies to monthKey and all later months. When true with a non-monthly frequency, also sync the earlier months of monthKey’s year. Passed separately so it cannot be dropped by IPC cloning. */
     applyToFullYear?: boolean
   ) => Promise<void>;
   getIncomeSources: () => Promise<IncomeSourceRow[]>;
@@ -450,6 +450,7 @@ export interface SpendApi {
   ) => Promise<void>;
   deleteTransaction: (id: number) => Promise<void>;
   deleteIncomeActual: (id: number) => Promise<void>;
+  updateIncomeActualSource: (id: number, sourceId: number) => Promise<void>;
 
   openCSVDialog: () => Promise<string | null>;
   getPathForFile: (file: File) => string;

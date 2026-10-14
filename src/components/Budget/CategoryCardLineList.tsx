@@ -408,7 +408,7 @@ export function CategoryCardLineList({
                       }
                     />
                     <span>
-                      Apply to all months in {yearLabel}
+                      Also apply to earlier months in {yearLabel}
                     </span>
                   </label>
                 )}

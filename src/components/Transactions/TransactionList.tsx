@@ -20,7 +20,10 @@ import { api } from '../../services/api';
 import { formatCurrency } from '../../services/formatters';
 import { Button } from '../common/Button';
 import { ReturnToCurrentMonthButton } from '../common/ReturnToCurrentMonthButton';
-import type { GroupWithCategories } from '../../../ipc-contract';
+import type {
+  GroupWithCategories,
+  IncomeSourceRow,
+} from '../../../ipc-contract';
 import type { BudgetReturnContext } from '../../utils/budgetReturnContext';
 import {
   clearBudgetReturnContext,
@@ -128,7 +131,10 @@ export function TransactionList() {
     setSearchText,
     debouncedSearch,
     groups,
+    incomeSources,
     updateRowCategory,
+    createCategoryForRow,
+    updateIncomeRowSource,
     removeRow,
     removeIncomeRow,
   } = useTransactionList();
@@ -468,6 +474,27 @@ export function TransactionList() {
     [updateRowCategory, flashSaved]
   );
 
+  /** Errors propagate so the inline form can show them and stay open. */
+  const onCreateCategory = useCallback(
+    async (txId: number, groupId: number, name: string) => {
+      await createCategoryForRow(txId, groupId, name);
+      flashSaved(txId);
+    },
+    [createCategoryForRow, flashSaved]
+  );
+
+  const onIncomeSourceChange = useCallback(
+    async (incomeId: number, sourceId: number) => {
+      try {
+        await updateIncomeRowSource(incomeId, sourceId);
+        flashSaved(-incomeId);
+      } catch {
+        /* optimistic revert handled in hook */
+      }
+    },
+    [updateIncomeRowSource, flashSaved]
+  );
+
   const filterButtonLabel = hasIncomeDrill
     ? incomeLineLabel
       ? `Income · ${incomeLineLabel}`
@@ -775,8 +802,11 @@ export function TransactionList() {
                       k === rowKey(row) ? null : rowKey(row))
                   }
                   groups={groups}
+                  incomeSources={incomeSources}
                   savedForId={savedForId}
                   onRecatChange={onRecatChange}
+                  onCreateCategory={onCreateCategory}
+                  onIncomeSourceChange={onIncomeSourceChange}
                   onRemoveExpense={removeRow}
                   onRemoveIncome={removeIncomeRow}
                   onCloseExpansion={() => setExpandedKey(null)}
@@ -790,6 +820,9 @@ export function TransactionList() {
   );
 }
 
+/** Sentinel option at the foot of the Recategorize list. */
+const NEW_CATEGORY_VALUE = '__new__';
+
 function rowKey(row: MergedTransactionRow) {
   return row.kind === 'expense' ? `e-${row.tx.id}` : `i-${row.inc.id}`;
 }
@@ -800,8 +833,12 @@ type RowsProps = {
   expanded: boolean;
   onToggleRow: () => void;
   groups: GroupWithCategories[];
+  incomeSources: IncomeSourceRow[];
+  /** Expense ids flash as-is; income ids flash negated so the two never collide. */
   savedForId: number | null;
   onRecatChange: (id: number, cat: number) => void;
+  onCreateCategory: (id: number, groupId: number, name: string) => Promise<void>;
+  onIncomeSourceChange: (id: number, sourceId: number) => void;
   onRemoveExpense: (id: number) => void;
   onRemoveIncome: (id: number) => void;
   onCloseExpansion: () => void;
@@ -813,21 +850,60 @@ function TransactionTableRows({
   expanded,
   onToggleRow,
   groups,
+  incomeSources,
   savedForId,
   onRecatChange,
+  onCreateCategory,
+  onIncomeSourceChange,
   onRemoveExpense,
   onRemoveIncome,
   onCloseExpansion,
 }: RowsProps) {
   const [deleteConfirmExpense, setDeleteConfirmExpense] = useState(false);
   const [deleteConfirmIncome, setDeleteConfirmIncome] = useState(false);
+  const [newCat, setNewCat] = useState<{
+    name: string;
+    groupId: number;
+    saving: boolean;
+    error: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!expanded) {
       setDeleteConfirmExpense(false);
       setDeleteConfirmIncome(false);
+      setNewCat(null);
     }
   }, [expanded]);
+
+  const startNewCategory = (currentCategoryId: number) => {
+    const home =
+      groups.find((g) => g.categories.some((c) => c.id === currentCategoryId)) ??
+      groups[0];
+    if (!home) return;
+    setNewCat({ name: '', groupId: home.id, saving: false, error: null });
+  };
+
+  const submitNewCategory = async (txId: number) => {
+    if (!newCat || newCat.saving) return;
+    if (!newCat.name.trim()) {
+      setNewCat({ ...newCat, error: 'Enter a name.' });
+      return;
+    }
+    setNewCat({ ...newCat, saving: true, error: null });
+    try {
+      await onCreateCategory(txId, newCat.groupId, newCat.name);
+      setNewCat(null);
+    } catch (e) {
+      setNewCat((cur) =>
+        cur && {
+          ...cur,
+          saving: false,
+          error: e instanceof Error ? e.message : String(e),
+        }
+      );
+    }
+  };
 
   const cls =
     'transaction-list__tr' + (zebra ? ' transaction-list__tr--alt' : '');
@@ -913,10 +989,15 @@ function TransactionTableRows({
                     <div className="transaction-list__recat-row">
                       <select
                         className="transaction-list__select"
-                        value={tx.categoryId}
-                        onChange={(e) =>
-                          onRecatChange(tx.id, Number(e.target.value))
-                        }
+                        value={newCat ? NEW_CATEGORY_VALUE : tx.categoryId}
+                        onChange={(e) => {
+                          if (e.target.value === NEW_CATEGORY_VALUE) {
+                            startNewCategory(tx.categoryId);
+                            return;
+                          }
+                          setNewCat(null);
+                          onRecatChange(tx.id, Number(e.target.value));
+                        }}
                         aria-label="Category"
                       >
                         {groups.map((g) => (
@@ -928,11 +1009,86 @@ function TransactionTableRows({
                             ))}
                           </optgroup>
                         ))}
+                        <option value={NEW_CATEGORY_VALUE}>
+                          + Add a new category…
+                        </option>
                       </select>
                       {savedForId === tx.id && (
                         <span className="transaction-list__saved">Saved</span>
                       )}
                     </div>
+                    {newCat && (
+                      <form
+                        className="transaction-list__new-cat"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void submitNewCategory(tx.id);
+                        }}
+                      >
+                        <input
+                          className="transaction-list__new-cat-input"
+                          type="text"
+                          placeholder="Category name"
+                          aria-label="New category name"
+                          value={newCat.name}
+                          autoFocus
+                          disabled={newCat.saving}
+                          onChange={(e) =>
+                            setNewCat({
+                              ...newCat,
+                              name: e.target.value,
+                              error: null,
+                            })
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                              e.stopPropagation();
+                              setNewCat(null);
+                            }
+                          }}
+                        />
+                        <select
+                          className="transaction-list__select"
+                          aria-label="Group for new category"
+                          value={newCat.groupId}
+                          disabled={newCat.saving}
+                          onChange={(e) =>
+                            setNewCat({
+                              ...newCat,
+                              groupId: Number(e.target.value),
+                            })
+                          }
+                        >
+                          {groups.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.name}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="transaction-list__new-cat-actions">
+                          <button
+                            type="button"
+                            className="transaction-list__link-btn"
+                            onClick={() => setNewCat(null)}
+                            disabled={newCat.saving}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            className="transaction-list__new-cat-save"
+                            disabled={newCat.saving}
+                          >
+                            {newCat.saving ? 'Adding…' : 'Add & assign'}
+                          </button>
+                        </div>
+                        {newCat.error && (
+                          <p className="transaction-list__new-cat-error" role="alert">
+                            {newCat.error}
+                          </p>
+                        )}
+                      </form>
+                    )}
                   </div>
                 </div>
                 <div
@@ -1053,6 +1209,33 @@ function TransactionTableRows({
                     </div>
                     <div className="transaction-list__detail-value">
                       {formatImportedDateOnly(inc.createdAt)}
+                    </div>
+                  </div>
+                  <div
+                    className="transaction-list__detail-recat"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="transaction-list__detail-label">
+                      Recategorize
+                    </div>
+                    <div className="transaction-list__recat-row">
+                      <select
+                        className="transaction-list__select"
+                        value={inc.sourceId}
+                        onChange={(e) =>
+                          onIncomeSourceChange(inc.id, Number(e.target.value))
+                        }
+                        aria-label="Income source"
+                      >
+                        {incomeSources.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                      {savedForId === -inc.id && (
+                        <span className="transaction-list__saved">Saved</span>
+                      )}
                     </div>
                   </div>
                 </div>

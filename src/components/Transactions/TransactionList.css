@@ -701,6 +701,56 @@
   cursor: pointer;
 }
 
+.transaction-list__new-cat {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.transaction-list__new-cat-input {
+  min-width: 200px;
+  padding: 6px 10px;
+  border-radius: var(--border-radius-md);
+  border: 0.5px solid var(--border);
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background-color: var(--bg-card);
+}
+
+.transaction-list__new-cat-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.transaction-list__new-cat-save {
+  padding: 6px 12px;
+  border-radius: var(--border-radius-md);
+  border: 0;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.transaction-list__new-cat-save:disabled,
+.transaction-list__new-cat-input:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.transaction-list__new-cat-error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger-text);
+}
+
 .transaction-list__saved {
   font-size: 13px;
   font-weight: 600;

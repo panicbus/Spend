@@ -87,6 +87,12 @@ import {
 } from './importMapping.js';
 import { runCommitImport } from './importCommit.js';
 import {
+  fillMonthFromPrior,
+  setCategoryBudgetFrom,
+  setIncomeBudgetFrom,
+  upsertCategoryBudget,
+} from './budgetCarryForward.js';
+import {
   commitMappedMonarchRows,
   isMonarchSyncEnabled,
   syncFromMonarch,
@@ -435,6 +441,7 @@ function setPreferencesInDb(partial: Partial<AppPreferences>) {
 
 function getSetupStatusFromDb(monthKey: string): SetupStatus {
   migrateExistingUserOnboarding();
+  carryBudgetsInto([monthKey]);
   const groupCount = (
     db.prepare('SELECT COUNT(*) AS c FROM category_groups').get() as {
       c: number;
@@ -659,37 +666,6 @@ function replaceDatabaseWithBackupFile(backupPath: string) {
   reopenMainDatabaseFromDisk();
 }
 
-function copyMonthTemplateIfNeeded(monthKey: string) {
-  const count = db
-    .prepare('SELECT COUNT(*) AS c FROM budgets WHERE month_key = ?')
-    .get(monthKey) as { c: number };
-  if (count.c > 0) return;
-
-  const prev = db
-    .prepare(
-      `SELECT month_key FROM budgets
-       WHERE month_key < ?
-       GROUP BY month_key
-       ORDER BY month_key DESC
-       LIMIT 1`
-    )
-    .get(monthKey) as { month_key: string } | undefined;
-
-  if (!prev) return;
-
-  const prevKey = prev.month_key;
-
-  db.prepare(
-    `INSERT OR REPLACE INTO budgets (category_id, month_key, amount_cents, frequency, annual_amount_cents)
-     SELECT category_id, ?, amount_cents, frequency, annual_amount_cents FROM budgets WHERE month_key = ?`
-  ).run(monthKey, prevKey);
-
-  db.prepare(
-    `INSERT OR REPLACE INTO income_budgets (source_id, month_key, amount_cents)
-     SELECT source_id, ?, amount_cents FROM income_budgets WHERE month_key = ?`
-  ).run(monthKey, prevKey);
-}
-
 function assertMonarchHeader(header: string[]) {
   if (header.length < MONARCH_HEADERS.length) {
     throw new Error(
@@ -812,8 +788,19 @@ function parseMonarchCSV(filePath: string): {
   return { rows, unknownCategories };
 }
 
+/**
+ * Carry budgets into these months before anything reads them. Every reader of
+ * `budgets` / `income_budgets` by month goes through here, so no view sees a
+ * month that only holds rows written ahead of time.
+ */
+function carryBudgetsInto(monthKeys: string[]) {
+  db.transaction(() => {
+    for (const mk of monthKeys) fillMonthFromPrior(db, mk);
+  })();
+}
+
 function getBudgetData(monthKey: string): BudgetPayload {
-  copyMonthTemplateIfNeeded(monthKey);
+  carryBudgetsInto([monthKey]);
 
   const spentRows = db
     .prepare(
@@ -1087,6 +1074,7 @@ function getTrendsData(range: TrendRange): TrendData {
   }
   const { startMonthKey, endMonthKey } = resolveTrendWindow(range);
   const monthKeys = enumerateMonthKeys(startMonthKey, endMonthKey);
+  carryBudgetsInto(monthKeys);
   const rangeCrossesYears =
     monthKeys.length > 0 &&
     monthKeys[0].slice(0, 4) !== monthKeys[monthKeys.length - 1].slice(0, 4);
@@ -2349,14 +2337,13 @@ function registerIpcHandlers() {
   ipcMain.handle(
     'setBudgetAmount',
     (_, categoryId: number, monthKey: string, amountCents: number) => {
-      db.prepare(
-        `INSERT INTO budgets (category_id, month_key, amount_cents, frequency, annual_amount_cents)
-       VALUES (?, ?, ?, 'monthly', NULL)
-       ON CONFLICT(category_id, month_key) DO UPDATE SET
-         amount_cents = excluded.amount_cents,
-         frequency = 'monthly',
-         annual_amount_cents = NULL`
-      ).run(categoryId, monthKey, amountCents);
+      db.transaction(() =>
+        setCategoryBudgetFrom(db, categoryId, monthKey, {
+          amountCents,
+          frequency: 'monthly',
+          annualAmountCents: null,
+        })
+      )();
     }
   );
 
@@ -2378,14 +2365,13 @@ function registerIpcHandlers() {
         if (amt == null || !Number.isFinite(amt)) {
           throw new Error('Monthly budget amount is required.');
         }
-        db.prepare(
-          `INSERT INTO budgets (category_id, month_key, amount_cents, frequency, annual_amount_cents)
-           VALUES (?, ?, ?, 'monthly', NULL)
-           ON CONFLICT(category_id, month_key) DO UPDATE SET
-             amount_cents = excluded.amount_cents,
-             frequency = 'monthly',
-             annual_amount_cents = NULL`
-        ).run(categoryId, monthKey, Math.round(amt));
+        db.transaction(() =>
+          setCategoryBudgetFrom(db, categoryId, monthKey, {
+            amountCents: Math.round(amt),
+            frequency: 'monthly',
+            annualAmountCents: null,
+          })
+        )();
         return;
       }
       const annual = details.annualAmountCents;
@@ -2393,32 +2379,20 @@ function registerIpcHandlers() {
         throw new Error('Annual amount is required for this frequency.');
       }
       const annualInt = Math.round(annual);
-      const monthlySetAside = Math.round(annualInt / 12);
-      const upsertSinking = db.prepare(
-        `INSERT INTO budgets (category_id, month_key, amount_cents, frequency, annual_amount_cents)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(category_id, month_key) DO UPDATE SET
-           amount_cents = excluded.amount_cents,
-           frequency = excluded.frequency,
-           annual_amount_cents = excluded.annual_amount_cents`
-      );
-      if (applyToFullYear === true) {
-        const keys = monthKeysForCalendarYear(monthKey);
-        const runAll = db.transaction(() => {
-          for (const mk of keys) {
-            upsertSinking.run(categoryId, mk, monthlySetAside, freq, annualInt);
+      const sinking = {
+        amountCents: Math.round(annualInt / 12),
+        frequency: freq,
+        annualAmountCents: annualInt,
+      };
+      db.transaction(() => {
+        if (applyToFullYear === true) {
+          // Earlier months of the year; this month onward is covered below.
+          for (const mk of monthKeysForCalendarYear(monthKey)) {
+            if (mk < monthKey) upsertCategoryBudget(db, categoryId, mk, sinking);
           }
-        });
-        runAll();
-      } else {
-        upsertSinking.run(
-          categoryId,
-          monthKey,
-          monthlySetAside,
-          freq,
-          annualInt
-        );
-      }
+        }
+        setCategoryBudgetFrom(db, categoryId, monthKey, sinking);
+      })();
     }
   );
 
@@ -2449,12 +2423,9 @@ function registerIpcHandlers() {
   ipcMain.handle(
     'setIncomeBudget',
     (_, sourceId: number, monthKey: string, amountCents: number) => {
-      db.prepare(
-        `INSERT INTO income_budgets (source_id, month_key, amount_cents)
-       VALUES (?, ?, ?)
-       ON CONFLICT(source_id, month_key) DO UPDATE SET
-         amount_cents = excluded.amount_cents`
-      ).run(sourceId, monthKey, amountCents);
+      db.transaction(() =>
+        setIncomeBudgetFrom(db, sourceId, monthKey, amountCents)
+      )();
     }
   );
 
@@ -2489,6 +2460,18 @@ function registerIpcHandlers() {
       throw new Error('Income entry not found.');
     }
   });
+
+  ipcMain.handle(
+    'updateIncomeActualSource',
+    (_, id: number, sourceId: number) => {
+      const r = db
+        .prepare('UPDATE income_actuals SET source_id = ? WHERE id = ?')
+        .run(sourceId, id);
+      if (r.changes === 0) {
+        throw new Error('Income entry not found or could not be updated.');
+      }
+    }
+  );
 
   ipcMain.handle('addTransaction', (_, payload: AddTransactionPayload) => {
     const { category_id, date, description, amount_cents } = payload;

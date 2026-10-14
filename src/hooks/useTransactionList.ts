@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { GroupWithCategories } from '../../ipc-contract';
+import type { GroupWithCategories, IncomeSourceRow } from '../../ipc-contract';
 import type {
   IncomeActual,
   Transaction,
@@ -49,8 +49,16 @@ export interface UseTransactionListReturn {
   setSearchText: (s: string) => void;
   debouncedSearch: string;
   groups: GroupWithCategories[];
+  incomeSources: IncomeSourceRow[];
   refetch: () => Promise<void>;
   updateRowCategory: (id: number, categoryId: number) => Promise<void>;
+  /** Create a category in `groupId` (or reuse a same-named one) and move the transaction into it. */
+  createCategoryForRow: (
+    id: number,
+    groupId: number,
+    name: string
+  ) => Promise<void>;
+  updateIncomeRowSource: (id: number, sourceId: number) => Promise<void>;
   removeRow: (id: number) => void;
   removeIncomeRow: (id: number) => void;
 }
@@ -192,6 +200,7 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [data, setData] = useState<TransactionListResult | null>(null);
   const [groups, setGroups] = useState<GroupWithCategories[]>([]);
+  const [incomeSources, setIncomeSources] = useState<IncomeSourceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -204,20 +213,19 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
     return () => window.clearTimeout(t);
   }, [searchText]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const g = await api.getGroups();
-        if (!cancelled) setGroups(g ?? []);
-      } catch {
-        if (!cancelled) setGroups([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const loadLookups = useCallback(async () => {
+    const [g, s] = await Promise.all([
+      api.getGroups().catch(() => [] as GroupWithCategories[]),
+      api.getIncomeSources().catch(() => [] as IncomeSourceRow[]),
+    ]);
+    setGroups(g ?? []);
+    setIncomeSources(s ?? []);
+    return g ?? [];
   }, []);
+
+  useEffect(() => {
+    void loadLookups();
+  }, [loadLookups]);
 
   const filters: TransactionFilters = useMemo(() => {
     const search = debouncedSearch.trim() || undefined;
@@ -281,19 +289,12 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
 
   useEffect(() => {
     const onData = () => {
-      void (async () => {
-        try {
-          const g = await api.getGroups();
-          setGroups(g ?? []);
-        } catch {
-          setGroups([]);
-        }
-      })();
+      void loadLookups();
       void refetch();
     };
     window.addEventListener(DATA_CHANGED_EVENT, onData);
     return () => window.removeEventListener(DATA_CHANGED_EVENT, onData);
-  }, [refetch]);
+  }, [loadLookups, refetch]);
 
   const mergedRows = useMemo(() => {
     if (!data) return [];
@@ -301,11 +302,11 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
   }, [data]);
 
   const lookupCategory = useCallback(
-    (categoryId: number): Pick<
-      Transaction,
-      'categoryName' | 'groupName' | 'groupColor'
-    > => {
-      for (const g of groups) {
+    (
+      categoryId: number,
+      inGroups: GroupWithCategories[] = groups
+    ): Pick<Transaction, 'categoryName' | 'groupName' | 'groupColor'> => {
+      for (const g of inGroups) {
         const c = g.categories.find((x) => x.id === categoryId);
         if (c) {
           return {
@@ -324,13 +325,17 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
     [groups]
   );
 
-  const updateRowCategory = useCallback(
-    async (id: number, categoryId: number) => {
+  const applyRowCategory = useCallback(
+    async (
+      id: number,
+      categoryId: number,
+      inGroups: GroupWithCategories[]
+    ) => {
       const prev = dataRef.current;
       if (!prev) return;
       const tx = prev.transactions.find((t) => t.id === id);
       if (!tx) return;
-      const meta = lookupCategory(categoryId);
+      const meta = lookupCategory(categoryId, inGroups);
       const nextTx = prev.transactions.map((t) =>
         t.id === id
           ? {
@@ -351,6 +356,50 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
       }
     },
     [lookupCategory]
+  );
+
+  const updateRowCategory = useCallback(
+    (id: number, categoryId: number) => applyRowCategory(id, categoryId, groups),
+    [applyRowCategory, groups]
+  );
+
+  const createCategoryForRow = useCallback(
+    async (id: number, groupId: number, name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) throw new Error('Category name is required.');
+      const group = groups.find((g) => g.id === groupId);
+      const existing = group?.categories.find(
+        (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+      );
+      const categoryId =
+        existing?.id ??
+        (await api.createCategory({ group_id: groupId, name: trimmed })).id;
+      const nextGroups = existing ? groups : await loadLookups();
+      await applyRowCategory(id, categoryId, nextGroups);
+    },
+    [groups, loadLookups, applyRowCategory]
+  );
+
+  const updateIncomeRowSource = useCallback(
+    async (id: number, sourceId: number) => {
+      const prev = dataRef.current;
+      if (!prev) return;
+      const source = incomeSources.find((s) => s.id === sourceId);
+      if (!source) return;
+      setData({
+        ...prev,
+        income: prev.income.map((i) =>
+          i.id === id ? { ...i, sourceId, sourceName: source.name } : i
+        ),
+      });
+      try {
+        await api.updateIncomeActualSource(id, sourceId);
+      } catch (e) {
+        setData(prev);
+        throw e;
+      }
+    },
+    [incomeSources]
   );
 
   const removeRow = useCallback((id: number) => {
@@ -413,8 +462,11 @@ export function useTransactionList(initialMonth?: string): UseTransactionListRet
     setSearchText,
     debouncedSearch,
     groups,
+    incomeSources,
     refetch,
     updateRowCategory,
+    createCategoryForRow,
+    updateIncomeRowSource,
     removeRow,
     removeIncomeRow,
   };
