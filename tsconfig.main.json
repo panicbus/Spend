@@ -19,6 +19,7 @@
     "importCommit.ts",
     "budgetCarryForward.ts",
     "monarch-sync.ts",
+    "monarchAuth.ts",
     "src/types/import.ts",
     "src/types/transactions.ts",
     "src/utils/csv-profiles.ts",

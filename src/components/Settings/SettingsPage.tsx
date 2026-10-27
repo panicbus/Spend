@@ -20,6 +20,7 @@ import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
 import { MappingTargetSelect } from '../common/MappingTargetSelect';
 import { SettingsDuplicatesSection } from './SettingsDuplicatesSection';
+import { SettingsMonarchSection } from './SettingsMonarchSection';
 import './SettingsPage.css';
 
 const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '';
@@ -130,7 +131,12 @@ export function SettingsPage() {
       </div>
       {tab === 'categories' && <SettingsCategoriesSection />}
       {tab === 'income' && <SettingsIncomeSection />}
-      {tab === 'import' && <SettingsMappingsSection />}
+      {tab === 'import' && (
+        <>
+          <SettingsMonarchSection />
+          <SettingsMappingsSection />
+        </>
+      )}
       {tab === 'duplicates' && <SettingsDuplicatesSection />}
       {tab === 'data' && <SettingsDataSection />}
       {tab === 'preferences' && <SettingsPreferencesSection />}

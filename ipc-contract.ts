@@ -366,15 +366,17 @@ export interface TrendData {
   hasTrendsData: boolean;
 }
 
-export type MonarchSyncResult =
-  | { status: 'no-new'; lastSyncDate: string }
-  | {
-      status: 'needs-mapping';
-      rows: ParsedRow[];
-      unmappedCategories: string[];
-    }
-  | { status: 'imported'; transactionCount: number; lastSyncDate: string }
-  | { status: 'error'; message: string };
+/** Monarch rows ready for the Import page, shaped like a parsed CSV. */
+export type MonarchFetchResult =
+  | { status: 'ok'; rows: ParsedRow[]; unknownCategories: string[] }
+  /** `reconnect`: the Monarch sign-in is missing or expired. */
+  | { status: 'error'; message: string; reconnect?: boolean };
+
+export interface MonarchStatus {
+  /** False when the feature is switched off in this build. */
+  available: boolean;
+  connected: boolean;
+}
 
 export interface SpendApi {
   getGroups: () => Promise<GroupWithCategories[]>;
@@ -472,11 +474,12 @@ export interface SpendApi {
   /** Sum of transaction amount_cents for the month (matches budget “spent” basis). */
   getMonthSpendingTotal: (monthKey: string) => Promise<number>;
 
-  isMonarchSyncEnabled: () => Promise<boolean>;
-  syncFromMonarch: () => Promise<MonarchSyncResult>;
-  commitMappedMonarchRows: (
-    rows: ParsedRow[]
-  ) => Promise<{ transactionCount: number }>;
+  getMonarchStatus: () => Promise<MonarchStatus>;
+  /** Opens Monarch's consent page in the browser; resolves once access is granted. */
+  connectMonarch: () => Promise<void>;
+  disconnectMonarch: () => Promise<void>;
+  /** Fetches posted Monarch transactions over MCP for review; writes nothing. */
+  fetchMonarchTransactions: () => Promise<MonarchFetchResult>;
 
   getTrends: (range: TrendRange) => Promise<TrendData>;
 

@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-/** SHA-256 of date|merchant|amountCents|originalStatement — shared by CSV and Monarch sync. */
+/** SHA-256 of date|merchant|amountCents|originalStatement for CSV rows (Monarch sync hashes its transaction id instead). */
 export function computeImportHash(
   date: string,
   merchant: string,

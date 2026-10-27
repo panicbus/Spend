@@ -92,10 +92,11 @@ import {
   upsertCategoryBudget,
 } from './budgetCarryForward.js';
 import {
-  commitMappedMonarchRows,
-  isMonarchSyncEnabled,
-  syncFromMonarch,
+  fetchMonarchImportRows,
+  getMonarchStatus,
+  MONARCH_SYNC_UI_ENABLED,
 } from './monarch-sync.js';
+import { connectMonarch, disconnectMonarch } from './monarchAuth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -2630,24 +2631,18 @@ function registerIpcHandlers() {
     runCommitImport(db, Array.isArray(rows) ? rows : [])
   );
 
-  ipcMain.handle('isMonarchSyncEnabled', () => isMonarchSyncEnabled());
+  ipcMain.handle('getMonarchStatus', () => getMonarchStatus());
 
-  ipcMain.handle('syncFromMonarch', async () => {
-    if (!isMonarchSyncEnabled()) {
-      return {
-        status: 'error',
-        message: 'Monarch sync is not configured.',
-      } as const;
+  ipcMain.handle('connectMonarch', () => {
+    if (!MONARCH_SYNC_UI_ENABLED) {
+      throw new Error('Monarch import is not available in this version.');
     }
-    return syncFromMonarch({ db });
+    return connectMonarch();
   });
 
-  ipcMain.handle('commitMappedMonarchRows', (_, rows: ParsedRow[]) => {
-    if (!isMonarchSyncEnabled()) {
-      throw new Error('Monarch sync is not configured.');
-    }
-    return commitMappedMonarchRows({ db }, Array.isArray(rows) ? rows : []);
-  });
+  ipcMain.handle('disconnectMonarch', () => disconnectMonarch());
+
+  ipcMain.handle('fetchMonarchTransactions', () => fetchMonarchImportRows(db));
 }
 
 /**

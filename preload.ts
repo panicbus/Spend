@@ -87,10 +87,11 @@ const api: SpendApi = {
   getMonthSpendingTotal: (monthKey) =>
     ipcRenderer.invoke('getMonthSpendingTotal', monthKey),
 
-  isMonarchSyncEnabled: () => ipcRenderer.invoke('isMonarchSyncEnabled'),
-  syncFromMonarch: () => ipcRenderer.invoke('syncFromMonarch'),
-  commitMappedMonarchRows: (rows) =>
-    ipcRenderer.invoke('commitMappedMonarchRows', rows),
+  getMonarchStatus: () => ipcRenderer.invoke('getMonarchStatus'),
+  connectMonarch: () => ipcRenderer.invoke('connectMonarch'),
+  disconnectMonarch: () => ipcRenderer.invoke('disconnectMonarch'),
+  fetchMonarchTransactions: () =>
+    ipcRenderer.invoke('fetchMonarchTransactions'),
 
   getTrends: (range) => ipcRenderer.invoke('getTrends', range),
 

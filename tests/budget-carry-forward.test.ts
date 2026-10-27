@@ -1,7 +1,9 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
+// The app's own driver, so parameter-binding rules match production.
+// better-sqlite3 is built for Electron's ABI: run under `npm run test:db`.
+import Database from 'better-sqlite3';
 import {
   fillMonthFromPrior,
   setCategoryBudgetFrom,
@@ -13,17 +15,15 @@ const schema = fs.readFileSync(
   'utf8'
 );
 
-let db: DatabaseSync;
+let db: Database.Database;
 
 function budget(categoryId: number, monthKey: string) {
-  const r = db
+  return db
     .prepare(
       'SELECT amount_cents, frequency FROM budgets WHERE category_id = ? AND month_key = ?'
     )
     .get(categoryId, monthKey) as
     { amount_cents: number; frequency: string } | undefined;
-  // node:sqlite rows have a null prototype; copy so deepEqual compares plain objects.
-  return r && { ...r };
 }
 
 function incomeBudget(sourceId: number, monthKey: string) {
@@ -54,7 +54,7 @@ function seedBudget(
 }
 
 beforeEach(() => {
-  db = new DatabaseSync(':memory:');
+  db = new Database(':memory:');
   db.exec(schema);
   db.exec(`
     INSERT INTO category_groups (id, name, color) VALUES (1, 'Housing', '#000');

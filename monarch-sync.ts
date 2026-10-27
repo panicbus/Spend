@@ -1,575 +1,344 @@
 /**
- * Monarch MCP sync — DORMANT
+ * Monarch import over Monarch's official MCP server (https://api.monarch.com/mcp).
  *
- * This module is built but disabled in this version because Monarch's auth
- * model doesn't allow static bearer tokens. Reviving this feature requires
- * either:
+ * Auth lives in monarchAuth.ts. This module opens an MCP session, pages through
+ * the GetTransactions tool, and returns the rows in the same shape a parsed CSV
+ * has, under mapping source `monarch`, so the Import page's mapping, review and
+ * duplicate steps apply unchanged and earlier Monarch CSV mappings carry over.
+ * The user starts every import; nothing is pulled in the background.
  *
- * 1. OAuth 2.0 flow in Electron with PKCE callback + macOS Keychain storage,
- *    matching the official MCP server at https://api.monarch.com/mcp, OR
+ * Only posted transactions are fetched. A pending charge often posts later with
+ * a different date or amount, and importing both would double-count it.
  *
- * 2. Programmatic GraphQL login with email/password/MFA against the
- *    unofficial api.monarch.com/graphql endpoint (less ideal — relies on
- *    a private API).
- *
- * The sync UI is gated on isMonarchSyncEnabled() which always returns false
- * in this version. To re-enable in development, change MONARCH_SYNC_UI_ENABLED
- * in monarch-sync.ts and implement one of the auth flows above.
+ * Each row's import hash is derived from the Monarch transaction id, so a
+ * transaction imported once is recognised exactly on every later fetch.
  */
 
+import { app } from 'electron';
+import crypto from 'crypto';
 import type Database from 'better-sqlite3';
+import type { MonarchFetchResult, MonarchStatus } from './ipc-contract.js';
 import type { ParsedRow } from './src/types/import.js';
-import { computeImportHash } from './importHash.js';
+import { analyzeImportCandidates } from './dedupe.js';
+import { enrichParsedRowsWithMappings } from './importMapping.js';
 import {
-  enrichParsedRowsWithMappings,
-  parsedRowsToCommitRows,
-} from './importMapping.js';
-import { runCommitImport } from './importCommit.js';
+  MONARCH_MCP_URL,
+  MONARCH_SIGN_IN_EXPIRED,
+  MonarchAuthError,
+  getMonarchAccessToken,
+  isMonarchConnected,
+} from './monarchAuth.js';
 
-export type MonarchSyncResult =
-  | { status: 'no-new'; lastSyncDate: string }
-  | { status: 'needs-mapping'; rows: ParsedRow[]; unmappedCategories: string[] }
-  | { status: 'imported'; transactionCount: number; lastSyncDate: string }
-  | { status: 'error'; message: string };
+/** Kill switch for the whole feature (Import page button, Settings card). */
+export const MONARCH_SYNC_UI_ENABLED = true;
 
-const DEFAULT_MCP_URL = 'https://api.monarch.com/mcp';
 const MAPPING_SOURCE = 'monarch';
-const SETTINGS_KEY_LAST_MONARCH_SYNC = 'last_monarch_sync';
+const PROTOCOL_VERSION = '2025-06-18';
+const PAGE_SIZE = 100;
+/** 5,000 transactions per fetch is far beyond FETCH_DAYS of real spending. */
+const MAX_PAGES = 50;
+/**
+ * How far back each fetch looks. Generous on purpose: a transaction skipped
+ * because it was not labeled or split in Monarch yet is offered again on the
+ * next import, until it is imported or ages out.
+ */
+const FETCH_DAYS = 60;
 
-/** Set true after implementing OAuth or GraphQL login (see module header). */
-export const MONARCH_SYNC_UI_ENABLED = false;
+/** Network, rate limit, or protocol trouble. Auth trouble is MonarchAuthError. */
+class MonarchSyncError extends Error {}
 
-let cachedTools: MCPTool[] | null = null;
-let cachedTransactionToolName: string | null = null;
-
-type MCPTool = {
-  name: string;
-  description?: string;
-  inputSchema?: {
-    properties?: Record<string, unknown>;
-    required?: string[];
+export function getMonarchStatus(): MonarchStatus {
+  return {
+    available: MONARCH_SYNC_UI_ENABLED,
+    connected: isMonarchConnected(),
   };
+}
+
+type RpcMessage = {
+  id?: number;
+  result?: unknown;
+  error?: { message?: string };
 };
 
-type MonarchSyncDeps = {
-  db: Database.Database;
-};
-
-function monarchToken(): string | null {
-  const t = process.env.MONARCH_TOKEN?.trim();
-  return t || null;
-}
-
-export function isMonarchSyncEnabled(): boolean {
-  if (!MONARCH_SYNC_UI_ENABLED) return false;
-  return monarchToken() != null;
-}
-
-function mcpUrl(): string {
-  return process.env.MONARCH_MCP_URL?.trim() || DEFAULT_MCP_URL;
-}
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function daysAgoIso(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
-function getLastMonarchSync(db: Database.Database): string | null {
-  const row = db
-    .prepare('SELECT value FROM settings WHERE key = ?')
-    .get(SETTINGS_KEY_LAST_MONARCH_SYNC) as { value: string } | undefined;
-  const v = row?.value?.trim();
-  return v || null;
-}
-
-function setLastMonarchSync(db: Database.Database, isoDate: string) {
-  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
-    SETTINGS_KEY_LAST_MONARCH_SYNC,
-    isoDate
-  );
-}
-
-async function mcpRequest(
-  method: string,
-  params: Record<string, unknown> = {}
-): Promise<unknown> {
-  const token = monarchToken();
-  if (!token) {
-    throw new MonarchSyncError('Monarch sync is not configured.', 'disabled');
-  }
-
-  const body = {
-    jsonrpc: '2.0',
-    id: Date.now(),
-    method,
-    params,
-  };
-
-  let res: Response;
-  try {
-    res = await fetch(mcpUrl(), {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json, text/event-stream',
-      },
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
-    console.error('[Monarch sync] network error:', e);
-    throw new MonarchSyncError(
-      'Could not reach Monarch. Check your network and try again.',
-      'network'
-    );
-  }
-
-  if (res.status === 401) {
-    throw new MonarchSyncError(
-      'Monarch token expired. Re-authorize via Claude Code and update your .env.build.',
-      'auth'
-    );
-  }
-  if (res.status === 429) {
-    throw new MonarchSyncError(
-      'Rate limited by Monarch. Try again in a few minutes.',
-      'rate'
-    );
-  }
-
+/** Pulls the JSON-RPC reply for `id` out of a plain JSON or SSE response body. */
+async function readRpcReply(res: Response, id: number): Promise<RpcMessage> {
   const text = await res.text();
-  let payload: unknown;
-  try {
-    payload = JSON.parse(text);
-  } catch {
-    console.error('[Monarch sync] non-JSON response:', text.slice(0, 500));
-    throw new MonarchSyncError(
-      `Monarch returned an unexpected response (${res.status}).`,
-      'parse'
-    );
+  const isSse = (res.headers.get('content-type') ?? '').includes(
+    'text/event-stream'
+  );
+  const candidates = isSse
+    ? text
+        .split('\n')
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).trim())
+    : [text];
+  for (const raw of candidates) {
+    try {
+      const msg = JSON.parse(raw) as RpcMessage;
+      if (msg.id === id) return msg;
+    } catch {
+      /* not a JSON event */
+    }
+  }
+  console.error('[Monarch sync] unexpected response:', text.slice(0, 500));
+  throw new MonarchSyncError('Monarch returned an unexpected response.');
+}
+
+/** One Streamable HTTP MCP session: initialize once, then call tools. */
+class McpSession {
+  private nextId = 1;
+  private sessionId: string | null = null;
+
+  private constructor(private token: string) {}
+
+  static async open(): Promise<McpSession> {
+    const session = new McpSession(await getMonarchAccessToken());
+    try {
+      await session.initialize();
+    } catch (e) {
+      if (!(e instanceof MonarchAuthError)) throw e;
+      // Revoked or expired early on Monarch's side; one refresh, then give up.
+      session.token = await getMonarchAccessToken({ forceRefresh: true });
+      await session.initialize();
+    }
+    return session;
   }
 
-  const rpc = payload as {
-    error?: { message?: string; code?: number };
-    result?: unknown;
-  };
+  callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+    return this.request('tools/call', { name, arguments: args });
+  }
 
-  if (rpc.error) {
-    console.error('[Monarch sync] MCP error:', rpc.error);
-    const msg = rpc.error.message ?? 'Monarch MCP request failed.';
-    if (res.status === 401 || msg.toLowerCase().includes('unauthorized')) {
+  private async initialize() {
+    this.sessionId = null;
+    await this.request('initialize', {
+      protocolVersion: PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: { name: 'Spend.', version: app.getVersion() },
+    });
+    await this.post({ jsonrpc: '2.0', method: 'notifications/initialized' });
+  }
+
+  private async request(
+    method: string,
+    params: Record<string, unknown>
+  ): Promise<unknown> {
+    const id = this.nextId++;
+    const res = await this.post({ jsonrpc: '2.0', id, method, params });
+    const reply = await readRpcReply(res, id);
+    if (reply.error) {
+      console.error('[Monarch sync] MCP error:', reply.error);
       throw new MonarchSyncError(
-        'Monarch token expired. Re-authorize via Claude Code and update your .env.build.',
-        'auth'
+        reply.error.message ?? 'Monarch request failed.'
       );
     }
-    throw new MonarchSyncError(msg, 'mcp');
+    return reply.result;
   }
 
-  if (!res.ok) {
-    console.error('[Monarch sync] HTTP error:', res.status, payload);
+  private async post(body: Record<string, unknown>): Promise<Response> {
+    let res: Response;
+    try {
+      res = await fetch(MONARCH_MCP_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/event-stream',
+          'MCP-Protocol-Version': PROTOCOL_VERSION,
+          ...(this.sessionId ? { 'Mcp-Session-Id': this.sessionId } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      console.error('[Monarch sync] network error:', e);
+      throw new MonarchSyncError(
+        'Could not reach Monarch. Check your connection and try again.'
+      );
+    }
+    if (res.status === 401) throw new MonarchAuthError(MONARCH_SIGN_IN_EXPIRED);
+    if (res.status === 429) {
+      throw new MonarchSyncError(
+        'Monarch is rate limiting requests. Try again in a few minutes.'
+      );
+    }
+    if (!res.ok) {
+      console.error('[Monarch sync] HTTP', res.status, await res.text());
+      throw new MonarchSyncError(`Monarch request failed (${res.status}).`);
+    }
+    this.sessionId = res.headers.get('mcp-session-id') ?? this.sessionId;
+    return res;
+  }
+}
+
+/** One transaction as GetTransactions returns it (amount < 0 is spending). */
+type MonarchTransaction = {
+  id: string;
+  date: string;
+  merchant?: string | null;
+  amount: number;
+  category?: string | null;
+  account?: string | null;
+};
+
+type TransactionsPage = {
+  transactions?: MonarchTransaction[];
+  next_offset?: number | null;
+};
+
+/** GetTransactions answers with its JSON in a text content block. */
+function parseTransactionsPage(result: unknown): TransactionsPage {
+  const r = (result ?? {}) as {
+    isError?: boolean;
+    content?: Array<{ type?: string; text?: string }>;
+  };
+  const text = r.content?.find((c) => c.type === 'text')?.text ?? '';
+  if (r.isError) {
     throw new MonarchSyncError(
-      `Monarch request failed (${res.status}).`,
-      'http'
+      text || 'Monarch could not return transactions.'
     );
   }
-
-  return rpc.result;
-}
-
-class MonarchSyncError extends Error {
-  readonly kind: string;
-  constructor(message: string, kind: string) {
-    super(message);
-    this.kind = kind;
+  try {
+    let payload = JSON.parse(text) as unknown;
+    // Some MCP hosts wrap the tool's JSON as {"result": "<json string>"}.
+    const wrapped = (payload as { result?: unknown } | null)?.result;
+    if (typeof wrapped === 'string') payload = JSON.parse(wrapped);
+    return payload as TransactionsPage;
+  } catch {
+    console.error(
+      '[Monarch sync] unparseable tool result:',
+      text.slice(0, 500)
+    );
+    throw new MonarchSyncError(
+      'Monarch returned transactions in an unexpected format.'
+    );
   }
-}
-
-async function listTools(): Promise<MCPTool[]> {
-  if (cachedTools) return cachedTools;
-  const result = await mcpRequest('tools/list', {});
-  console.log(
-    '[Monarch sync] tools/list response:',
-    JSON.stringify(result, null, 2)
-  );
-
-  const tools = extractTools(result);
-  cachedTools = tools;
-  return tools;
-}
-
-function extractTools(result: unknown): MCPTool[] {
-  if (!result || typeof result !== 'object') return [];
-  const r = result as Record<string, unknown>;
-  const raw = r.tools;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter(
-    (t): t is MCPTool =>
-      t != null &&
-      typeof t === 'object' &&
-      typeof (t as MCPTool).name === 'string'
-  );
-}
-
-function pickTransactionTool(tools: MCPTool[]): MCPTool | null {
-  const patterns = [
-    /^get_transactions$/i,
-    /^getTransactions$/i,
-    /^list_transactions$/i,
-    /^transactions\.list$/i,
-    /^transactions$/i,
-    /transaction/i,
-  ];
-  for (const p of patterns) {
-    const hit = tools.find((t) => p.test(t.name));
-    if (hit) return hit;
-  }
-  return null;
-}
-
-function buildDateArguments(
-  tool: MCPTool,
-  startDate: string,
-  endDate: string
-): Record<string, unknown> {
-  const schema = tool.inputSchema?.properties ?? {};
-  const keys = Object.keys(schema);
-  const lower = (s: string) => s.toLowerCase();
-
-  const startCandidates = [
-    'start_date',
-    'startDate',
-    'from',
-    'date_from',
-    'dateFrom',
-  ];
-  const endCandidates = ['end_date', 'endDate', 'to', 'date_to', 'dateTo'];
-
-  const args: Record<string, unknown> = {};
-
-  for (const k of keys) {
-    const lk = lower(k);
-    if (startCandidates.some((c) => lower(c) === lk)) {
-      args[k] = startDate;
-    } else if (endCandidates.some((c) => lower(c) === lk)) {
-      args[k] = endDate;
-    }
-  }
-
-  if (Object.keys(args).length >= 2) return args;
-
-  if (keys.some((k) => lower(k) === 'daterange' || lower(k) === 'date_range')) {
-    const key = keys.find(
-      (k) => lower(k) === 'daterange' || lower(k) === 'date_range'
-    )!;
-    return { [key]: { start: startDate, end: endDate } };
-  }
-
-  return {
-    start_date: startDate,
-    end_date: endDate,
-  };
 }
 
 async function fetchMonarchTransactions(
   startDate: string,
   endDate: string
-): Promise<unknown[]> {
-  const tools = await listTools();
-  const tool =
-    (cachedTransactionToolName
-      ? tools.find((t) => t.name === cachedTransactionToolName)
-      : null) ?? pickTransactionTool(tools);
-
-  if (!tool) {
-    const names = tools.map((t) => t.name).join(', ') || '(none)';
-    throw new MonarchSyncError(
-      `No transaction tool found in Monarch MCP. Available: ${names}`,
-      'tool'
+): Promise<MonarchTransaction[]> {
+  const session = await McpSession.open();
+  const all: MonarchTransaction[] = [];
+  let offset = 0;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const result = parseTransactionsPage(
+      await session.callTool('GetTransactions', {
+        start_date: startDate,
+        end_date: endDate,
+        intent: 'budgeting',
+        limit: PAGE_SIZE,
+        offset,
+        filters: JSON.stringify({ transaction_type: 'All', is_pending: false }),
+      })
     );
+    all.push(...(result.transactions ?? []));
+    const next = result.next_offset;
+    if (typeof next !== 'number' || next <= offset) break;
+    offset = next;
   }
-
-  cachedTransactionToolName = tool.name;
-  const arguments_ = buildDateArguments(tool, startDate, endDate);
-  console.log(
-    `[Monarch sync] tools/call ${tool.name}`,
-    JSON.stringify(arguments_, null, 2)
-  );
-  if (tool.inputSchema) {
-    console.log(
-      '[Monarch sync] tool schema:',
-      JSON.stringify(tool.inputSchema, null, 2)
-    );
-  }
-
-  const result = await mcpRequest('tools/call', {
-    name: tool.name,
-    arguments: arguments_,
-  });
-
-  console.log(
-    '[Monarch sync] tools/call response:',
-    JSON.stringify(result, null, 2)
-  );
-  return extractTransactions(result);
+  return all;
 }
 
-function extractTransactions(result: unknown): unknown[] {
-  if (Array.isArray(result)) return result;
-
-  if (result && typeof result === 'object') {
-    const r = result as Record<string, unknown>;
-
-    if (Array.isArray(r.transactions)) return r.transactions;
-    if (Array.isArray(r.items)) return r.items;
-    if (Array.isArray(r.data)) return r.data;
-
-    const content = r.content;
-    if (Array.isArray(content)) {
-      for (const block of content) {
-        if (!block || typeof block !== 'object') continue;
-        const b = block as Record<string, unknown>;
-        if (b.type === 'text' && typeof b.text === 'string') {
-          try {
-            const parsed = JSON.parse(b.text) as unknown;
-            const nested = extractTransactions(parsed);
-            if (nested.length) return nested;
-          } catch {
-            /** try next block */
-          }
-        }
-        if (Array.isArray(b.transactions)) return b.transactions;
-      }
-    }
-
-    if (typeof r.structuredContent === 'object' && r.structuredContent) {
-      return extractTransactions(r.structuredContent);
-    }
-  }
-
-  return [];
+function monarchImportHash(transactionId: string): string {
+  return crypto
+    .createHash('sha256')
+    .update(`monarch:${transactionId}`, 'utf8')
+    .digest('hex');
 }
 
-function pickString(obj: Record<string, unknown>, keys: string[]): string {
-  for (const k of keys) {
-    const v = obj[k];
-    if (typeof v === 'string' && v.trim()) return v.trim();
-  }
-  return '';
-}
-
-function pickNumber(
-  obj: Record<string, unknown>,
-  keys: string[]
-): number | null {
-  for (const k of keys) {
-    const v = obj[k];
-    if (typeof v === 'number' && Number.isFinite(v)) return v;
-    if (typeof v === 'string' && v.trim()) {
-      const n = parseFloat(v.replace(/[$,\s]/g, ''));
-      if (!Number.isNaN(n)) return n;
-    }
-  }
-  return null;
-}
-
-function normalizeIsoDate(raw: string): string {
-  const s = raw.trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  const d = new Date(s);
-  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-  return s;
-}
-
-function amountToCents(obj: Record<string, unknown>): number {
-  const cents = pickNumber(obj, [
-    'amount_cents',
-    'amountCents',
-    'amount_in_cents',
-  ]);
-  if (cents != null) return Math.round(cents);
-
-  const amount = pickNumber(obj, ['amount', 'value', 'total']);
-  if (amount == null) return 0;
-  return Math.round(amount * 100);
-}
-
-function monarchRecordToParsedRow(
-  rec: unknown,
-  index: number
-): ParsedRow | null {
-  if (!rec || typeof rec !== 'object') return null;
-  const o = rec as Record<string, unknown>;
-
-  const dateRaw = pickString(o, [
-    'date',
-    'transaction_date',
-    'posted_date',
-    'postedDate',
-    'transactionDate',
-  ]);
-  if (!dateRaw) return null;
-
-  const date = normalizeIsoDate(dateRaw);
-  const merchant = pickString(o, [
-    'merchant',
-    'payee',
-    'name',
-    'description',
-    'merchant_name',
-    'merchantName',
-  ]);
-  const externalCategory = pickString(o, [
-    'category',
-    'category_name',
-    'categoryName',
-    'external_category',
-  ]);
-  const originalStatement = pickString(o, [
-    'original_statement',
-    'originalStatement',
-    'statement',
-    'description',
-    'memo',
-  ]);
-  const notes = pickString(o, ['notes', 'note', 'memo']) || '';
-  const account = pickString(o, ['account', 'account_name', 'accountName']);
-  const amountCents = amountToCents(o);
-
-  const importHash = computeImportHash(
-    date,
-    merchant,
-    amountCents,
-    originalStatement || merchant
-  );
-
-  return {
-    rowIndex: index,
-    date,
-    merchant,
-    externalCategory,
-    amountCents,
-    isIncome: amountCents > 0,
-    originalStatement: originalStatement || merchant,
-    notes,
-    account,
-    importHash,
-    mapping: null,
-  };
-}
-
-function transformMonarchRecords(records: unknown[]): ParsedRow[] {
+function toParsedRows(transactions: MonarchTransaction[]): ParsedRow[] {
   const rows: ParsedRow[] = [];
-  for (let i = 0; i < records.length; i++) {
-    const row = monarchRecordToParsedRow(records[i], i);
-    if (row) rows.push(row);
+  for (const tx of transactions) {
+    if (!tx?.id || !tx.date || typeof tx.amount !== 'number') continue;
+    const merchant = tx.merchant?.trim() ?? '';
+    const amountCents = Math.round(tx.amount * 100);
+    rows.push({
+      rowIndex: rows.length,
+      date: tx.date.slice(0, 10),
+      merchant,
+      externalCategory: tx.category?.trim() ?? '',
+      amountCents,
+      isIncome: amountCents > 0,
+      // GetTransactions has no bank statement text outside detail mode (20 rows max).
+      originalStatement: merchant,
+      notes: '',
+      account: tx.account?.trim() ?? '',
+      importHash: monarchImportHash(tx.id),
+      mapping: null,
+    });
   }
   return rows;
 }
 
-function syncDateRange(db: Database.Database): {
-  startDate: string;
-  endDate: string;
-} {
-  const endDate = todayIsoDate();
-  const last = getLastMonarchSync(db);
-  const startDate = last ?? daysAgoIso(30);
-  return { startDate, endDate };
+function fetchDateRange(): { startDate: string; endDate: string } {
+  const d = new Date();
+  const endDate = d.toLocaleDateString('en-CA');
+  d.setDate(d.getDate() - FETCH_DAYS);
+  return { startDate: d.toLocaleDateString('en-CA'), endDate };
 }
 
-function finalizeSync(
-  db: Database.Database,
-  rows: ParsedRow[]
-): MonarchSyncResult {
-  const { rows: enriched, unknownCategories } = enrichParsedRowsWithMappings(
+/**
+ * Drops rows Spend. already has for certain: earlier MCP imports (same Monarch
+ * id) and the same charge from a CSV import. Near-matches stay in, and the
+ * Import page's duplicate check asks about them before committing.
+ */
+function withoutImported(db: Database.Database, rows: ParsedRow[]) {
+  const analysis = analyzeImportCandidates(
     db,
-    rows,
-    MAPPING_SOURCE
+    rows.map((r) => ({
+      rowIndex: r.rowIndex,
+      date: r.date,
+      merchant: r.merchant,
+      amountCents: r.amountCents,
+      originalStatement: r.originalStatement,
+      account: r.account,
+      importHash: r.importHash,
+    }))
   );
+  const imported = new Set(
+    analysis.matches
+      .filter((m) => m.verdict === 'duplicate')
+      .map((m) => m.rowIndex)
+  );
+  return rows
+    .filter((r) => !imported.has(r.rowIndex))
+    .map((r, i) => ({ ...r, rowIndex: i }));
+}
 
-  if (unknownCategories.length > 0) {
+/**
+ * Posted Monarch transactions from the last FETCH_DAYS days that are not in
+ * Spend. yet, with category mappings applied. Nothing is written here; the
+ * rows go through the Import page's review like a parsed CSV.
+ */
+export async function fetchMonarchImportRows(
+  db: Database.Database
+): Promise<MonarchFetchResult> {
+  if (!isMonarchConnected()) {
     return {
-      status: 'needs-mapping',
-      rows: enriched,
-      unmappedCategories: unknownCategories,
+      status: 'error',
+      message: 'Monarch is not connected. Click the link below to connect it.',
+      reconnect: true,
     };
   }
-
-  const commitRows = parsedRowsToCommitRows(enriched);
-  const result = runCommitImport(db, commitRows);
-  const lastSyncDate = todayIsoDate();
-  setLastMonarchSync(db, lastSyncDate);
-
-  if (result.imported === 0) {
-    return { status: 'no-new', lastSyncDate };
-  }
-
-  return {
-    status: 'imported',
-    transactionCount: result.imported,
-    lastSyncDate,
-  };
-}
-
-export async function syncFromMonarch(
-  deps: MonarchSyncDeps
-): Promise<MonarchSyncResult> {
-  if (!isMonarchSyncEnabled()) {
-    return { status: 'error', message: 'Monarch sync is not configured.' };
-  }
-
   try {
-    const { startDate, endDate } = syncDateRange(deps.db);
-    const records = await fetchMonarchTransactions(startDate, endDate);
-    const rows = transformMonarchRecords(records);
-
-    if (rows.length === 0) {
-      const lastSyncDate = todayIsoDate();
-      setLastMonarchSync(deps.db, lastSyncDate);
-      return { status: 'no-new', lastSyncDate };
-    }
-
-    return finalizeSync(deps.db, rows);
+    const { startDate, endDate } = fetchDateRange();
+    const transactions = await fetchMonarchTransactions(startDate, endDate);
+    const fresh = withoutImported(db, toParsedRows(transactions));
+    const { rows, unknownCategories } = enrichParsedRowsWithMappings(
+      db,
+      fresh,
+      MAPPING_SOURCE
+    );
+    return { status: 'ok', rows, unknownCategories };
   } catch (e) {
-    if (e instanceof MonarchSyncError) {
-      return { status: 'error', message: e.message };
+    if (e instanceof MonarchAuthError) {
+      return { status: 'error', message: e.message, reconnect: true };
     }
-    console.error('[Monarch sync] unexpected error:', e);
+    if (!(e instanceof MonarchSyncError)) {
+      console.error('[Monarch MCP] unexpected error:', e);
+    }
     const message =
-      e instanceof Error ? e.message : 'Monarch sync failed unexpectedly.';
+      e instanceof Error ? e.message : 'Monarch import failed unexpectedly.';
     return { status: 'error', message };
   }
-}
-
-export function commitMappedMonarchRows(
-  deps: MonarchSyncDeps,
-  rows: ParsedRow[]
-): { transactionCount: number } {
-  const { rows: enriched, unknownCategories } = enrichParsedRowsWithMappings(
-    deps.db,
-    rows,
-    MAPPING_SOURCE
-  );
-
-  if (unknownCategories.length > 0) {
-    throw new Error(
-      `Still unmapped categories: ${unknownCategories.join(', ')}`
-    );
-  }
-
-  const commitRows = parsedRowsToCommitRows(enriched);
-  const result = runCommitImport(deps.db, commitRows);
-  setLastMonarchSync(deps.db, todayIsoDate());
-  return { transactionCount: result.imported };
-}
-
-/** Reset cached MCP tool discovery (for tests). */
-export function resetMonarchSyncCache() {
-  cachedTools = null;
-  cachedTransactionToolName = null;
 }

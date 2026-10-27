@@ -11,6 +11,8 @@ import type {
 } from '../../../ipc-contract';
 import type { ParsedRow } from '../../types/import';
 import {
+  MONARCH_MCP_SOURCE,
+  MONARCH_PROFILE_ID,
   useImport,
   duplicateMatchByRow,
   effectiveRowTarget,
@@ -29,6 +31,7 @@ import { DATA_CHANGED_EVENT } from '../../utils/dataChanged';
 import { formatCurrency } from '../../services/formatters';
 import { Button } from '../common/Button';
 import { ImportCreateCategoryForm } from './ImportCreateCategoryForm';
+import { MonarchMcpImport } from './MonarchMcpImport';
 import { MappingTargetSelect } from '../common/MappingTargetSelect';
 import { formatImportFileDateRange } from '../../utils/importDateRange';
 import { currentMonthKey, formatMonthLabel } from '../../utils/dates';
@@ -101,6 +104,7 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
     setProfileId,
     reset,
     pickFile,
+    importFromMonarch,
     parseDroppedFile,
     updateColumnMappingDraft,
     confirmColumnMapping,
@@ -339,6 +343,10 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
         </div>
       )}
 
+      {state.kind === 'idle' && profileId === MONARCH_PROFILE_ID && (
+        <MonarchMcpImport onImport={() => void importFromMonarch()} />
+      )}
+
       {state.kind === 'idle' && (
         <div
           ref={dropZoneRef}
@@ -401,7 +409,11 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
       {state.kind === 'parsing' && (
         <div className="import-card import-card--muted">
           <div className="import-card__head import-card__head--status">
-            <p className="import-status">Reading CSV…</p>
+            <p className="import-status">
+              {state.filePath === MONARCH_MCP_SOURCE
+                ? 'Fetching transactions from Monarch…'
+                : 'Reading CSV…'}
+            </p>
             <Button
               type="button"
               variant="ghost"

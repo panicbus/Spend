@@ -242,6 +242,30 @@ export function duplicateMatchByRow(
   return new Map((analysis?.matches ?? []).map((m) => [m.rowIndex, m]));
 }
 
+/**
+ * Stands in for a file path when the rows come from Monarch over MCP. The rest
+ * of the flow (category mapping, review, duplicate check) is the same as a CSV.
+ */
+export const MONARCH_MCP_SOURCE = 'Monarch (MCP)';
+export const MONARCH_PROFILE_ID = 'monarch';
+
+/** Parse a CSV, or fetch from Monarch when `filePath` is MONARCH_MCP_SOURCE. */
+async function loadRows(
+  filePath: string,
+  profileId: string,
+  genericMapping?: GenericColumnMapping | null
+): Promise<ParseCSVResult> {
+  if (filePath === MONARCH_MCP_SOURCE) {
+    const r = await api.fetchMonarchTransactions();
+    if (r.status === 'error') throw new Error(r.message);
+    return { rows: r.rows, unknownCategories: r.unknownCategories };
+  }
+  return api.parseCSV(filePath, {
+    profileId,
+    genericMapping: genericMapping ?? undefined,
+  });
+}
+
 function applyParseResult(
   filePath: string,
   profileId: string,
@@ -315,10 +339,11 @@ export function useImport() {
       const sessionAtParse = importSessionRef.current;
       try {
         setState({ kind: 'parsing', filePath });
-        const result = await api.parseCSV(filePath, {
-          profileId: activeProfileId,
-          genericMapping: genericMapping ?? undefined,
-        });
+        const result = await loadRows(
+          filePath,
+          activeProfileId,
+          genericMapping
+        );
         if (importSessionRef.current !== sessionAtParse) return;
         setState(
           applyParseResult(filePath, activeProfileId, result, genericMapping)
@@ -377,6 +402,11 @@ export function useImport() {
       });
     }
   }, [beginFileImport, profileId]);
+
+  const importFromMonarch = useCallback(
+    () => parseWithProfile(MONARCH_MCP_SOURCE, MONARCH_PROFILE_ID),
+    [parseWithProfile]
+  );
 
   const parseDroppedFile = useCallback(
     async (filePath: string) => {
@@ -494,12 +524,11 @@ export function useImport() {
           })
         );
         if (importSessionRef.current !== sessionAt) return;
-        const result = await api.parseCSV(filePath, {
-          profileId: activeProfileId,
-          ...(activeProfileId === GENERIC_PROFILE_ID && genericMapping
-            ? { genericMapping }
-            : {}),
-        });
+        const result = await loadRows(
+          filePath,
+          activeProfileId,
+          activeProfileId === GENERIC_PROFILE_ID ? genericMapping : null
+        );
         if (importSessionRef.current !== sessionAt) return;
         if (result.unknownCategories.length > 0) {
           setState({
@@ -703,6 +732,7 @@ export function useImport() {
     setProfileId,
     reset,
     pickFile,
+    importFromMonarch,
     parseDroppedFile,
     updateColumnMappingDraft,
     confirmColumnMapping,

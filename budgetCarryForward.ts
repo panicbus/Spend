@@ -27,33 +27,33 @@ export interface CategoryBudgetValue {
 export function fillMonthFromPrior(db: SqlDb, monthKey: string): void {
   db.prepare(
     `INSERT INTO budgets (category_id, month_key, amount_cents, frequency, annual_amount_cents)
-     SELECT b.category_id, ?1, b.amount_cents, b.frequency, b.annual_amount_cents
+     SELECT b.category_id, ?, b.amount_cents, b.frequency, b.annual_amount_cents
      FROM budgets b
      JOIN categories c ON c.id = b.category_id
      WHERE b.month_key = (
          SELECT MAX(p.month_key) FROM budgets p
-         WHERE p.category_id = b.category_id AND p.month_key < ?1
+         WHERE p.category_id = b.category_id AND p.month_key < ?
        )
        AND NOT EXISTS (
          SELECT 1 FROM budgets x
-         WHERE x.category_id = b.category_id AND x.month_key = ?1
+         WHERE x.category_id = b.category_id AND x.month_key = ?
        )`
-  ).run(monthKey);
+  ).run(monthKey, monthKey, monthKey);
 
   db.prepare(
     `INSERT INTO income_budgets (source_id, month_key, amount_cents)
-     SELECT b.source_id, ?1, b.amount_cents
+     SELECT b.source_id, ?, b.amount_cents
      FROM income_budgets b
      JOIN income_sources s ON s.id = b.source_id
      WHERE b.month_key = (
          SELECT MAX(p.month_key) FROM income_budgets p
-         WHERE p.source_id = b.source_id AND p.month_key < ?1
+         WHERE p.source_id = b.source_id AND p.month_key < ?
        )
        AND NOT EXISTS (
          SELECT 1 FROM income_budgets x
-         WHERE x.source_id = b.source_id AND x.month_key = ?1
+         WHERE x.source_id = b.source_id AND x.month_key = ?
        )`
-  ).run(monthKey);
+  ).run(monthKey, monthKey, monthKey);
 }
 
 /** Set a category's budget for `monthKey` alone. */
