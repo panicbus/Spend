@@ -18,6 +18,7 @@ import type {
   MappingTargetType,
   ParsedRow,
 } from '../types/import';
+import type { MonarchImportRange } from '../../ipc-contract';
 import { api } from '../services/api';
 import { currentMonthKey } from '../utils/dates';
 import { isCategoryMappingReady } from '../utils/mappingSelectValue';
@@ -253,10 +254,11 @@ export const MONARCH_PROFILE_ID = 'monarch';
 async function loadRows(
   filePath: string,
   profileId: string,
-  genericMapping?: GenericColumnMapping | null
+  genericMapping?: GenericColumnMapping | null,
+  monarchRange: MonarchImportRange = 'this_month'
 ): Promise<ParseCSVResult> {
   if (filePath === MONARCH_MCP_SOURCE) {
-    const r = await api.fetchMonarchTransactions();
+    const r = await api.fetchMonarchTransactions(monarchRange);
     if (r.status === 'error') throw new Error(r.message);
     return { rows: r.rows, unknownCategories: r.unknownCategories };
   }
@@ -298,6 +300,8 @@ export function useImport() {
   const [profileId, setProfileIdState] = useState(DEFAULT_IMPORT_PROFILE_ID);
   const stateRef = useRef(state);
   const importSessionRef = useRef(0);
+  /** Range of the current Monarch import, so the mapping step re-fetches the same months. */
+  const monarchRangeRef = useRef<MonarchImportRange>('this_month');
 
   useEffect(() => {
     stateRef.current = state;
@@ -403,9 +407,41 @@ export function useImport() {
     }
   }, [beginFileImport, profileId]);
 
+  /**
+   * Fetch from Monarch into review. Resolves to the number of new rows, or null
+   * if it failed or was cancelled. With nothing new, stays on the idle screen.
+   */
   const importFromMonarch = useCallback(
-    () => parseWithProfile(MONARCH_MCP_SOURCE, MONARCH_PROFILE_ID),
-    [parseWithProfile]
+    async (
+      range: MonarchImportRange = 'this_month'
+    ): Promise<number | null> => {
+      const sessionAt = importSessionRef.current;
+      monarchRangeRef.current = range;
+      setState({ kind: 'parsing', filePath: MONARCH_MCP_SOURCE });
+      try {
+        const result = await loadRows(
+          MONARCH_MCP_SOURCE,
+          MONARCH_PROFILE_ID,
+          null,
+          range
+        );
+        if (importSessionRef.current !== sessionAt) return null;
+        setState(
+          result.rows.length === 0
+            ? { kind: 'idle' }
+            : applyParseResult(MONARCH_MCP_SOURCE, MONARCH_PROFILE_ID, result)
+        );
+        return result.rows.length;
+      } catch (e) {
+        if (importSessionRef.current !== sessionAt) return null;
+        setState({
+          kind: 'error',
+          message: e instanceof Error ? e.message : String(e),
+        });
+        return null;
+      }
+    },
+    []
   );
 
   const parseDroppedFile = useCallback(
@@ -527,7 +563,8 @@ export function useImport() {
         const result = await loadRows(
           filePath,
           activeProfileId,
-          activeProfileId === GENERIC_PROFILE_ID ? genericMapping : null
+          activeProfileId === GENERIC_PROFILE_ID ? genericMapping : null,
+          monarchRangeRef.current
         );
         if (importSessionRef.current !== sessionAt) return;
         if (result.unknownCategories.length > 0) {

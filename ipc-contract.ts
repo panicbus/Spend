@@ -366,6 +366,10 @@ export interface TrendData {
   hasTrendsData: boolean;
 }
 
+/** How far back an MCP import looks, always through today. */
+export type MonarchImportRange =
+  'this_month' | 'last_2_months' | 'last_3_months' | 'all_time';
+
 /** Monarch rows ready for the Import page, shaped like a parsed CSV. */
 export type MonarchFetchResult =
   | { status: 'ok'; rows: ParsedRow[]; unknownCategories: string[] }
@@ -479,7 +483,9 @@ export interface SpendApi {
   connectMonarch: () => Promise<void>;
   disconnectMonarch: () => Promise<void>;
   /** Fetches posted Monarch transactions over MCP for review; writes nothing. */
-  fetchMonarchTransactions: () => Promise<MonarchFetchResult>;
+  fetchMonarchTransactions: (
+    range: MonarchImportRange
+  ) => Promise<MonarchFetchResult>;
 
   getTrends: (range: TrendRange) => Promise<TrendData>;
 

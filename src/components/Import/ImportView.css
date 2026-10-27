@@ -699,3 +699,57 @@
 .import-mcp__note--error {
   color: var(--danger-text);
 }
+
+/* Split button: the main half imports this month, the arrow opens the range menu. */
+.import-mcp__split {
+  position: relative;
+  display: inline-flex;
+}
+
+.import-mcp__split .import-mcp__main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.import-mcp__split .import-mcp__toggle {
+  padding-left: 10px;
+  padding-right: 10px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.18);
+}
+
+.import-mcp__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 100%;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--bg-card);
+  border: 0.5px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-elevated);
+}
+
+.import-mcp__menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.import-mcp__menu-item:hover,
+.import-mcp__menu-item:focus-visible {
+  background: var(--bg-card-alt);
+  outline: none;
+}

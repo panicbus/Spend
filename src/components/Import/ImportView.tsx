@@ -31,7 +31,7 @@ import { DATA_CHANGED_EVENT } from '../../utils/dataChanged';
 import { formatCurrency } from '../../services/formatters';
 import { Button } from '../common/Button';
 import { ImportCreateCategoryForm } from './ImportCreateCategoryForm';
-import { MonarchMcpImport } from './MonarchMcpImport';
+import { MONARCH_IMPORT_RANGES, MonarchMcpImport } from './MonarchMcpImport';
 import { MappingTargetSelect } from '../common/MappingTargetSelect';
 import { formatImportFileDateRange } from '../../utils/importDateRange';
 import { currentMonthKey, formatMonthLabel } from '../../utils/dates';
@@ -123,6 +123,7 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const dragDepthRef = useRef(0);
   const [dropError, setDropError] = useState<string | null>(null);
+  const [mcpNotice, setMcpNotice] = useState<string | null>(null);
   const [creatingReviewKey, setCreatingReviewKey] = useState<string | null>(
     null
   );
@@ -344,7 +345,20 @@ export function ImportView({ embedded, onImportDone }: ImportViewProps = {}) {
       )}
 
       {state.kind === 'idle' && profileId === MONARCH_PROFILE_ID && (
-        <MonarchMcpImport onImport={() => void importFromMonarch()} />
+        <MonarchMcpImport
+          notice={mcpNotice}
+          onImport={(range) =>
+            void (async () => {
+              setMcpNotice(null);
+              if ((await importFromMonarch(range)) === 0) {
+                setMcpNotice(
+                  MONARCH_IMPORT_RANGES.find((r) => r.id === range)
+                    ?.emptyNotice ?? null
+                );
+              }
+            })()
+          }
+        />
       )}
 
       {state.kind === 'idle' && (

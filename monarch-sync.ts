@@ -17,7 +17,11 @@
 import { app } from 'electron';
 import crypto from 'crypto';
 import type Database from 'better-sqlite3';
-import type { MonarchFetchResult, MonarchStatus } from './ipc-contract.js';
+import type {
+  MonarchFetchResult,
+  MonarchImportRange,
+  MonarchStatus,
+} from './ipc-contract.js';
 import type { ParsedRow } from './src/types/import.js';
 import { analyzeImportCandidates } from './dedupe.js';
 import { enrichParsedRowsWithMappings } from './importMapping.js';
@@ -35,14 +39,21 @@ export const MONARCH_SYNC_UI_ENABLED = true;
 const MAPPING_SOURCE = 'monarch';
 const PROTOCOL_VERSION = '2025-06-18';
 const PAGE_SIZE = 100;
-/** 5,000 transactions per fetch is far beyond FETCH_DAYS of real spending. */
-const MAX_PAGES = 50;
 /**
- * How far back each fetch looks. Generous on purpose: a transaction skipped
- * because it was not labeled or split in Monarch yet is offered again on the
- * next import, until it is imported or ages out.
+ * Loop guard only (100,000 rows). "All time" on a real account is thousands of
+ * rows, about 54 pages for 5,400 transactions.
  */
-const FETCH_DAYS = 60;
+const MAX_PAGES = 1000;
+
+/** Months before the current one each range starts at; null means everything. */
+const RANGE_MONTHS_BACK: Record<MonarchImportRange, number | null> = {
+  this_month: 0,
+  last_2_months: 1,
+  last_3_months: 2,
+  all_time: null,
+};
+/** GetTransactions requires a start date; Monarch accepts this one. */
+const ALL_TIME_START = '1970-01-01';
 
 /** Network, rate limit, or protocol trouble. Auth trouble is MonarchAuthError. */
 class MonarchSyncError extends Error {}
@@ -270,11 +281,27 @@ function toParsedRows(transactions: MonarchTransaction[]): ParsedRow[] {
   return rows;
 }
 
-function fetchDateRange(): { startDate: string; endDate: string } {
-  const d = new Date();
-  const endDate = d.toLocaleDateString('en-CA');
-  d.setDate(d.getDate() - FETCH_DAYS);
-  return { startDate: d.toLocaleDateString('en-CA'), endDate };
+/**
+ * From the 1st of the range's first month (or the beginning, for all_time)
+ * through today. A transaction skipped because it was not labeled or split in
+ * Monarch yet is offered again by the next import whose range covers it.
+ */
+function fetchDateRange(range: MonarchImportRange): {
+  startDate: string;
+  endDate: string;
+} {
+  const now = new Date();
+  const endDate = now.toLocaleDateString('en-CA');
+  const back = RANGE_MONTHS_BACK[range];
+  if (back == null) return { startDate: ALL_TIME_START, endDate };
+  const start = new Date(now.getFullYear(), now.getMonth() - back, 1);
+  return { startDate: start.toLocaleDateString('en-CA'), endDate };
+}
+
+function toImportRange(raw: unknown): MonarchImportRange {
+  return typeof raw === 'string' && Object.hasOwn(RANGE_MONTHS_BACK, raw)
+    ? (raw as MonarchImportRange)
+    : 'this_month';
 }
 
 /**
@@ -306,12 +333,12 @@ function withoutImported(db: Database.Database, rows: ParsedRow[]) {
 }
 
 /**
- * Posted Monarch transactions from the last FETCH_DAYS days that are not in
- * Spend. yet, with category mappings applied. Nothing is written here; the
+ * Posted Monarch transactions in `range` that are not in Spend. yet, with category mappings applied. Nothing is written here; the
  * rows go through the Import page's review like a parsed CSV.
  */
 export async function fetchMonarchImportRows(
-  db: Database.Database
+  db: Database.Database,
+  range: unknown
 ): Promise<MonarchFetchResult> {
   if (!isMonarchConnected()) {
     return {
@@ -321,7 +348,7 @@ export async function fetchMonarchImportRows(
     };
   }
   try {
-    const { startDate, endDate } = fetchDateRange();
+    const { startDate, endDate } = fetchDateRange(toImportRange(range));
     const transactions = await fetchMonarchTransactions(startDate, endDate);
     const fresh = withoutImported(db, toParsedRows(transactions));
     const { rows, unknownCategories } = enrichParsedRowsWithMappings(

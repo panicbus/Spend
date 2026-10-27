@@ -122,7 +122,9 @@ export const api = {
   getMonarchStatus: () => getBridge().getMonarchStatus(),
   connectMonarch: () => getBridge().connectMonarch(),
   disconnectMonarch: () => getBridge().disconnectMonarch(),
-  fetchMonarchTransactions: () => getBridge().fetchMonarchTransactions(),
+  fetchMonarchTransactions: (
+    range: Parameters<SpendApi['fetchMonarchTransactions']>[0]
+  ) => getBridge().fetchMonarchTransactions(range),
 
   getTrends: (range: Parameters<SpendApi['getTrends']>[0]) =>
     getBridge().getTrends(range),

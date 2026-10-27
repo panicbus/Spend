@@ -90,8 +90,8 @@ const api: SpendApi = {
   getMonarchStatus: () => ipcRenderer.invoke('getMonarchStatus'),
   connectMonarch: () => ipcRenderer.invoke('connectMonarch'),
   disconnectMonarch: () => ipcRenderer.invoke('disconnectMonarch'),
-  fetchMonarchTransactions: () =>
-    ipcRenderer.invoke('fetchMonarchTransactions'),
+  fetchMonarchTransactions: (range) =>
+    ipcRenderer.invoke('fetchMonarchTransactions', range),
 
   getTrends: (range) => ipcRenderer.invoke('getTrends', range),
 

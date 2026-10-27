@@ -2642,7 +2642,9 @@ function registerIpcHandlers() {
 
   ipcMain.handle('disconnectMonarch', () => disconnectMonarch());
 
-  ipcMain.handle('fetchMonarchTransactions', () => fetchMonarchImportRows(db));
+  ipcMain.handle('fetchMonarchTransactions', (_, range: unknown) =>
+    fetchMonarchImportRows(db, range)
+  );
 }
 
 /**
